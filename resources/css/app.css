@@ -1,0 +1,329 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.{js,ts,jsx,tsx}';
+
+@theme {
+  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  font-family: var(--font-sans);
+}
+
+:root {
+  color-scheme: light;
+  --app-bg: #f6f8fb;
+  --app-shell: #ffffff;
+  --app-sidebar: #0f172a;
+  --app-sidebar-soft: rgba(255, 255, 255, 0.08);
+  --app-panel: #ffffff;
+  --app-panel-soft: #f8fafc;
+  --app-border: #e2e8f0;
+  --app-border-strong: #cbd5e1;
+  --app-text: #0f172a;
+  --app-text-soft: #475569;
+  --app-text-muted: #64748b;
+  --app-inverse: #ffffff;
+  --app-primary: #4f46e5;
+  --app-primary-hover: #4338ca;
+  --app-focus: rgba(79, 70, 229, 0.18);
+}
+
+.dark {
+  color-scheme: dark;
+  --app-bg: #020617;
+  --app-shell: #0f172a;
+  --app-sidebar: #020617;
+  --app-sidebar-soft: rgba(255, 255, 255, 0.08);
+  --app-panel: #0f172a;
+  --app-panel-soft: #111827;
+  --app-border: rgba(255, 255, 255, 0.1);
+  --app-border-strong: rgba(255, 255, 255, 0.16);
+  --app-text: #f8fafc;
+  --app-text-soft: #cbd5e1;
+  --app-text-muted: #94a3b8;
+  --app-inverse: #020617;
+  --app-primary: #6366f1;
+  --app-primary-hover: #818cf8;
+  --app-focus: rgba(99, 102, 241, 0.24);
+}
+
+body {
+  margin: 0;
+  background: var(--app-bg);
+  color: var(--app-text);
+}
+
+.app-bg {
+  background: var(--app-bg);
+  color: var(--app-text);
+}
+
+.app-shell {
+  background: var(--app-shell);
+  color: var(--app-text);
+}
+
+.app-sidebar {
+  background: var(--app-sidebar);
+  color: #fff;
+}
+
+.app-panel {
+  border-color: var(--app-border);
+  background: var(--app-panel);
+  color: var(--app-text);
+}
+
+.app-panel-soft {
+  border-color: var(--app-border);
+  background: var(--app-panel-soft);
+  color: var(--app-text);
+}
+
+.app-border {
+  border-color: var(--app-border);
+}
+
+.app-text {
+  color: var(--app-text);
+}
+
+.app-text-soft {
+  color: var(--app-text-soft);
+}
+
+.app-text-muted {
+  color: var(--app-text-muted);
+}
+
+.app-accent-text {
+  color: #4338ca;
+}
+
+.dark .app-accent-text {
+  color: #a5b4fc;
+}
+
+.app-subtle-text {
+  color: #94a3b8;
+}
+
+.dark .app-subtle-text {
+  color: #e2e8f0;
+}
+
+.app-soft-tint {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.dark .app-soft-tint {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.chat-bubble-user {
+  background: var(--app-primary);
+  color: #fff;
+}
+
+.chat-bubble-user * {
+  color: inherit;
+}
+
+.railway-lights {
+  position: relative;
+  display: inline-flex;
+  width: 1.1rem;
+  height: 0.55rem;
+  align-items: center;
+}
+
+.railway-lights::before,
+.railway-lights::after {
+  position: absolute;
+  top: 0.05rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 9999px;
+  background: currentColor;
+  box-shadow: 0 0 10px currentColor;
+  content: '';
+}
+
+.railway-lights::before {
+  animation: railway-left 350ms infinite alternate ease-in-out;
+  left: 0;
+}
+
+.railway-lights::after {
+  animation: railway-right 350ms infinite alternate-reverse ease-in-out;
+  right: 0;
+}
+
+.voice-wave {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 2rem;
+}
+
+.voice-wave span {
+  display: block;
+  width: 0.25rem;
+  border-radius: 9999px;
+  background: #3b82f6;
+  box-shadow: 0 0 14px rgba(59, 130, 246, 0.55);
+  animation: voice-wave 900ms infinite ease-in-out;
+}
+
+.voice-wave span:nth-child(1) {
+  height: 0.55rem;
+  animation-delay: 0ms;
+}
+
+.voice-wave span:nth-child(2) {
+  height: 0.85rem;
+  animation-delay: 90ms;
+}
+
+.voice-wave span:nth-child(3) {
+  height: 1.1rem;
+  animation-delay: 180ms;
+}
+
+.voice-wave span:nth-child(4) {
+  height: 1.35rem;
+  animation-delay: 270ms;
+}
+
+.voice-wave span:nth-child(5) {
+  height: 1.65rem;
+  animation-delay: 360ms;
+}
+
+.landing-chat-script {
+  animation: landing-chat-step-scroll 14s infinite ease-in-out;
+  will-change: transform;
+}
+
+.landing-msg {
+  opacity: 0;
+  transform: translateY(0.7rem) scale(0.98);
+  transform-origin: left bottom;
+  will-change: opacity, transform;
+}
+
+.landing-msg {
+  animation: landing-message-reveal 14s infinite both;
+}
+
+.landing-msg-1 {
+  animation-delay: 0.45s;
+}
+
+.landing-msg-2 {
+  animation-delay: 2s;
+}
+
+.landing-msg-3 {
+  animation-delay: 3.8s;
+}
+
+.landing-msg-4 {
+  animation-delay: 5.45s;
+}
+
+.landing-msg-5 {
+  animation-delay: 7.15s;
+}
+
+.landing-msg-6 {
+  animation-delay: 8.9s;
+}
+
+.landing-msg-7 {
+  animation-delay: 10.65s;
+}
+
+.landing-msg-8 {
+  animation-delay: 12.1s;
+}
+
+
+@keyframes railway-left {
+  from {
+    opacity: 0.25;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0.15rem);
+  }
+}
+
+@keyframes railway-right {
+  from {
+    opacity: 0.25;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-0.15rem);
+  }
+}
+
+@keyframes voice-wave {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scaleY(0.65);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleY(1.1);
+  }
+}
+
+@keyframes landing-chat-step-scroll {
+  0%,
+  48% {
+    transform: translateY(0);
+  }
+  56%,
+  68% {
+    transform: translateY(-3.8rem);
+  }
+  75%,
+  86% {
+    transform: translateY(-8.4rem);
+  }
+  93%,
+  100% {
+    transform: translateY(-13.2rem);
+  }
+}
+
+@keyframes landing-message-reveal {
+  0% {
+    opacity: 0;
+    transform: translateY(0.7rem) scale(0.98);
+  }
+  5%,
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+
+.theme-transition,
+.theme-transition * {
+  transition-duration: 160ms;
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-timing-function: ease;
+}
