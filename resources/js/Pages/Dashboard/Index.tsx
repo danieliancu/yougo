@@ -2,7 +2,7 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { AlertModal, Badge, Button, Card, ConfirmationModal, DangerButton, Field, Input, SecondaryButton, ThemeToggle } from '@/Components/Ui';
 import { Conversation, Location as SalonLocation, PageProps, Salon, Service, User as AuthUser } from '@/types';
-import { Bell, Bot, Building2, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, Download, ExternalLink, FileText, Globe2, LayoutDashboard, List, LogOut, MapPin, Menu, MessageCircle, MessageSquare, Pencil, Phone, Plus, QrCode, Save, Scissors, Search, Settings, Smartphone, Sparkles, Trash2, User, Users, Volume2, X, XCircle } from 'lucide-react';
+import { AlertTriangle, Bell, Bot, Building2, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, Download, ExternalLink, FileText, Globe2, LayoutDashboard, List, LogOut, MapPin, Menu, MessageCircle, MessageSquare, Pencil, Phone, Plus, QrCode, Save, Scissors, Search, Settings, Smartphone, Sparkles, Trash2, User, Users, Volume2, X, XCircle } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 
@@ -80,6 +80,7 @@ export default function DashboardIndex() {
       business_name: salon.name,
       timezone: salon.timezone ?? 'Europe/London',
       industry: salon.industry ?? '',
+      business_type: salon.business_type ?? '',
       country: salon.country ?? '',
       website: salon.website ?? '',
       business_phone: salon.business_phone ?? '',
@@ -148,7 +149,7 @@ export default function DashboardIndex() {
         </header>
         <div className={`min-w-0 flex-1 overflow-x-hidden ${section === 'conversations' ? 'overflow-hidden' : 'overflow-y-auto p-5 lg:p-8'}`}>
           {section === 'overview' && <Overview salon={salon} />}
-          {section === 'ai-settings' && <AiSettingsPlaceholder />}
+          {section === 'ai-settings' && <AiSettings salon={salon} />}
           {section === 'conversations' && <Conversations salon={salon} query={query} />}
           {section === 'chat-audio' && <ChatAudio salon={salon} query={query} />}
           {section === 'voice-calls' && <VoiceCalls query={query} />}
@@ -194,6 +195,7 @@ function Brand({ salon, onClick }: { salon: Salon; onClick?: () => void }) {
 
 function DashboardSidebarContent({ salon, section, user, t, onNavigate }: { salon: Salon; section: Props['section']; user: AuthUser | null; t: (key: string) => string; onNavigate?: () => void }) {
   const [accountOpen, setAccountOpen] = useState(false);
+  const hasPendingBookings = salon.bookings.some((booking) => booking.status === 'pending');
 
   return (
     <>
@@ -209,7 +211,8 @@ function DashboardSidebarContent({ salon, section, user, t, onNavigate }: { salo
                 className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-bold transition ${active ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-white/10 hover:text-white'}`}
               >
                 <Icon className="h-4 w-4" />
-                {t(item.label)}
+                <span className="min-w-0 flex-1 truncate">{t(item.label)}</span>
+                {item.id === 'bookings' && hasPendingBookings && <span className="railway-lights shrink-0" aria-hidden="true" />}
               </Link>
               {item.dividerAfter && <div className="mx-4 my-2 h-px bg-white/10" />}
             </div>
@@ -369,8 +372,9 @@ function SettingsPage({ salon }: { salon: Salon }) {
     name: auth.user?.name ?? '',
     business_name: salon.name ?? '',
     timezone: salon.timezone ?? 'Europe/London',
-    industry: salon.industry ?? '',
-    country: salon.country ?? '',
+      industry: salon.industry ?? '',
+      business_type: salon.business_type ?? '',
+      country: salon.country ?? '',
     website: salon.website ?? '',
     business_phone: salon.business_phone ?? '',
     notification_email: salon.notification_email ?? '',
@@ -435,6 +439,9 @@ function SettingsPage({ salon }: { salon: Salon }) {
                 <option value="Medical Clinic">Medical Clinic</option>
                 <option value="Consulting">Consulting</option>
               </DarkSelect>
+            </DarkField>
+            <DarkField label={t('businessType')} error={form.errors.business_type}>
+              <DarkInput value={form.data.business_type} onChange={(event) => form.setData('business_type', event.target.value)} placeholder={t('businessTypePlaceholder')} />
             </DarkField>
             <DarkField label={t('country')} error={form.errors.country}>
               <DarkInput maxLength={2} value={form.data.country} onChange={(event) => form.setData('country', event.target.value.toUpperCase())} placeholder="RO" />
@@ -695,7 +702,7 @@ function Conversations({ salon, query }: { salon: Salon; query: string }) {
             </DarkPanel>
             <DarkPanel>
               <h3 className="mb-6 flex items-center gap-2 text-lg font-black app-text"><Phone className="h-5 w-5" /> {t('voiceAgent')}</h3>
-              <Detail icon={Bot} label={t('agent')} value="Bella Romania Line" />
+              <Detail icon={Bot} label={t('agent')} value={`${salon.ai_assistant_name?.trim() || 'Bella'} Romania Line`} />
               <Detail icon={Phone} label={t('businessPhone')} value={salon.locations[0]?.phone || '+40 000 000 000'} />
             </DarkPanel>
           </aside>
@@ -944,6 +951,7 @@ function ActivityLegendItem({ color, label }: { color: string; label: string }) 
 
 function Overview({ salon }: { salon: Salon }) {
   const t = useT();
+  const assistantName = salon.ai_assistant_name?.trim() || 'Bella';
   const [activityRange, setActivityRange] = useState<'week' | 'month'>('week');
   const stats = useMemo(() => ({
     total: salon.bookings.length,
@@ -1008,7 +1016,7 @@ function Overview({ salon }: { salon: Salon }) {
         </Card>
         <Card className="p-5">
           <h2 className="mb-4 text-xs font-black uppercase tracking-wide app-accent-text">{t('assistantLive')}</h2>
-          <p className="text-2xl font-black app-text">{t('bellaOnline')}</p>
+          <p className="text-2xl font-black app-text">{t('bellaOnline', { name: assistantName })}</p>
           <p className="mt-2 text-sm app-text-soft">{t('mysqlPublicPage')}</p>
           <div className="mt-6 rounded-lg app-soft-tint">
             <p className="px-4 pt-4 pb-2 text-xs font-bold uppercase app-accent-text">{t('lastInteraction')}</p>
@@ -1057,19 +1065,127 @@ function Stat({ label, value, icon: Icon, tone = 'indigo' }: { label: string; va
   );
 }
 
-function AiSettingsPlaceholder() {
+function AiSettings({ salon }: { salon: Salon }) {
   const t = useT();
+  const form = useForm({
+    ai_assistant_name: salon.ai_assistant_name ?? 'Bella',
+    ai_tone: salon.ai_tone ?? 'polite',
+    ai_response_style: salon.ai_response_style ?? 'short',
+    ai_language_mode: salon.ai_language_mode ?? 'auto',
+    ai_custom_instructions: salon.ai_custom_instructions ?? '',
+    ai_business_summary: salon.ai_business_summary ?? '',
+    ai_booking_enabled: Boolean(salon.ai_booking_enabled ?? true),
+    ai_collect_phone: Boolean(salon.ai_collect_phone ?? true),
+    ai_handoff_message: salon.ai_handoff_message ?? '',
+    ai_unknown_answer_policy: salon.ai_unknown_answer_policy ?? 'say_unknown',
+  });
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    form.put('/ai-settings', { preserveScroll: true });
+  }
 
   return (
-    <Card className="min-h-64 p-6">
-      <div className="flex min-h-52 items-center justify-center text-center">
-        <div>
-          <Sparkles className="mx-auto mb-4 h-10 w-10 text-indigo-500" />
-          <h2 className="text-xl font-black app-text">{t('aiSettings')}</h2>
-          <p className="mt-2 text-sm app-text-muted">{t('aiSettingsEmpty')}</p>
+    <form onSubmit={submit} className="space-y-6">
+      <Card className="p-6">
+        <div className="mb-6 flex items-start gap-3">
+          <Sparkles className="mt-1 h-5 w-5 text-indigo-500" />
+          <div>
+            <h2 className="text-xl font-black app-text">{t('aiIdentityBehavior')}</h2>
+            <p className="mt-1 text-sm app-text-muted">{t('aiIdentityBehaviorHelp')}</p>
+          </div>
         </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Field label={t('aiAssistantName')} error={form.errors.ai_assistant_name}>
+            <Input value={form.data.ai_assistant_name} onChange={(event) => form.setData('ai_assistant_name', event.target.value)} />
+          </Field>
+          <Field label={t('aiLanguageMode')} error={form.errors.ai_language_mode}>
+            <select className="h-10 w-full rounded-lg border px-3 text-sm outline-none app-panel app-text" value={form.data.ai_language_mode} onChange={(event) => form.setData('ai_language_mode', event.target.value)}>
+              <option value="auto">{t('aiLanguageAuto')}</option>
+              <option value="ro">{t('aiLanguageRo')}</option>
+              <option value="en">{t('aiLanguageEn')}</option>
+            </select>
+          </Field>
+          <Field label={t('aiTone')} error={form.errors.ai_tone}>
+            <select className="h-10 w-full rounded-lg border px-3 text-sm outline-none app-panel app-text" value={form.data.ai_tone} onChange={(event) => form.setData('ai_tone', event.target.value)}>
+              <option value="polite">{t('aiTonePolite')}</option>
+              <option value="friendly">{t('aiToneFriendly')}</option>
+              <option value="professional">{t('aiToneProfessional')}</option>
+              <option value="warm">{t('aiToneWarm')}</option>
+            </select>
+          </Field>
+          <Field label={t('aiResponseStyle')} error={form.errors.ai_response_style}>
+            <select className="h-10 w-full rounded-lg border px-3 text-sm outline-none app-panel app-text" value={form.data.ai_response_style} onChange={(event) => form.setData('ai_response_style', event.target.value)}>
+              <option value="short">{t('aiStyleShort')}</option>
+              <option value="balanced">{t('aiStyleBalanced')}</option>
+              <option value="detailed">{t('aiStyleDetailed')}</option>
+            </select>
+          </Field>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <div className="mb-6 flex items-start gap-3">
+          <FileText className="mt-1 h-5 w-5 text-indigo-500" />
+          <div>
+            <h2 className="text-xl font-black app-text">{t('aiKnowledge')}</h2>
+            <p className="mt-1 text-sm app-text-muted">{t('aiKnowledgeHelp')}</p>
+          </div>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Field label={t('aiBusinessSummary')} error={form.errors.ai_business_summary}>
+            <textarea
+              rows={6}
+              value={form.data.ai_business_summary}
+              onChange={(event) => form.setData('ai_business_summary', event.target.value)}
+              className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none app-panel app-text"
+              placeholder={t('aiBusinessSummaryPlaceholder')}
+            />
+          </Field>
+          <Field label={t('aiCustomInstructions')} error={form.errors.ai_custom_instructions}>
+            <textarea
+              rows={6}
+              value={form.data.ai_custom_instructions}
+              onChange={(event) => form.setData('ai_custom_instructions', event.target.value)}
+              className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none app-panel app-text"
+              placeholder={t('aiCustomInstructionsPlaceholder')}
+            />
+          </Field>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <div className="mb-6 flex items-start gap-3">
+          <Calendar className="mt-1 h-5 w-5 text-indigo-500" />
+          <div>
+            <h2 className="text-xl font-black app-text">{t('aiBookingBehavior')}</h2>
+            <p className="mt-1 text-sm app-text-muted">{t('aiBookingBehaviorHelp')}</p>
+          </div>
+        </div>
+        <div className="space-y-5">
+          <ToggleRow title={t('aiBookingEnabled')} subtitle={t('aiBookingEnabledHelp')} checked={form.data.ai_booking_enabled} onChange={(checked) => form.setData('ai_booking_enabled', checked)} />
+          <ToggleRow title={t('aiCollectPhone')} subtitle={t('aiCollectPhoneHelp')} checked={form.data.ai_collect_phone} onChange={(checked) => form.setData('ai_collect_phone', checked)} />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Field label={t('aiUnknownAnswerPolicy')} error={form.errors.ai_unknown_answer_policy}>
+              <select className="h-10 w-full rounded-lg border px-3 text-sm outline-none app-panel app-text" value={form.data.ai_unknown_answer_policy} onChange={(event) => form.setData('ai_unknown_answer_policy', event.target.value)}>
+                <option value="say_unknown">{t('aiUnknownSayUnknown')}</option>
+                <option value="handoff">{t('aiUnknownHandoff')}</option>
+              </select>
+            </Field>
+            <Field label={t('aiHandoffMessage')} error={form.errors.ai_handoff_message}>
+              <Input value={form.data.ai_handoff_message} onChange={(event) => form.setData('ai_handoff_message', event.target.value)} placeholder={t('aiHandoffMessagePlaceholder')} />
+            </Field>
+          </div>
+        </div>
+      </Card>
+
+      <div className="flex justify-end">
+        <Button disabled={form.processing}>
+          <Save className="h-4 w-4" />
+          {t('saveChanges')}
+        </Button>
       </div>
-    </Card>
+    </form>
   );
 }
 
@@ -1101,10 +1217,18 @@ function Locations({ salon }: { salon: Salon }) {
     phone: '',
     hours: defaultHours,
   });
+  const formHourErrors = validateHours(form.data.hours);
+  const editHourErrors = validateHours(editForm.data.hours);
+  const formHasHourErrors = Object.keys(formHourErrors).length > 0;
+  const editHasHourErrors = Object.keys(editHourErrors).length > 0;
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    form.post('/locations', {
+    if (formHasHourErrors) return;
+
+    form
+      .transform((data) => ({ ...data, hours: normalizeHoursRecord(data.hours) }))
+      .post('/locations', {
       preserveScroll: true,
       onSuccess: () => {
         form.reset();
@@ -1127,8 +1251,11 @@ function Locations({ salon }: { salon: Salon }) {
   function submitEdit(event: FormEvent) {
     event.preventDefault();
     if (!editingId) return;
+    if (editHasHourErrors) return;
 
-    editForm.put(`/locations/${editingId}`, {
+    editForm
+      .transform((data) => ({ ...data, hours: normalizeHoursRecord(data.hours) }))
+      .put(`/locations/${editingId}`, {
       preserveScroll: true,
       onSuccess: () => setEditingId(null),
     });
@@ -1164,10 +1291,11 @@ function Locations({ salon }: { salon: Salon }) {
                 hours={form.data.hours}
                 onChange={(key, value) => form.setData('hours', { ...form.data.hours, [key]: value })}
                 onBulkApply={(nextHours) => form.setData('hours', nextHours)}
+                errors={formHourErrors}
               />
             </div>
             <div className="flex items-end gap-2 lg:col-span-4">
-              <Button disabled={form.processing}>{t('save')}</Button>
+              <Button disabled={form.processing || formHasHourErrors}>{t('save')}</Button>
               <SecondaryButton type="button" onClick={() => setAdding(false)}>{t('cancel')}</SecondaryButton>
             </div>
           </form>
@@ -1189,9 +1317,10 @@ function Locations({ salon }: { salon: Salon }) {
                   hours={editForm.data.hours}
                   onChange={(key, value) => editForm.setData('hours', { ...editForm.data.hours, [key]: value })}
                   onBulkApply={(nextHours) => editForm.setData('hours', nextHours)}
+                  errors={editHourErrors}
                 />
                 <div className="flex gap-2">
-                  <Button disabled={editForm.processing}>{t('save')}</Button>
+                  <Button disabled={editForm.processing || editHasHourErrors}>{t('save')}</Button>
                   <SecondaryButton type="button" onClick={() => setEditingId(null)}>{t('cancel')}</SecondaryButton>
                 </div>
               </form>
@@ -1238,12 +1367,78 @@ const hourDays = [
   ['sun', 'sunday'],
 ] as const;
 
-function HoursEditor({ title, hours, onChange, onBulkApply }: { title: string; hours: Record<string, string>; onChange: (key: string, value: string) => void; onBulkApply: (hours: Record<string, string>) => void }) {
+type HourValidationError = 'hourInvalidFormat' | 'hourInvalidRange' | 'hourInvalidOrder';
+
+function normalizeHourValue(value: string): { normalized: string; error?: HourValidationError } {
+  const raw = value.trim();
+
+  if (!raw) {
+    return { normalized: '' };
+  }
+
+  if (/^(inchis|closed)$/i.test(raw)) {
+    return { normalized: 'Inchis' };
+  }
+
+  const normalizedDash = raw.replace(/[–—]/g, '-');
+  const match = normalizedDash.match(/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/);
+
+  if (!match) {
+    return { normalized: raw, error: 'hourInvalidFormat' };
+  }
+
+  const openHour = Number(match[1]);
+  const openMinute = Number(match[2]);
+  const closeHour = Number(match[3]);
+  const closeMinute = Number(match[4]);
+  const validParts = [openHour, closeHour].every((hour) => hour >= 0 && hour <= 23)
+    && [openMinute, closeMinute].every((minute) => minute >= 0 && minute <= 59);
+
+  if (!validParts) {
+    return { normalized: raw, error: 'hourInvalidRange' };
+  }
+
+  const opensAt = openHour * 60 + openMinute;
+  const closesAt = closeHour * 60 + closeMinute;
+
+  if (opensAt >= closesAt) {
+    return { normalized: raw, error: 'hourInvalidOrder' };
+  }
+
+  const formatted = `${String(openHour).padStart(2, '0')}:${String(openMinute).padStart(2, '0')} - ${String(closeHour).padStart(2, '0')}:${String(closeMinute).padStart(2, '0')}`;
+
+  return { normalized: formatted };
+}
+
+function validateHours(hours: Record<string, string>): Partial<Record<string, HourValidationError>> {
+  return hourDays.reduce<Partial<Record<string, HourValidationError>>>((errors, [key]) => {
+    const result = normalizeHourValue(hours[key] ?? '');
+
+    if (result.error) {
+      errors[key] = result.error;
+    }
+
+    return errors;
+  }, {});
+}
+
+function normalizeHoursRecord(hours: Record<string, string>): Record<string, string> {
+  return hourDays.reduce<Record<string, string>>((nextHours, [key]) => {
+    const result = normalizeHourValue(hours[key] ?? '');
+
+    nextHours[key] = result.error ? (hours[key] ?? '') : result.normalized;
+
+    return nextHours;
+  }, {});
+}
+
+function HoursEditor({ title, hours, onChange, onBulkApply, errors }: { title: string; hours: Record<string, string>; onChange: (key: string, value: string) => void; onBulkApply: (hours: Record<string, string>) => void; errors: Partial<Record<string, HourValidationError>> }) {
   const t = useT();
   const weekdayKeys = hourDays.slice(0, 5).map(([key]) => key);
   const weekendKeys = hourDays.slice(5).map(([key]) => key);
   const [selectedDays, setSelectedDays] = useState<string[]>(weekdayKeys);
   const [bulkHours, setBulkHours] = useState('');
+  const bulkValidation = bulkHours.trim() ? normalizeHourValue(bulkHours) : { normalized: '' };
 
   function toggleDay(dayKey: string) {
     setSelectedDays((current) => (
@@ -1258,15 +1453,24 @@ function HoursEditor({ title, hours, onChange, onBulkApply }: { title: string; h
   }
 
   function applyBulkHours() {
-    if (!bulkHours.trim() || selectedDays.length === 0) return;
+    if (!bulkHours.trim() || selectedDays.length === 0 || bulkValidation.error) return;
 
     const nextHours = { ...hours };
 
     selectedDays.forEach((dayKey) => {
-      nextHours[dayKey] = bulkHours.trim();
+      nextHours[dayKey] = bulkValidation.normalized;
     });
 
     onBulkApply(nextHours);
+    setBulkHours(bulkValidation.normalized);
+  }
+
+  function normalizeDayOnBlur(dayKey: string, value: string) {
+    const result = normalizeHourValue(value);
+
+    if (!result.error && result.normalized !== value) {
+      onChange(dayKey, result.normalized);
+    }
   }
 
   return (
@@ -1301,16 +1505,36 @@ function HoursEditor({ title, hours, onChange, onBulkApply }: { title: string; h
           })}
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
-          <Input value={bulkHours} onChange={(event) => setBulkHours(event.target.value)} placeholder="09:00 - 18:00 / Inchis" />
-          <Button type="button" onClick={applyBulkHours} disabled={selectedDays.length === 0 || !bulkHours.trim()} className="min-w-40 whitespace-nowrap">
+          <Input
+            value={bulkHours}
+            onChange={(event) => setBulkHours(event.target.value)}
+            onBlur={() => {
+              if (!bulkValidation.error) setBulkHours(bulkValidation.normalized);
+            }}
+            placeholder="09:00 - 18:00 / Inchis"
+            className={bulkValidation.error ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : undefined}
+          />
+          <Button type="button" onClick={applyBulkHours} disabled={selectedDays.length === 0 || !bulkHours.trim() || Boolean(bulkValidation.error)} className="min-w-40 whitespace-nowrap">
             {t('applySchedule')}
           </Button>
         </div>
+        {bulkValidation.error && (
+          <p className="flex items-center gap-1 text-xs font-medium text-red-600">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            {t(bulkValidation.error)}
+          </p>
+        )}
       </div>
       <div className="grid gap-3">
         {hourDays.map(([key, label]) => (
-          <Field key={key} label={t(label)}>
-            <Input value={hours[key] ?? ''} onChange={(event) => onChange(key, event.target.value)} placeholder="09:00 - 18:00 / Inchis" />
+          <Field key={key} label={t(label)} error={errors[key] ? t(errors[key]) : undefined}>
+            <Input
+              value={hours[key] ?? ''}
+              onChange={(event) => onChange(key, event.target.value)}
+              onBlur={(event) => normalizeDayOnBlur(key, event.target.value)}
+              placeholder="09:00 - 18:00 / Inchis"
+              className={errors[key] ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : undefined}
+            />
           </Field>
         ))}
       </div>
@@ -2227,10 +2451,9 @@ function Bookings({ salon, query }: { salon: Salon; query: string }) {
     ].filter(Boolean).join(' ').toLowerCase().includes(normalized));
   }, [query, salon.bookings]);
   const stats = useMemo(() => {
-    const now = new Date();
     return {
       today: salon.bookings.filter((booking) => booking.date === todayKey).length,
-      upcoming: salon.bookings.filter((booking) => bookingEndDate(booking) > now && (booking.status === 'pending' || booking.status === 'confirmed')).length,
+      upcoming: salon.bookings.filter((booking) => booking.date > todayKey && (booking.status === 'pending' || booking.status === 'confirmed')).length,
       completed: salon.bookings.filter((booking) => booking.status === 'completed').length,
       cancelled: salon.bookings.filter((booking) => booking.status === 'cancelled').length,
     };

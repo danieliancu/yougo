@@ -11,12 +11,19 @@ class Salon extends Model
 {
     use HasFactory;
 
+    public const MODE_APPOINTMENT = 'appointment';
+    public const MODE_RESERVATION = 'reservation';
+    public const MODE_LEAD = 'lead';
+
     protected $fillable = [
         'user_id',
         'name',
         'logo_path',
         'timezone',
         'industry',
+        'mode',
+        'business_type',
+        'onboarding_completed',
         'country',
         'website',
         'business_phone',
@@ -28,6 +35,16 @@ class Salon extends Model
         'date_format',
         'service_categories',
         'service_staff',
+        'ai_assistant_name',
+        'ai_tone',
+        'ai_response_style',
+        'ai_language_mode',
+        'ai_custom_instructions',
+        'ai_business_summary',
+        'ai_booking_enabled',
+        'ai_collect_phone',
+        'ai_handoff_message',
+        'ai_unknown_answer_policy',
     ];
 
     protected function casts(): array
@@ -36,14 +53,46 @@ class Salon extends Model
             'email_notifications' => 'boolean',
             'missed_call_alerts' => 'boolean',
             'booking_confirmations' => 'boolean',
+            'onboarding_completed' => 'boolean',
             'service_categories' => 'array',
             'service_staff' => 'array',
+            'ai_booking_enabled' => 'boolean',
+            'ai_collect_phone' => 'boolean',
         ];
     }
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function isAppointmentBased(): bool
+    {
+        return ($this->mode ?: self::MODE_APPOINTMENT) === self::MODE_APPOINTMENT;
+    }
+
+    public function isReservationBased(): bool
+    {
+        return $this->mode === self::MODE_RESERVATION;
+    }
+
+    public function isLeadBased(): bool
+    {
+        return $this->mode === self::MODE_LEAD;
+    }
+
+    /**
+     * Salon currently represents the business account in this MVP.
+     * It can be renamed or abstracted as Business when multi-industry modes are fully implemented.
+     */
+    public function displayName(): string
+    {
+        return $this->name;
+    }
+
+    public function businessLabel(): string
+    {
+        return $this->displayName();
     }
 
     public function locations(): HasMany
@@ -54,6 +103,11 @@ class Salon extends Model
     public function services(): HasMany
     {
         return $this->hasMany(Service::class);
+    }
+
+    public function staff(): HasMany
+    {
+        return $this->hasMany(Staff::class);
     }
 
     public function bookings(): HasMany

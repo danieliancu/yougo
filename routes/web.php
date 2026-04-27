@@ -3,6 +3,7 @@
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\AssistantController;
+use App\Http\Controllers\AiSettingsController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\DashboardController;
@@ -46,6 +47,7 @@ Route::middleware('auth')->group(function () {
 
     Route::delete('/conversations/{conversation}', [ConversationController::class, 'destroy'])->name('conversations.destroy');
 
+    Route::put('/ai-settings', [AiSettingsController::class, 'update'])->name('ai-settings.update');
     Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
 });
 

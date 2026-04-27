@@ -178,6 +178,16 @@ function HeroChannelCarousel({ t }: { t: (key: string, params?: Record<string, s
 }
 
 function ReceptionistPreview({ t }: { t: (key: string) => string }) {
+  const [clientSpeaking, setClientSpeaking] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setClientSpeaking((speaking) => !speaking);
+    }, 3000);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
   return (
     <div className="relative h-[500px] w-full max-w-[500px] overflow-hidden rounded-3xl border border-blue-300/20 bg-gradient-to-br from-blue-500/30 via-slate-800/80 to-blue-950/90 p-8 backdrop-blur-xl">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_60%_20%,rgba(147,197,253,0.35),transparent_35%),radial-gradient(circle_at_30%_80%,rgba(30,64,175,0.35),transparent_38%)]" />
@@ -192,7 +202,9 @@ function ReceptionistPreview({ t }: { t: (key: string) => string }) {
           <span />
           <span />
         </div>
-        <p className="text-center text-base font-black text-white">{t('carouselReceptionistSpeaking')}</p>
+        <p className="text-center text-base font-black text-white">
+          {t(clientSpeaking ? 'carouselClientSpeaking' : 'carouselReceptionistSpeaking')}
+        </p>
         <p className="mt-2 text-sm font-semibold text-slate-300">00:42</p>
       </div>
     </div>

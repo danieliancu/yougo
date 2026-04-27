@@ -76,6 +76,9 @@ export type Salon = {
   logo_path?: string | null;
   timezone?: string | null;
   industry?: string | null;
+  mode?: 'appointment' | 'reservation' | 'lead' | string | null;
+  business_type?: string | null;
+  onboarding_completed?: boolean;
   country?: string | null;
   website?: string | null;
   business_phone?: string | null;
@@ -87,6 +90,16 @@ export type Salon = {
   date_format?: string | null;
   service_categories?: string[] | null;
   service_staff?: string[] | null;
+  ai_assistant_name?: string | null;
+  ai_tone?: 'polite' | 'friendly' | 'professional' | 'warm' | string | null;
+  ai_response_style?: 'short' | 'balanced' | 'detailed' | string | null;
+  ai_language_mode?: 'auto' | 'ro' | 'en' | string | null;
+  ai_custom_instructions?: string | null;
+  ai_business_summary?: string | null;
+  ai_booking_enabled?: boolean;
+  ai_collect_phone?: boolean;
+  ai_handoff_message?: string | null;
+  ai_unknown_answer_policy?: 'say_unknown' | 'handoff' | string | null;
   locations: Location[];
   services: Service[];
   bookings: Booking[];

@@ -8,10 +8,18 @@
 @source '../**/*.{js,ts,jsx,tsx}';
 
 @theme {
-  --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-sans: Poppins, ui-sans-serif, system-ui, sans-serif;
 }
 
 html {
+  font-family: var(--font-sans);
+}
+
+body,
+button,
+input,
+select,
+textarea {
   font-family: var(--font-sans);
 }
 

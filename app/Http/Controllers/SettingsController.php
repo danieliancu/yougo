@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Salon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -18,6 +19,7 @@ class SettingsController extends Controller
             'business_name' => ['required', 'string', 'max:255'],
             'timezone' => ['required', 'string', 'max:80'],
             'industry' => ['nullable', 'string', 'max:120'],
+            'business_type' => ['nullable', 'string', 'max:120'],
             'country' => ['nullable', 'string', 'size:2'],
             'website' => ['nullable', 'url', 'max:255'],
             'business_phone' => ['nullable', 'string', 'max:60'],
@@ -45,6 +47,8 @@ class SettingsController extends Controller
             'logo_path' => $data['logo_path'] ?? $salon->logo_path,
             'timezone' => $data['timezone'],
             'industry' => $data['industry'] ?? null,
+            'mode' => $salon->mode ?: Salon::MODE_APPOINTMENT,
+            'business_type' => $data['business_type'] ?? null,
             'country' => strtoupper($data['country'] ?? ''),
             'website' => $data['website'] ?? null,
             'business_phone' => $data['business_phone'] ?? null,

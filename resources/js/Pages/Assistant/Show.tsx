@@ -7,12 +7,25 @@ import { ChatShell } from '@/Components/ChatShell';
 import { Salon } from '@/types';
 import { useT } from '@/i18n';
 
+function assistantName(salon: Salon): string {
+  return salon.ai_assistant_name?.trim() || 'Bella';
+}
+
+function assistantLiveLabel(salon: Salon): string {
+  return `${assistantName(salon)} Assistant live`;
+}
+
+function assistantTypingLabel(salon: Salon, locale: string): string {
+  return locale === 'en' ? `${assistantName(salon)} is typing...` : `${assistantName(salon)} scrie...`;
+}
+
 function buildGreeting(salon: Salon, locale: string): string {
   const isRo = locale !== 'en';
+  const name = assistantName(salon);
 
   const hello = isRo
-    ? `Bună! Sunt Bella, asistentul virtual pentru ${salon.name}.`
-    : `Hi! I'm Bella, the virtual assistant for ${salon.name}.`;
+    ? `Buna! Sunt ${name}, asistentul virtual pentru ${salon.name}.`
+    : `Hi! I'm ${name}, the virtual assistant for ${salon.name}.`;
 
   const hasServices = salon.services.length > 0;
   const hasHours = salon.locations.some(
@@ -82,6 +95,8 @@ function csrfToken() {
 export default function AssistantShow({ salon }: { salon: Salon }) {
   const t = useT();
   const { locale = 'ro' } = usePage<{ locale?: string }>().props;
+  const name = assistantName(salon);
+  const liveLabel = assistantLiveLabel(salon);
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -192,7 +207,7 @@ export default function AssistantShow({ salon }: { salon: Salon }) {
 
   return (
     <div className="flex min-h-screen overflow-x-hidden app-bg">
-      <Head title={`${salon.name} Assistant`} />
+      <Head title={`${name} - ${salon.name}`} />
 
       <aside className="fixed inset-y-0 left-0 z-40 hidden h-screen w-72 shrink-0 flex-col overflow-hidden app-sidebar lg:flex">
         <div className="shrink-0 border-b border-white/10 p-6">
@@ -240,7 +255,7 @@ export default function AssistantShow({ salon }: { salon: Salon }) {
             </span>
             <span className="min-w-0">
               <span className="block truncate text-sm font-black text-white">{salon.name}</span>
-              <span className="block truncate text-xs text-slate-400">{t('assistantLiveLabel')}</span>
+              <span className="block truncate text-xs text-slate-400">{liveLabel}</span>
             </span>
           </div>
         </div>
@@ -250,7 +265,7 @@ export default function AssistantShow({ salon }: { salon: Salon }) {
         <header className="relative z-10 flex min-h-16 shrink-0 items-center justify-between gap-3 border-b px-4 py-3 app-border app-shell sm:px-5 lg:px-8">
           <div className="min-w-0">
             <h1 className="truncate text-lg font-black app-text">{salon.name}</h1>
-            <p className="truncate text-xs font-semibold app-text-muted">{t('assistantLiveLabel')}</p>
+            <p className="truncate text-xs font-semibold app-text-muted">{liveLabel}</p>
           </div>
           <div className="flex items-center gap-3">
             <ThemeToggle />
@@ -260,7 +275,7 @@ export default function AssistantShow({ salon }: { salon: Salon }) {
         <div className="min-h-0 flex-1 overflow-hidden px-4 py-4 sm:px-5 lg:px-8">
           <div className="flex h-full min-h-0 items-center justify-center">
             <ChatShell
-              title={t('carouselAssistantAi')}
+              title={name}
               statusLabel="Online"
               bodyRef={scrollRef}
               heightClassName="h-[620px]"
@@ -304,7 +319,7 @@ export default function AssistantShow({ salon }: { salon: Salon }) {
                     <p className="whitespace-pre-wrap leading-6"><InlineMarkdown text={message.content} /></p>
                     <div className="mt-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-wide opacity-60">
                       {message.role === 'assistant' ? <Sparkles className="h-3 w-3" /> : <User className="h-3 w-3" />}
-                      {message.role === 'assistant' ? t('bellaName') : t('clientName')}
+                      {message.role === 'assistant' ? name : t('clientName')}
                     </div>
                   </div>
                 </div>
@@ -312,7 +327,7 @@ export default function AssistantShow({ salon }: { salon: Salon }) {
               {loading && (
                 <div className="flex justify-start">
                   <div className="max-w-[82%] rounded-xl rounded-tl-none px-3 py-2 text-sm font-semibold app-panel-soft app-text-soft">
-                    {t('bellaTyping')}
+                    {assistantTypingLabel(salon, locale)}
                   </div>
                 </div>
               )}
