@@ -40,6 +40,7 @@ export default function DashboardIndex() {
     locations: t('locationsSubtitle'),
     services: t('servicesSubtitle'),
     bookings: t('bookingsSubtitle'),
+    settings: t('settingsSubtitle'),
   };
   const headerSubtitle = headerSubtitles[section] ?? '';
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -51,6 +52,7 @@ export default function DashboardIndex() {
     'chat-audio': t('searchByPhoneEmailOrContent'),
     'voice-calls': t('searchByPhoneOrTranscript'),
     whatsapp: t('searchWhatsappConversations'),
+    services: t('searchServices'),
     bookings: t('searchBookings'),
   };
 
@@ -152,7 +154,7 @@ export default function DashboardIndex() {
           {section === 'voice-calls' && <VoiceCalls query={query} />}
           {section === 'whatsapp' && <WhatsAppConversations query={query} />}
           {section === 'locations' && <Locations salon={salon} />}
-          {section === 'services' && <Services salon={salon} />}
+          {section === 'services' && <Services salon={salon} query={query} />}
           {section === 'bookings' && <Bookings salon={salon} query={query} />}
           {section === 'settings' && <SettingsPage salon={salon} />}
         </div>
@@ -387,11 +389,6 @@ function SettingsPage({ salon }: { salon: Salon }) {
 
   return (
     <form onSubmit={submit} className="-m-5 min-h-[calc(100vh-4rem)] p-5 app-bg lg:-m-8 lg:p-8">
-      <div className="mb-8">
-        <h2 className="text-2xl font-black app-text">{t('settingsTitle')}</h2>
-        <p className="mt-1 app-text-muted">{t('settingsSubtitle')}</p>
-      </div>
-
       <div className="space-y-6">
         <SettingsPanel icon={User} title={t('profile')} subtitle={t('profileSubtitle')}>
           <div className="grid gap-4 md:grid-cols-2">
@@ -1336,7 +1333,7 @@ function HoursList({ hours }: { hours: Record<string, string> }) {
   );
 }
 
-function Services({ salon }: { salon: Salon }) {
+function Services({ salon, query }: { salon: Salon; query: string }) {
   const t = useT();
   const [adding, setAdding] = useState(false);
   const [managingCategories, setManagingCategories] = useState(false);
@@ -1349,6 +1346,32 @@ function Services({ salon }: { salon: Salon }) {
   const [staffDrafts, setStaffDrafts] = useState<string[]>(salon.service_staff ?? []);
   const form = useForm({ name: '', type: '', staff: [] as string[], price: '', duration: 30, location_ids: [] as number[], notes: '' });
   const editForm = useForm({ name: '', type: '', staff: [] as string[], price: '', duration: 30, location_ids: [] as number[], notes: '' });
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const filteredServices = salon.services.filter((service) => {
+    if (categoryFilter.length > 0 && !categoryFilter.includes(service.type ?? '')) return false;
+    if (branchFilter.length > 0) {
+      const ids = service.location_ids ?? [];
+      if (ids.length > 0 && !ids.some((id) => branchFilter.includes(id))) return false;
+    }
+    if (!normalizedQuery) return true;
+
+    const serviceLocationNames = salon.locations
+      .filter((location) => (service.location_ids ?? []).includes(location.id))
+      .map((location) => location.name);
+    const searchable = [
+      service.name,
+      service.type,
+      service.price,
+      service.duration,
+      service.notes,
+      ...(service.staff ?? []),
+      ...serviceLocationNames,
+    ];
+
+    return searchable
+      .filter((value) => value !== null && value !== undefined)
+      .some((value) => String(value).toLocaleLowerCase().includes(normalizedQuery));
+  });
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -1652,14 +1675,7 @@ function Services({ salon }: { salon: Salon }) {
           t('priceRon'),
           '',
         ]}>
-          {salon.services.filter((service) => {
-            if (categoryFilter.length > 0 && !categoryFilter.includes(service.type ?? '')) return false;
-            if (branchFilter.length > 0) {
-              const ids = service.location_ids ?? [];
-              if (ids.length > 0 && !ids.some((id) => branchFilter.includes(id))) return false;
-            }
-            return true;
-          }).map((service) => (
+          {filteredServices.map((service) => (
             <tr key={service.id} className="border-t app-border">
               <>
                   <td className="px-5 py-4 align-top">
@@ -1722,7 +1738,7 @@ function CategoryFilterHeader({ label, categories, selected, onChange }: { label
   }
 
   if (categories.length === 0) {
-    return <span>{label}</span>;
+    return <span>{label.toLocaleUpperCase()}</span>;
   }
 
   return (
@@ -1732,7 +1748,7 @@ function CategoryFilterHeader({ label, categories, selected, onChange }: { label
         onClick={() => setOpen((v) => !v)}
         className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 transition hover:bg-white/10 ${active ? 'text-indigo-400' : ''}`}
       >
-        {label}
+        {label.toLocaleUpperCase()}
         {active && <span className="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-black text-white">{selected.length}</span>}
         <ChevronDown className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -1787,7 +1803,7 @@ function BranchFilterHeader({ label, locations, selected, onChange }: { label: s
   }
 
   if (locations.length === 0) {
-    return <span>{label}</span>;
+    return <span>{label.toLocaleUpperCase()}</span>;
   }
 
   return (
@@ -1797,7 +1813,7 @@ function BranchFilterHeader({ label, locations, selected, onChange }: { label: s
         onClick={() => setOpen((v) => !v)}
         className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 transition hover:bg-white/10 ${active ? 'text-indigo-400' : ''}`}
       >
-        {label}
+        {label.toLocaleUpperCase()}
         {active && <span className="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-black text-white">{selected.length}</span>}
         <ChevronDown className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
