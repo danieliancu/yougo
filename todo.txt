@@ -1,0 +1,11 @@
+- sa scrie data natural in conversatie, si fara an, in loc de 04-11-2026 sa fie 11 aprilie.
+
+- /chat-audio - aici sa avem sus:
+Total Chat
+Audio
+Finalizate
+Abandonate
+
+
+dashboard/ai-settings 
+aici la Identitate si comportament fa toate fieldurile pe un singur rand

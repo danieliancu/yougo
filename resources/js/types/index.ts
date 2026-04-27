@@ -106,6 +106,24 @@ export type Salon = {
   conversations: Conversation[];
 };
 
+export type OverviewData = {
+  metrics: {
+    total_conversations: number;
+    conversations_today: number;
+    open_conversations: number;
+    abandoned_conversations: number;
+    total_bookings: number;
+    pending_bookings: number;
+    confirmed_bookings: number;
+    completed_bookings: number;
+    bookings_today: number;
+    bookings_this_week: number;
+    conversion_rate: number;
+  };
+  latest_conversations: Conversation[];
+  latest_bookings: Booking[];
+};
+
 export type PageProps<T = Record<string, unknown>> = T & {
   auth: { user: User | null };
   locale: string;

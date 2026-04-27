@@ -6,6 +6,7 @@ use App\Models\Salon;
 use App\Models\User;
 use App\Services\Assistant\GeminiPayloadBuilder;
 use App\Services\Booking\BookingCreator;
+use App\Services\Modes\Appointment\AppointmentRequiredFieldsResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
@@ -78,6 +79,89 @@ class BusinessModeTest extends TestCase
         ]);
 
         $this->assertArrayHasKey('tools', $payload);
+    }
+
+    public function test_appointment_mode_includes_appointment_specific_prompt_context(): void
+    {
+        $salon = $this->createSalon([
+            'mode' => Salon::MODE_APPOINTMENT,
+            'booking_confirmations' => true,
+        ]);
+        $location = $salon->locations()->create([
+            'name' => 'Central',
+            'address' => 'Main Street',
+            'hours' => ['mon' => '09:00 - 17:00'],
+        ]);
+        $service = $salon->services()->create([
+            'name' => 'Consultatie',
+            'price' => '100',
+            'duration' => 30,
+            'location_ids' => [$location->id],
+        ]);
+        $staff = $salon->staff()->create([
+            'location_id' => $location->id,
+            'name' => 'Ana',
+            'role' => 'Medic',
+            'active' => true,
+        ]);
+        $service->staffMembers()->attach($staff->id);
+
+        $payload = app(GeminiPayloadBuilder::class)->build($salon, [
+            ['role' => 'user', 'content' => 'Book me'],
+        ]);
+        $instruction = $payload['systemInstruction']['parts'][0]['text'];
+
+        $this->assertStringContainsString('Appointment mode este activ', $instruction);
+        $this->assertStringContainsString('Locatii si orar: ID '.$location->id.': Central', $instruction);
+        $this->assertStringContainsString('Servicii oferite: ID '.$service->id.': Consultatie', $instruction);
+        $this->assertStringContainsString('Staff disponibil: ID '.$staff->id.': Ana', $instruction);
+        $this->assertStringContainsString('Inainte sa folosesti bookBooking, recapituleaza datele si cere confirmarea clientului', $instruction);
+        $this->assertStringContainsString('Programarile create de AI raman pending si trebuie confirmate de echipa.', $instruction);
+    }
+
+    public function test_required_fields_come_from_ai_settings(): void
+    {
+        $salon = $this->createSalon([
+            'mode' => Salon::MODE_APPOINTMENT,
+            'ai_collect_phone' => false,
+        ]);
+
+        $required = app(AppointmentRequiredFieldsResolver::class)->resolve($salon);
+        $payload = app(GeminiPayloadBuilder::class)->build($salon, [
+            ['role' => 'user', 'content' => 'Book me'],
+        ]);
+        $toolRequired = $payload['tools'][0]['functionDeclarations'][0]['parameters']['required'];
+
+        $this->assertSame(['client_name', 'service', 'location', 'date', 'time'], $required);
+        $this->assertSame(['client_name', 'service_id', 'location_id', 'date', 'time'], $toolRequired);
+    }
+
+    public function test_default_required_fields_work_when_settings_are_missing(): void
+    {
+        $required = app(AppointmentRequiredFieldsResolver::class)->resolve(new Salon);
+
+        $this->assertSame([
+            'client_name',
+            'client_phone',
+            'service',
+            'location',
+            'date',
+            'time',
+        ], $required);
+    }
+
+    public function test_booking_tool_is_hidden_when_booking_is_disabled(): void
+    {
+        $salon = $this->createSalon([
+            'mode' => Salon::MODE_APPOINTMENT,
+            'ai_booking_enabled' => false,
+        ]);
+
+        $payload = app(GeminiPayloadBuilder::class)->build($salon, [
+            ['role' => 'user', 'content' => 'Book me'],
+        ]);
+
+        $this->assertArrayNotHasKey('tools', $payload);
     }
 
     public function test_booking_tools_are_not_exposed_for_non_appointment_mode(): void

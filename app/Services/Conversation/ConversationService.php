@@ -13,6 +13,13 @@ class ConversationService
         if ($conversationId) {
             $conversation = $salon->conversations()->whereKey($conversationId)->first();
             if ($conversation) {
+                if ($conversation->intent === 'abandoned' && ! $conversation->booking_id) {
+                    $conversation->update([
+                        'intent' => 'inquiry',
+                        'status' => 'open',
+                    ]);
+                }
+
                 return $conversation;
             }
         }

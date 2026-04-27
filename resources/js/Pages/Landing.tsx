@@ -65,42 +65,45 @@ export default function Landing() {
   return (
     <main className="min-h-screen app-bg">
       <Head title={t('landingTitle')} />
-      <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-        <Link href="/" className="flex items-center">
-          <img src="/images/logo-white.png" className="h-12 w-auto dark:hidden" alt="YouGo" />
-          <img src="/images/logo-dark.png" className="hidden h-12 w-auto dark:block" alt="YouGo" />
-        </Link>
-        <div className="flex items-center gap-3">
-          <ThemeToggle />
-          <LandingLanguageToggle locale={locale} onChange={switchLang} />
-          {auth.user ? (
-            <Link href="/dashboard" className="flex items-center gap-2 rounded-lg bg-slate-950 px-4 py-2 text-sm font-bold text-white">
-              {auth.user.name}
-            </Link>
-          ) : (
-            <Link href="/register" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white">{t('start')}</Link>
-          )}
-        </div>
-      </nav>
-
-      <section className="mx-auto grid max-w-6xl gap-10 px-6 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-        <div>
-          <p className="mb-4 inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-indigo-700">{t('landingTitle')}</p>
-          <h1 className="max-w-3xl text-5xl font-black tracking-tight app-text md:text-6xl">{t('landingHeadline')}</h1>
-          <p className="mt-6 max-w-2xl text-lg leading-8 app-text-soft">
-            {t('landingCopy')}
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href={auth.user ? '/dashboard' : '/register'} className="rounded-lg bg-indigo-600 px-5 py-3 text-sm font-black text-white shadow-sm hover:bg-indigo-700">{t('openDashboard')}</Link>
-            <Link href="/login" className="rounded-lg border px-5 py-3 text-sm font-black hover:bg-[var(--soft)]">{t('login')}</Link>
+      <div className="min-[1600px]:bg-[url('/images/hero.png')] min-[1600px]:bg-cover min-[1600px]:bg-left min-[1600px]:bg-no-repeat min-[1600px]:dark:border-b min-[1600px]:dark:border-white">
+        <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
+          <Link href="/" className="flex items-center">
+            <img src="/images/logo-white.png" className="h-12 w-auto dark:hidden" alt="YouGo" />
+            <img src="/images/logo-dark.png" className="hidden h-12 w-auto dark:block" alt="YouGo" />
+          </Link>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <LandingLanguageToggle locale={locale} onChange={switchLang} />
+            {auth.user ? (
+              <Link href="/dashboard" className="flex items-center gap-2 rounded-lg bg-slate-950 px-4 py-2 text-sm font-bold text-white dark:border dark:border-white">
+                {auth.user.name}
+              </Link>
+            ) : (
+              <Link href="/register" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white">{t('start')}</Link>
+            )}
           </div>
-        </div>
+        </nav>
 
-        <HeroChannelCarousel t={t} />
-      </section>
+        <section>
+          <div className="mx-auto grid max-w-6xl gap-10 px-6 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+            <div>
+              <p className="mb-4 inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-indigo-700">{t('landingTitle')}</p>
+              <h1 className="max-w-3xl text-5xl font-black tracking-tight app-text md:text-6xl">{t('landingHeadline')}</h1>
+              <p className="mt-6 max-w-2xl text-lg leading-8 app-text-soft">
+                {t('landingCopy')}
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Link href={auth.user ? '/dashboard' : '/register'} className="rounded-lg bg-indigo-600 px-5 py-3 text-sm font-black text-white shadow-sm hover:bg-indigo-700">{t('openDashboard')}</Link>
+                <Link href="/login" className="rounded-lg border px-5 py-3 text-sm font-black hover:bg-[var(--soft)]">{t('login')}</Link>
+              </div>
+            </div>
 
-      <section className="mx-auto max-w-6xl px-6 pb-20">
-        <p className="mb-10 text-center text-xs font-black uppercase tracking-widest app-text-muted">{t('featuresTitle')}</p>
+            <HeroChannelCarousel t={t} />
+          </div>
+        </section>
+      </div>
+
+      <section className="mx-auto max-w-6xl px-6 pb-20 mt-8">
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           <div className="flex flex-col items-center rounded-2xl p-8 text-center">
             <Phone className="mb-5 h-14 w-14 text-indigo-500" />

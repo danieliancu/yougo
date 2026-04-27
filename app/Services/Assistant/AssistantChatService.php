@@ -3,8 +3,8 @@
 namespace App\Services\Assistant;
 
 use App\Models\Salon;
-use App\Services\Booking\BookingCreator;
 use App\Services\Conversation\ConversationService;
+use App\Services\Modes\Appointment\AppointmentToolHandler;
 use Illuminate\Support\Facades\Http;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -14,7 +14,7 @@ class AssistantChatService
         private readonly GeminiPayloadBuilder $payloadBuilder,
         private readonly AssistantResponseParser $responseParser,
         private readonly ConversationService $conversationService,
-        private readonly BookingCreator $bookingCreator,
+        private readonly AppointmentToolHandler $appointmentToolHandler,
     ) {
     }
 
@@ -55,16 +55,16 @@ class AssistantChatService
         $booking = null;
 
         foreach ($parsed['function_calls'] as $functionCall) {
-            if (($functionCall['name'] ?? null) !== 'bookBooking') {
+            if (! $this->appointmentToolHandler->canHandle($salon, $functionCall)) {
                 continue;
             }
 
             try {
-                $booking = $this->bookingCreator->createFromAiFunctionCall($salon, $functionCall['args'] ?? []);
+                $booking = $this->appointmentToolHandler->handle($salon, $functionCall);
                 $this->conversationService->attachBooking($conversation, $booking);
                 $text = sprintf(
                     'Am inregistrat programarea pentru %s la ora %s. Te vom contacta pentru confirmare.',
-                    $booking->date->format('Y-m-d'),
+                    $booking->date->locale('ro')->translatedFormat('j F'),
                     $booking->time
                 );
             } catch (HttpException $e) {

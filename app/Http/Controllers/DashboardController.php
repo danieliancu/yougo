@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Salon;
+use App\Services\Dashboard\DashboardDataService;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -10,7 +11,7 @@ use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function __invoke(Request $request, string $section = 'overview'): Response
+    public function __invoke(Request $request, DashboardDataService $dashboardData, string $section = 'overview'): Response
     {
         $allowed = ['overview', 'ai-settings', 'conversations', 'chat-audio', 'voice-calls', 'whatsapp', 'locations', 'services', 'bookings', 'settings'];
         abort_unless(in_array($section, $allowed, true), 404);
@@ -63,6 +64,7 @@ class DashboardController extends Controller
         return Inertia::render('Dashboard/Index', [
             'section' => $section,
             'salon' => $salon,
+            'overview' => $dashboardData->overview($salon),
         ]);
     }
 }

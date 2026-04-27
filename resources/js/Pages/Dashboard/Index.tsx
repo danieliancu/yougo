@@ -1,7 +1,7 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { AlertModal, Badge, Button, Card, ConfirmationModal, DangerButton, Field, Input, SecondaryButton, ThemeToggle } from '@/Components/Ui';
-import { Conversation, Location as SalonLocation, PageProps, Salon, Service, User as AuthUser } from '@/types';
+import { Booking, Conversation, Location as SalonLocation, OverviewData, PageProps, Salon, Service, User as AuthUser } from '@/types';
 import { AlertTriangle, Bell, Bot, Building2, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, Download, ExternalLink, FileText, Globe2, LayoutDashboard, List, LogOut, MapPin, Menu, MessageCircle, MessageSquare, Pencil, Phone, Plus, QrCode, Save, Scissors, Search, Settings, Smartphone, Sparkles, Trash2, User, Users, Volume2, X, XCircle } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
@@ -9,6 +9,7 @@ import { useT } from '@/i18n';
 type Props = PageProps<{
   section: 'overview' | 'ai-settings' | 'conversations' | 'chat-audio' | 'voice-calls' | 'whatsapp' | 'locations' | 'services' | 'bookings' | 'settings';
   salon: Salon;
+  overview: OverviewData;
 }>;
 
 const nav = [
@@ -25,7 +26,7 @@ const nav = [
 
 export default function DashboardIndex() {
   const t = useT();
-  const { auth, salon, section, locale } = usePage<Props>().props;
+  const { auth, salon, section, locale, overview } = usePage<Props>().props;
   const titleKey = section === 'locations'
     ? 'salonLocations'
     : nav.find((item) => item.id === section)?.label ?? section;
@@ -63,7 +64,7 @@ export default function DashboardIndex() {
     if (section !== 'conversations' && section !== 'overview') return;
     pollingRef.current = setInterval(() => {
       router.visit(window.location.href, {
-        only: ['salon'],
+        only: ['salon', 'overview'],
         preserveScroll: true,
         preserveState: true,
         replace: true,
@@ -148,9 +149,9 @@ export default function DashboardIndex() {
           </div>
         </header>
         <div className={`min-w-0 flex-1 overflow-x-hidden ${section === 'conversations' ? 'overflow-hidden' : 'overflow-y-auto p-5 lg:p-8'}`}>
-          {section === 'overview' && <Overview salon={salon} />}
+          {section === 'overview' && <Overview salon={salon} overview={overview} />}
           {section === 'ai-settings' && <AiSettings salon={salon} />}
-          {section === 'conversations' && <Conversations salon={salon} query={query} />}
+          {section === 'conversations' && <Conversations salon={salon} query={query} overview={overview} />}
           {section === 'chat-audio' && <ChatAudio salon={salon} query={query} />}
           {section === 'voice-calls' && <VoiceCalls query={query} />}
           {section === 'whatsapp' && <WhatsAppConversations query={query} />}
@@ -318,11 +319,21 @@ function HeaderSearch({ query, onChange, placeholder }: { query: string; onChang
       <div className="relative hidden w-72 xl:block">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 app-text-muted" />
         <input
-          className="h-10 w-full rounded-lg border pl-10 pr-4 text-sm outline-none placeholder:text-[var(--app-text-muted)] focus:border-indigo-500 app-panel"
+          className="h-10 w-full rounded-lg border pl-10 pr-10 text-sm outline-none placeholder:text-[var(--app-text-muted)] focus:border-indigo-500 app-panel"
           value={query}
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
         />
+        {query.length >= 3 && (
+          <button
+            type="button"
+            aria-label="Clear search"
+            onClick={() => onChange('')}
+            className="absolute right-3 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center app-text-muted transition hover:app-text"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
       <button
@@ -564,11 +575,12 @@ function IntegrationRow({ icon: Icon, title, subtitle }: { icon: any; title: str
   );
 }
 
-function Conversations({ salon, query }: { salon: Salon; query: string }) {
+function Conversations({ salon, query, overview }: { salon: Salon; query: string; overview: OverviewData }) {
   const t = useT();
   const [selectedId, setSelectedId] = useState(salon.conversations[0]?.id ?? null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [channelFilter, setChannelFilter] = useState<'all' | 'voice' | 'chat' | 'whatsapp'>('all');
+  const metrics = overview.metrics;
   const conversations = salon.conversations.filter((conversation) => {
     if (channelFilter !== 'all' && (conversation.channel as string) !== channelFilter) return false;
 
@@ -605,8 +617,14 @@ function Conversations({ salon, query }: { salon: Salon; query: string }) {
       }}
     />
     <div className="flex h-full min-w-0 flex-col overflow-hidden app-bg">
-      <div className="shrink-0 border-b p-3 app-border app-shell">
-        <div className="flex flex-wrap gap-2 rounded-lg border p-4 app-panel">
+      <div className="shrink-0 border-b p-3 app-border">
+        <div className="mb-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <ChannelStat label={t('totalConversations')} value={metrics.total_conversations} icon={MessageSquare} tone="blue" compact />
+          <ChannelStat label={t('conversationsToday')} value={metrics.conversations_today} icon={Clock} tone="purple" compact />
+          <ChannelStat label={t('openConversations')} value={metrics.open_conversations} icon={MessageCircle} tone="green" compact />
+          <ChannelStat label={t('abandonedConversations')} value={metrics.abandoned_conversations} icon={XCircle} tone="slate" compact />
+        </div>
+        <div className="flex flex-wrap gap-2">
           <ConversationFilterButton active={channelFilter === 'voice'} onClick={() => setChannelFilter('voice')} icon={Phone}>{t('phoneCalls')}</ConversationFilterButton>
           <ConversationFilterButton active={channelFilter === 'chat'} onClick={() => setChannelFilter('chat')} icon={MessageSquare}>{t('chat')}</ConversationFilterButton>
           <ConversationFilterButton active={channelFilter === 'whatsapp'} onClick={() => setChannelFilter('whatsapp')} icon={MessageCircle}>{t('whatsapp')}</ConversationFilterButton>
@@ -680,7 +698,7 @@ function Conversations({ salon, query }: { salon: Salon; query: string }) {
                   <div key={message.id} className={`flex items-start gap-2 sm:gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     {message.role === 'assistant' && <Avatar label="AI" />}
                     <div className={`max-w-[calc(100%-3rem)] break-words rounded-lg px-4 py-3 text-sm leading-6 sm:max-w-[78%] ${message.role === 'assistant' ? 'app-panel-soft' : 'chat-bubble-user'}`}>
-                      <InlineMarkdown text={message.content} />
+                      <InlineMarkdown text={formatNaturalDatesInText(message.content)} />
                     </div>
                     {message.role === 'user' && <Avatar label="C" muted />}
                   </div>
@@ -828,6 +846,34 @@ function formatDate(value?: string | null, timezone?: string | null) {
   }).format(new Date(value));
 }
 
+function formatNaturalDatesInText(text: string) {
+  const months = [
+    'ianuarie',
+    'februarie',
+    'martie',
+    'aprilie',
+    'mai',
+    'iunie',
+    'iulie',
+    'august',
+    'septembrie',
+    'octombrie',
+    'noiembrie',
+    'decembrie',
+  ];
+
+  return text.replace(/\b(\d{2})-(\d{2})-(\d{4})\b/g, (match, first, second) => {
+    const month = Number(first);
+    const day = Number(second);
+
+    if (month < 1 || month > 12 || day < 1 || day > 31) {
+      return match;
+    }
+
+    return `${day} ${months[month - 1]}`;
+  });
+}
+
 function formatDuration(seconds?: number | null) {
   if (!seconds) return '0:00';
   const minutes = Math.floor(seconds / 60);
@@ -949,26 +995,21 @@ function ActivityLegendItem({ color, label }: { color: string; label: string }) 
   );
 }
 
-function Overview({ salon }: { salon: Salon }) {
+function Overview({ salon, overview }: { salon: Salon; overview: OverviewData }) {
   const t = useT();
   const assistantName = salon.ai_assistant_name?.trim() || 'Bella';
   const [activityRange, setActivityRange] = useState<'week' | 'month'>('week');
-  const stats = useMemo(() => ({
-    total: salon.bookings.length,
-    pending: salon.bookings.filter((item) => item.status === 'pending').length,
-    confirmed: salon.bookings.filter((item) => item.status === 'confirmed').length,
-    completed: salon.bookings.filter((item) => item.status === 'completed').length,
-  }), [salon.bookings]);
+  const metrics = overview.metrics;
 
   const chart = useMemo(() => buildActivityChart(salon.conversations, activityRange), [salon.conversations, activityRange]);
 
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Stat label={t('totalBookings')} value={stats.total} icon={Calendar} />
-        <Stat label={t('pendingRequests')} value={stats.pending} icon={Users} tone="amber" />
-        <Stat label={t('confirmed')} value={stats.confirmed} icon={CheckCircle2} tone="green" />
-        <Stat label={t('servicesActive')} value={salon.services.length} icon={Scissors} />
+        <Stat label={t('totalBookings')} value={metrics.total_bookings} icon={Calendar} tone="green" />
+        <Stat label={t('conversionRate')} value={`${metrics.conversion_rate}%`} icon={CheckCircle2} tone="amber" />
+        <Stat label={t('bookingsThisWeek')} value={metrics.bookings_this_week} icon={Calendar} />
+        <Stat label={t('completedBookings')} value={metrics.completed_bookings} icon={CheckCircle2} tone="slate" />
       </div>
       <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
         <Card className="p-5">
@@ -1017,42 +1058,68 @@ function Overview({ salon }: { salon: Salon }) {
         <Card className="p-5">
           <h2 className="mb-4 text-xs font-black uppercase tracking-wide app-accent-text">{t('assistantLive')}</h2>
           <p className="text-2xl font-black app-text">{t('bellaOnline', { name: assistantName })}</p>
-          <p className="mt-2 text-sm app-text-soft">{t('mysqlPublicPage')}</p>
+          <p className="mt-2 text-sm app-text-soft">{t('overviewAiWorkSummary')}</p>
           <div className="mt-6 rounded-lg app-soft-tint">
-            <p className="px-4 pt-4 pb-2 text-xs font-bold uppercase app-accent-text">{t('lastInteraction')}</p>
-            {salon.conversations.length === 0 ? (
-              <p className="px-4 pb-4 text-sm app-subtle-text">{t('noRecentBooking')}</p>
+            <p className="px-4 pt-4 pb-2 text-xs font-bold uppercase app-accent-text">{t('latestConversations')}</p>
+            {overview.latest_conversations.length === 0 ? (
+              <p className="px-4 pb-4 text-sm app-subtle-text">{t('noConversations')}</p>
             ) : (
               <ul className="divide-y app-border">
-                {[...salon.conversations]
-                  .sort((a, b) => (b.last_message_at ?? b.created_at ?? '').localeCompare(a.last_message_at ?? a.created_at ?? ''))
-                  .slice(0, 5)
-                  .map((conv) => {
-                    const name = conv.contact_name ?? `Vizitator #${conv.visitor_number ?? conv.id}`;
-                    const label = conv.intent === 'booking' ? t('madeBooking', { name }) : t('justAsked', { name });
-                    return (
-                      <li key={conv.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                        <span className="text-sm app-subtle-text">{label}</span>
-                        {conv.booking && (
-                          <StatusPill status={conv.booking.status} t={t} className="min-w-0 px-2 py-0.5 text-[10px]" />
-                        )}
-                      </li>
-                    );
-                  })}
+                {overview.latest_conversations.map((conv) => (
+                  <li key={conv.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                    <span className="min-w-0 truncate text-sm app-subtle-text">{conversationTitle(conv, t)}</span>
+                    <IntentPill intent={conv.intent} compact bookingStatus={conv.booking?.status} />
+                  </li>
+                ))}
               </ul>
             )}
           </div>
         </Card>
       </div>
+      <Card className="overflow-hidden">
+        <div className="border-b p-5 app-border">
+          <h2 className="text-lg font-black app-text">{t('latestBookings')}</h2>
+        </div>
+        {overview.latest_bookings.length === 0 ? (
+          <div className="flex min-h-24 items-center justify-center p-6 text-sm app-text-muted">
+            {t('noRecentBooking')}
+          </div>
+        ) : (
+          <div className="divide-y app-border">
+            {overview.latest_bookings.map((booking) => (
+              <OverviewBookingRow key={booking.id} booking={booking} t={t} />
+            ))}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }
 
-function Stat({ label, value, icon: Icon, tone = 'indigo' }: { label: string; value: number; icon: any; tone?: 'indigo' | 'amber' | 'green' }) {
+function OverviewBookingRow({ booking, t }: { booking: Booking; t: (key: string) => string }) {
+  return (
+    <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-black app-text">{booking.client_name}</p>
+        <p className="mt-1 truncate text-xs app-text-muted">
+          {[booking.service?.name, booking.location?.name].filter(Boolean).join(' • ') || t('appointment')}
+        </p>
+      </div>
+      <div className="flex shrink-0 flex-wrap items-center gap-3">
+        <span className="text-xs font-black app-text-muted">{formatBookingDay(booking.date)} {booking.time}</span>
+        <StatusPill status={booking.status} t={t} className="min-w-0 px-2 py-0.5 text-[10px]" />
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, icon: Icon, tone = 'indigo' }: { label: string; value: number | string; icon: any; tone?: 'indigo' | 'amber' | 'green' | 'blue' | 'slate' }) {
   const colors = {
     indigo: 'bg-indigo-50 text-indigo-700',
     amber: 'bg-amber-50 text-amber-700',
     green: 'bg-green-50 text-green-700',
+    blue: 'bg-blue-50 text-blue-700',
+    slate: 'bg-slate-100 text-slate-700',
   };
   return (
     <Card className="p-5">
@@ -1095,7 +1162,7 @@ function AiSettings({ salon }: { salon: Salon }) {
             <p className="mt-1 text-sm app-text-muted">{t('aiIdentityBehaviorHelp')}</p>
           </div>
         </div>
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-4">
           <Field label={t('aiAssistantName')} error={form.errors.ai_assistant_name}>
             <Input value={form.data.ai_assistant_name} onChange={(event) => form.setData('ai_assistant_name', event.target.value)} />
           </Field>
@@ -1163,8 +1230,10 @@ function AiSettings({ salon }: { salon: Salon }) {
           </div>
         </div>
         <div className="space-y-5">
-          <ToggleRow title={t('aiBookingEnabled')} subtitle={t('aiBookingEnabledHelp')} checked={form.data.ai_booking_enabled} onChange={(checked) => form.setData('ai_booking_enabled', checked)} />
-          <ToggleRow title={t('aiCollectPhone')} subtitle={t('aiCollectPhoneHelp')} checked={form.data.ai_collect_phone} onChange={(checked) => form.setData('ai_collect_phone', checked)} />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <ToggleRow title={t('aiBookingEnabled')} subtitle={t('aiBookingEnabledHelp')} checked={form.data.ai_booking_enabled} onChange={(checked) => form.setData('ai_booking_enabled', checked)} />
+            <ToggleRow title={t('aiCollectPhone')} subtitle={t('aiCollectPhoneHelp')} checked={form.data.ai_collect_phone} onChange={(checked) => form.setData('ai_collect_phone', checked)} />
+          </div>
           <div className="grid gap-4 lg:grid-cols-2">
             <Field label={t('aiUnknownAnswerPolicy')} error={form.errors.ai_unknown_answer_policy}>
               <select className="h-10 w-full rounded-lg border px-3 text-sm outline-none app-panel app-text" value={form.data.ai_unknown_answer_policy} onChange={(event) => form.setData('ai_unknown_answer_policy', event.target.value)}>
@@ -1570,6 +1639,12 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
   const [staffDrafts, setStaffDrafts] = useState<string[]>(salon.service_staff ?? []);
   const form = useForm({ name: '', type: '', staff: [] as string[], price: '', duration: 30, location_ids: [] as number[], notes: '' });
   const editForm = useForm({ name: '', type: '', staff: [] as string[], price: '', duration: 30, location_ids: [] as number[], notes: '' });
+  const serviceStats = {
+    services: salon.services.length,
+    categories: (salon.service_categories ?? []).filter(Boolean).length,
+    locations: salon.locations.length,
+    staff: (salon.service_staff ?? []).filter(Boolean).length,
+  };
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const filteredServices = salon.services.filter((service) => {
     if (categoryFilter.length > 0 && !categoryFilter.includes(service.type ?? '')) return false;
@@ -1878,6 +1953,12 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
           </div>
         }
       />
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <ChannelStat label={t('services')} value={serviceStats.services} icon={Scissors} tone="blue" />
+        <ChannelStat label={t('categories')} value={serviceStats.categories} icon={FileText} tone="purple" />
+        <ChannelStat label={t('locations')} value={serviceStats.locations} icon={MapPin} tone="green" />
+        <ChannelStat label={t('staff')} value={serviceStats.staff} icon={Users} tone="slate" />
+      </div>
       <Card className="overflow-hidden">
         <Table headers={[
           t('service'),
@@ -2260,9 +2341,9 @@ function ChatAudio({ salon, query }: { salon: Salon; query: string }) {
   });
   const stats = {
     total: salon.conversations.length,
-    chat: salon.conversations.filter((conversation) => conversation.channel === 'chat').length,
     audio: salon.conversations.filter((conversation) => conversation.channel === 'voice').length,
     completed: salon.conversations.filter((conversation) => conversation.status === 'completed').length,
+    abandoned: salon.conversations.filter((conversation) => conversation.intent === 'abandoned').length,
   };
 
   return (
@@ -2275,10 +2356,10 @@ function ChatAudio({ salon, query }: { salon: Salon; query: string }) {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <ChannelStat icon={MessageSquare} value={stats.total} label={t('totalConversations')} tone="blue" />
-        <ChannelStat icon={MessageSquare} value={stats.chat} label={t('chat')} tone="green" />
+        <ChannelStat icon={MessageSquare} value={stats.total} label={t('totalChat')} tone="blue" />
         <ChannelStat icon={Volume2} value={stats.audio} label={t('audio')} tone="purple" />
-        <ChannelStat icon={CheckCircle2} value={stats.completed} label={t('completedChats')} tone="slate" />
+        <ChannelStat icon={CheckCircle2} value={stats.completed} label={t('completedChats')} tone="green" />
+        <ChannelStat icon={XCircle} value={stats.abandoned} label={t('abandonedChats')} tone="slate" />
       </div>
 
       <Card className="min-h-40 overflow-hidden">
@@ -2396,7 +2477,7 @@ function WhatsAppConversations({ query: _query }: { query: string }) {
   );
 }
 
-function ChannelStat({ icon: Icon, value, label, tone }: { icon: any; value: number; label: string; tone: 'blue' | 'green' | 'red' | 'purple' | 'slate' }) {
+function ChannelStat({ icon: Icon, value, label, tone, compact = false }: { icon: any; value: number; label: string; tone: 'blue' | 'green' | 'red' | 'purple' | 'slate'; compact?: boolean }) {
   const tones = {
     blue: 'bg-blue-100 text-blue-600 dark:bg-blue-400/15 dark:text-blue-300',
     green: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-300',
@@ -2406,14 +2487,14 @@ function ChannelStat({ icon: Icon, value, label, tone }: { icon: any; value: num
   };
 
   return (
-    <Card className="p-5">
-      <div className="flex items-center gap-4">
-        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${tones[tone]}`}>
-          <Icon className="h-5 w-5" />
+    <Card className={compact ? 'p-3' : 'p-5'}>
+      <div className={`flex items-center ${compact ? 'gap-3' : 'gap-4'}`}>
+        <span className={`flex shrink-0 items-center justify-center rounded-full ${compact ? 'h-8 w-8' : 'h-10 w-10'} ${tones[tone]}`}>
+          <Icon className={compact ? 'h-4 w-4' : 'h-5 w-5'} />
         </span>
         <div>
-          <p className="text-2xl font-black app-text">{value}</p>
-          <p className="text-sm app-text-muted">{label}</p>
+          <p className={`${compact ? 'text-xl' : 'text-2xl'} font-black app-text`}>{value}</p>
+          <p className={`${compact ? 'text-xs' : 'text-sm'} app-text-muted`}>{label}</p>
         </div>
       </div>
     </Card>
@@ -2454,7 +2535,7 @@ function Bookings({ salon, query }: { salon: Salon; query: string }) {
     return {
       today: salon.bookings.filter((booking) => booking.date === todayKey).length,
       upcoming: salon.bookings.filter((booking) => booking.date > todayKey && (booking.status === 'pending' || booking.status === 'confirmed')).length,
-      completed: salon.bookings.filter((booking) => booking.status === 'completed').length,
+      pending: salon.bookings.filter((booking) => booking.status === 'pending').length,
       cancelled: salon.bookings.filter((booking) => booking.status === 'cancelled').length,
     };
   }, [salon.bookings, todayKey]);
@@ -2671,7 +2752,7 @@ function Bookings({ salon, query }: { salon: Salon; query: string }) {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <BookingStat icon={Calendar} value={stats.today} label={t('today')} tone="blue" />
         <BookingStat icon={Calendar} value={stats.upcoming} label={t('upcoming')} tone="green" />
-        <BookingStat icon={Calendar} value={stats.completed} label={t('completed')} tone="purple" />
+        <BookingStat icon={Calendar} value={stats.pending} label={t('pendingRequests')} tone="purple" />
         <BookingStat icon={Calendar} value={stats.cancelled} label={t('cancelled')} tone="red" />
       </div>
 
@@ -2805,10 +2886,27 @@ function BookingsDayCards({
                   {!!booking.service?.notes && <ServiceNotesPill notes={booking.service.notes} />}
                 </div>
                 <div className="flex items-center justify-start gap-2 lg:justify-end">
-                  {(booking.status === 'pending' || booking.status === 'cancelled') && <SecondaryButton onClick={() => onConfirm(booking)}><CheckCircle2 className="h-4 w-4 text-green-600" /></SecondaryButton>}
-                  {booking.status !== 'cancelled' && <SecondaryButton onClick={() => onCancel(booking)}><XCircle className="h-4 w-4 text-red-600" /></SecondaryButton>}
-                  <SecondaryButton onClick={() => onEdit(booking)} aria-label={t('editBooking')} title={t('editBooking')}><Pencil className="h-4 w-4" /></SecondaryButton>
-                  <DangerButton onClick={() => onDelete(booking)}><Trash2 className="h-4 w-4" /></DangerButton>
+                  {(booking.status === 'pending' || booking.status === 'cancelled') && (
+                    <button type="button" onClick={() => onConfirm(booking)} className="inline-flex h-8 w-8 items-center justify-center app-text-soft transition hover:text-green-600">
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    </button>
+                  )}
+                  {booking.client_phone && (
+                    <a href={`tel:${booking.client_phone}`} aria-label={booking.client_phone} title={booking.client_phone} className="inline-flex h-8 w-8 items-center justify-center app-text-soft transition hover:text-green-600">
+                      <Phone className="h-4 w-4" />
+                    </a>
+                  )}
+                  {booking.status !== 'cancelled' && (
+                    <button type="button" onClick={() => onCancel(booking)} className="inline-flex h-8 w-8 items-center justify-center app-text-soft transition hover:text-red-600">
+                      <XCircle className="h-4 w-4 text-red-600" />
+                    </button>
+                  )}
+                  <button type="button" onClick={() => onEdit(booking)} aria-label={t('editBooking')} title={t('editBooking')} className="inline-flex h-8 w-8 items-center justify-center app-text-soft transition hover:app-text">
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button type="button" onClick={() => onDelete(booking)} className="inline-flex h-8 w-8 items-center justify-center text-red-600 transition hover:text-red-700">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
             ))}
