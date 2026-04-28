@@ -7,6 +7,7 @@ use App\Http\Controllers\AiSettingsController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\IndustryController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\SettingsController;
@@ -14,6 +15,8 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', fn () => Inertia::render('Landing'))->name('home');
+Route::get('/industries/{businessTypeSlug}', [IndustryController::class, 'show'])->name('industries.show');
+Route::get('/industries/{businessTypeSlug}/{industrySlug}', [IndustryController::class, 'redirectLegacy'])->name('industries.legacy');
 
 Route::middleware('guest')->group(function () {
     Route::get('/register', [RegisteredUserController::class, 'create'])->name('register');
@@ -49,6 +52,7 @@ Route::middleware('auth')->group(function () {
 
     Route::put('/ai-settings', [AiSettingsController::class, 'update'])->name('ai-settings.update');
     Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
+    Route::delete('/account', [SettingsController::class, 'destroy'])->name('account.destroy');
 });
 
 Route::get('/assistant/{salon}', [AssistantController::class, 'show'])->name('assistant.show');

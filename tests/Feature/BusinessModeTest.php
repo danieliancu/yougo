@@ -55,8 +55,10 @@ class BusinessModeTest extends TestCase
     {
         $salon = $this->createSalon([
             'mode' => Salon::MODE_APPOINTMENT,
-            'industry' => 'Medical Clinic',
-            'business_type' => 'clinic',
+            'business_type' => 'auto-service',
+            'ai_industry_categories' => ['mot-inspection', 'tyres', 'car-diagnostics'],
+            'ai_main_focus' => 'mot-inspection',
+            'ai_custom_context' => ['flote comerciale', 'urgente'],
         ]);
 
         $payload = app(GeminiPayloadBuilder::class)->build($salon, [
@@ -64,9 +66,12 @@ class BusinessModeTest extends TestCase
         ]);
         $instruction = $payload['systemInstruction']['parts'][0]['text'];
 
-        $this->assertStringContainsString('industrie: Medical Clinic', $instruction);
         $this->assertStringContainsString('mod business: appointment', $instruction);
-        $this->assertStringContainsString('tip business: clinic', $instruction);
+        $this->assertStringContainsString('tip business: auto-service', $instruction);
+        $this->assertStringContainsString('categories: MOT / inspection, Tyres, Car diagnostics', $instruction);
+        $this->assertStringContainsString('custom context: flote comerciale, urgente', $instruction);
+        $this->assertStringContainsString('Main focus: MOT / inspection', $instruction);
+        $this->assertStringContainsString('Services configured in the dashboard remain the source of truth', $instruction);
         $this->assertStringContainsString('modul curent este appointment', $instruction);
     }
 

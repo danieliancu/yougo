@@ -96,6 +96,9 @@ export type Salon = {
   ai_language_mode?: 'auto' | 'ro' | 'en' | string | null;
   ai_custom_instructions?: string | null;
   ai_business_summary?: string | null;
+  ai_industry_categories?: string[] | null;
+  ai_main_focus?: string | null;
+  ai_custom_context?: string[] | null;
   ai_booking_enabled?: boolean;
   ai_collect_phone?: boolean;
   ai_handoff_message?: string | null;
@@ -128,4 +131,5 @@ export type PageProps<T = Record<string, unknown>> = T & {
   auth: { user: User | null };
   locale: string;
   flash: { success?: string | null; error?: string | null };
+  businessTaxonomy?: unknown[];
 };

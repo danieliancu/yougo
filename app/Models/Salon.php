@@ -41,6 +41,9 @@ class Salon extends Model
         'ai_language_mode',
         'ai_custom_instructions',
         'ai_business_summary',
+        'ai_industry_categories',
+        'ai_main_focus',
+        'ai_custom_context',
         'ai_booking_enabled',
         'ai_collect_phone',
         'ai_handoff_message',
@@ -56,6 +59,8 @@ class Salon extends Model
             'onboarding_completed' => 'boolean',
             'service_categories' => 'array',
             'service_staff' => 'array',
+            'ai_industry_categories' => 'array',
+            'ai_custom_context' => 'array',
             'ai_booking_enabled' => 'boolean',
             'ai_collect_phone' => 'boolean',
         ];

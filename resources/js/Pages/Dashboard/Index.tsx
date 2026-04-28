@@ -5,6 +5,7 @@ import { Booking, Conversation, Location as SalonLocation, OverviewData, PagePro
 import { AlertTriangle, Bell, Bot, Building2, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, Download, ExternalLink, FileText, Globe2, LayoutDashboard, List, LogOut, MapPin, Menu, MessageCircle, MessageSquare, Pencil, Phone, Plus, QrCode, Save, Scissors, Search, Settings, Smartphone, Sparkles, Trash2, User, Users, Volume2, X, XCircle } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
+import { businessTaxonomy, findBusinessType, normalizeBusinessTypeSlug } from '@/data/businessTaxonomy';
 
 type Props = PageProps<{
   section: 'overview' | 'ai-settings' | 'conversations' | 'chat-audio' | 'voice-calls' | 'whatsapp' | 'locations' | 'services' | 'bookings' | 'settings';
@@ -80,8 +81,7 @@ export default function DashboardIndex() {
       name: auth.user.name,
       business_name: salon.name,
       timezone: salon.timezone ?? 'Europe/London',
-      industry: salon.industry ?? '',
-      business_type: salon.business_type ?? '',
+      business_type: normalizeBusinessTypeSlug(salon.business_type) || 'salon-beauty',
       country: salon.country ?? '',
       website: salon.website ?? '',
       business_phone: salon.business_phone ?? '',
@@ -379,13 +379,14 @@ function HeaderSearch({ query, onChange, placeholder }: { query: string; onChang
 function SettingsPage({ salon }: { salon: Salon }) {
   const t = useT();
   const { auth } = usePage<Props>().props;
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const initialBusinessType = normalizeBusinessTypeSlug(salon.business_type) || 'salon-beauty';
   const form = useForm({
     name: auth.user?.name ?? '',
     business_name: salon.name ?? '',
     timezone: salon.timezone ?? 'Europe/London',
-      industry: salon.industry ?? '',
-      business_type: salon.business_type ?? '',
-      country: salon.country ?? '',
+    business_type: initialBusinessType,
+    country: salon.country ?? '',
     website: salon.website ?? '',
     business_phone: salon.business_phone ?? '',
     notification_email: salon.notification_email ?? '',
@@ -442,17 +443,13 @@ function SettingsPage({ salon }: { salon: Salon }) {
                 <option value="Europe/Berlin">Berlin (CET/CEST)</option>
               </DarkSelect>
             </DarkField>
-            <DarkField label={t('industry')} error={form.errors.industry}>
-              <DarkSelect value={form.data.industry} onChange={(event) => form.setData('industry', event.target.value)}>
-                <option value="">{t('selectIndustry')}</option>
-                <option value="Beauty Salon">Beauty Salon</option>
-                <option value="Legal Services">Legal Services</option>
-                <option value="Medical Clinic">Medical Clinic</option>
-                <option value="Consulting">Consulting</option>
-              </DarkSelect>
-            </DarkField>
             <DarkField label={t('businessType')} error={form.errors.business_type}>
-              <DarkInput value={form.data.business_type} onChange={(event) => form.setData('business_type', event.target.value)} placeholder={t('businessTypePlaceholder')} />
+              <DarkSelect value={form.data.business_type} onChange={(event) => form.setData('business_type', event.target.value)}>
+                <option value="">{t('selectBusinessType')}</option>
+                {businessTaxonomy.map((option) => (
+                  <option key={option.slug} value={option.slug}>{option.label}</option>
+                ))}
+              </DarkSelect>
             </DarkField>
             <DarkField label={t('country')} error={form.errors.country}>
               <DarkInput maxLength={2} value={form.data.country} onChange={(event) => form.setData('country', event.target.value.toUpperCase())} placeholder="RO" />
@@ -498,6 +495,23 @@ function SettingsPage({ salon }: { salon: Salon }) {
             <IntegrationRow icon={MessageCircle} title={t('chat')} subtitle={t('websiteAssistant')} />
           </div>
         </SettingsPanel>
+
+        <SettingsPanel icon={AlertTriangle} title={t('dangerZone')} subtitle={t('dangerZoneSubtitle')}>
+          <div className="flex flex-col gap-4 rounded-lg border border-red-500/30 bg-red-500/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-black text-red-400">{t('deleteAccount')}</p>
+              <p className="mt-1 text-sm app-text-muted">{t('deleteAccountHelp')}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDeleteAccount(true)}
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-black text-white hover:bg-red-700"
+            >
+              <Trash2 className="h-4 w-4" />
+              {t('deleteAccount')}
+            </button>
+          </div>
+        </SettingsPanel>
       </div>
 
       <div className="mt-6 flex justify-end">
@@ -506,6 +520,16 @@ function SettingsPage({ salon }: { salon: Salon }) {
           {t('saveChanges')}
         </button>
       </div>
+
+      <ConfirmationModal
+        open={showDeleteAccount}
+        title={t('deleteAccountConfirmTitle')}
+        message={t('deleteAccountConfirmMessage')}
+        confirmLabel={t('deleteAccountConfirm')}
+        cancelLabel={t('cancel')}
+        onConfirm={() => router.delete('/account')}
+        onCancel={() => setShowDeleteAccount(false)}
+      />
     </form>
   );
 }
@@ -1134,6 +1158,8 @@ function Stat({ label, value, icon: Icon, tone = 'indigo' }: { label: string; va
 
 function AiSettings({ salon }: { salon: Salon }) {
   const t = useT();
+  const selectedBusinessType = findBusinessType(normalizeBusinessTypeSlug(salon.business_type) || 'salon-beauty');
+  const [customContextInput, setCustomContextInput] = useState('');
   const form = useForm({
     ai_assistant_name: salon.ai_assistant_name ?? 'Bella',
     ai_tone: salon.ai_tone ?? 'polite',
@@ -1141,6 +1167,9 @@ function AiSettings({ salon }: { salon: Salon }) {
     ai_language_mode: salon.ai_language_mode ?? 'auto',
     ai_custom_instructions: salon.ai_custom_instructions ?? '',
     ai_business_summary: salon.ai_business_summary ?? '',
+    ai_industry_categories: salon.ai_industry_categories ?? [],
+    ai_main_focus: salon.ai_main_focus ?? '',
+    ai_custom_context: salon.ai_custom_context ?? [],
     ai_booking_enabled: Boolean(salon.ai_booking_enabled ?? true),
     ai_collect_phone: Boolean(salon.ai_collect_phone ?? true),
     ai_handoff_message: salon.ai_handoff_message ?? '',
@@ -1150,6 +1179,30 @@ function AiSettings({ salon }: { salon: Salon }) {
   function submit(event: FormEvent) {
     event.preventDefault();
     form.put('/ai-settings', { preserveScroll: true });
+  }
+
+  function toggleAiCategory(category: string) {
+    const categories = form.data.ai_industry_categories.includes(category)
+      ? form.data.ai_industry_categories.filter((item) => item !== category)
+      : [...form.data.ai_industry_categories, category];
+
+    form.setData({
+      ...form.data,
+      ai_industry_categories: categories,
+      ai_main_focus: categories.includes(form.data.ai_main_focus) ? form.data.ai_main_focus : '',
+    });
+  }
+
+  function addCustomContext() {
+    const value = customContextInput.trim();
+    if (!value || form.data.ai_custom_context.includes(value)) return;
+
+    form.setData('ai_custom_context', [...form.data.ai_custom_context, value]);
+    setCustomContextInput('');
+  }
+
+  function removeCustomContext(value: string) {
+    form.setData('ai_custom_context', form.data.ai_custom_context.filter((item) => item !== value));
   }
 
   return (
@@ -1188,6 +1241,92 @@ function AiSettings({ salon }: { salon: Salon }) {
               <option value="detailed">{t('aiStyleDetailed')}</option>
             </select>
           </Field>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <div className="mb-6 flex items-start gap-3">
+          <Building2 className="mt-1 h-5 w-5 text-indigo-500" />
+          <div>
+            <h2 className="text-xl font-black app-text">{t('aiBusinessContext')}</h2>
+            <p className="mt-1 text-sm app-text-muted">{t('aiBusinessContextHelp')}</p>
+          </div>
+        </div>
+        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <div>
+            <p className="mb-3 text-sm font-black app-text">{t('industryCategories')}</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {selectedBusinessType?.industries.map((category) => {
+                const checked = form.data.ai_industry_categories.includes(category.slug);
+                return (
+                  <button
+                    key={category.slug}
+                    type="button"
+                    onClick={() => toggleAiCategory(category.slug)}
+                    className={`flex items-center gap-3 rounded-lg border p-3 text-left text-sm font-bold transition app-border ${checked ? 'bg-indigo-600 text-white' : 'app-panel app-text-soft hover:bg-[var(--app-panel-soft)]'}`}
+                  >
+                    <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${checked ? 'border-white bg-white text-indigo-600' : 'border-[var(--app-border)]'}`}>
+                      {checked && <Check className="h-3 w-3" />}
+                    </span>
+                    {category.label}
+                  </button>
+                );
+              })}
+            </div>
+            {form.errors.ai_industry_categories && <p className="mt-2 text-xs font-bold text-red-500">{form.errors.ai_industry_categories}</p>}
+          </div>
+          <div className="space-y-5">
+            <Field label={`${t('mainFocus')} (${t('optional')})`} error={form.errors.ai_main_focus}>
+              <select
+                className="h-10 w-full rounded-lg border px-3 text-sm outline-none app-panel app-text"
+                value={form.data.ai_main_focus}
+                onChange={(event) => form.setData('ai_main_focus', event.target.value)}
+              >
+                <option value="">{t('chooseMainFocus')}</option>
+                {form.data.ai_industry_categories.map((slug) => {
+                  const category = selectedBusinessType?.industries.find((item) => item.slug === slug);
+                  return category ? <option key={category.slug} value={category.slug}>{category.label}</option> : null;
+                })}
+              </select>
+            </Field>
+            <div>
+              <p className="mb-2 text-sm font-black app-text">{t('customAiContext')}</p>
+              <div className="flex gap-2">
+                <Input
+                  value={customContextInput}
+                  onChange={(event) => setCustomContextInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      addCustomContext();
+                    }
+                  }}
+                  placeholder={t('customAiContextPlaceholder')}
+                />
+                <button type="button" onClick={addCustomContext} className="inline-flex h-10 shrink-0 items-center rounded-lg bg-indigo-600 px-4 text-sm font-black text-white hover:bg-indigo-700">
+                  {t('add')}
+                </button>
+              </div>
+              <p className="mt-2 text-xs app-text-muted">{t('customAiContextHelp')}</p>
+              {form.errors.ai_custom_context && <p className="mt-2 text-xs font-bold text-red-500">{form.errors.ai_custom_context}</p>}
+              {form.data.ai_custom_context.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {form.data.ai_custom_context.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => removeCustomContext(item)}
+                      className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-black app-border app-text-soft hover:bg-[var(--app-panel-soft)]"
+                      title={t('remove')}
+                    >
+                      {item}
+                      <X className="h-3 w-3" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </Card>
 

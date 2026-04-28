@@ -5,6 +5,7 @@ namespace App\Services\Assistant;
 use App\Models\Salon;
 use App\Services\Modes\Appointment\AppointmentPromptContextBuilder;
 use App\Services\Modes\Appointment\AppointmentToolDefinitions;
+use App\Support\BusinessTaxonomy;
 
 class GeminiPayloadBuilder
 {
@@ -49,6 +50,7 @@ class GeminiPayloadBuilder
             "Data de azi este {$today}.",
             "Foloseste exclusiv informatiile configurate aici pentru a raspunde.",
             "Detalii business: ".($this->businessDetails($salon) ?: 'nu sunt configurate').'.',
+            $this->aiBusinessContext($salon),
             "Context produs: modul curent este {$this->businessMode($salon)}. Pentru moment aplicatia activeaza doar fluxul appointment.",
             $this->modeInstructions($salon),
             $this->ownerInstructions($salon),
@@ -59,7 +61,6 @@ class GeminiPayloadBuilder
     {
         return collect([
             "nume business: {$salon->name}",
-            $salon->industry ? "industrie: {$salon->industry}" : null,
             $salon->website ? "website: {$salon->website}" : null,
             $salon->business_phone ? "telefon business: {$salon->business_phone}" : null,
             $salon->notification_email ? "email: {$salon->notification_email}" : null,
@@ -69,6 +70,28 @@ class GeminiPayloadBuilder
             $salon->display_language ? "limba preferata in dashboard: {$this->languageName($salon->display_language)}" : null,
             filled($salon->ai_business_summary) ? "descriere configurata de owner: {$salon->ai_business_summary}" : null,
         ])->filter()->implode(', ');
+    }
+
+    private function aiBusinessContext(Salon $salon): ?string
+    {
+        $businessType = $salon->business_type ?: 'salon-beauty';
+        $categoryLabels = BusinessTaxonomy::industryLabels($businessType, $salon->ai_industry_categories ?? []);
+        $customContext = collect($salon->ai_custom_context ?? [])->filter()->values()->all();
+        $mainFocus = $salon->ai_main_focus
+            ? (BusinessTaxonomy::findIndustry($businessType, $salon->ai_main_focus)['label'] ?? $salon->ai_main_focus)
+            : null;
+
+        if (empty($categoryLabels) && empty($customContext) && ! $mainFocus) {
+            return null;
+        }
+
+        return collect([
+            'Business context selected by owner:',
+            ! empty($categoryLabels) ? 'categories: '.implode(', ', $categoryLabels).'.' : null,
+            ! empty($customContext) ? 'custom context: '.implode(', ', $customContext).'.' : null,
+            $mainFocus ? "Main focus: {$mainFocus}." : null,
+            'These categories are only context; answer based on configured services, locations, staff and AI settings. Services configured in the dashboard remain the source of truth.',
+        ])->filter()->implode(' ');
     }
 
     private function aiBehaviorRules(Salon $salon): string

@@ -1,11 +1,12 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { MessageCircle, Mic, Phone, Plug, Send } from 'lucide-react';
+import { ChevronDown, MessageCircle, Mic, Phone, Plug, Send } from 'lucide-react';
 import { SiWhatsapp } from 'react-icons/si';
 import { useEffect, useState } from 'react';
 import { ThemeToggle } from '@/Components/Ui';
 import { ChatShell } from '@/Components/ChatShell';
 import { translate } from '@/i18n';
 import { PageProps } from '@/types';
+import { businessTaxonomy } from '@/data/businessTaxonomy';
 
 type Locale = 'ro' | 'en';
 
@@ -65,12 +66,13 @@ export default function Landing() {
   return (
     <main className="min-h-screen app-bg">
       <Head title={t('landingTitle')} />
-      <div className="min-[1600px]:bg-[url('/images/hero.png')] min-[1600px]:bg-cover min-[1600px]:bg-left min-[1600px]:bg-no-repeat min-[1600px]:dark:border-b min-[1600px]:dark:border-white">
+      <div className="min-[1600px]:border-b min-[1600px]:border-slate-200 min-[1600px]:bg-[url('/images/hero.png')] min-[1600px]:bg-cover min-[1600px]:bg-left min-[1600px]:bg-no-repeat min-[1600px]:dark:border-white">
         <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
           <Link href="/" className="flex items-center">
             <img src="/images/logo-white.png" className="h-12 w-auto dark:hidden" alt="YouGo" />
             <img src="/images/logo-dark.png" className="hidden h-12 w-auto dark:block" alt="YouGo" />
           </Link>
+          <IndustriesMenu label={t('industriesNav')} />
           <div className="flex items-center gap-3">
             <ThemeToggle />
             <LandingLanguageToggle locale={locale} onChange={switchLang} />
@@ -135,6 +137,60 @@ export default function Landing() {
         </p>
       </section>
     </main>
+  );
+}
+
+function IndustriesMenu({ label }: { label: string }) {
+  const [open, setOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        onMouseEnter={() => setOpen(true)}
+        className="hidden h-10 items-center gap-2 rounded-lg px-3 text-sm font-black app-text-soft hover:bg-[var(--soft)] md:flex"
+      >
+        {label}
+        <ChevronDown className="h-4 w-4" />
+      </button>
+      {open && (
+        <div onMouseLeave={() => setOpen(false)} className="absolute left-1/2 top-12 z-50 hidden w-[780px] -translate-x-1/2 rounded-2xl border p-5 shadow-2xl app-panel md:block">
+          <div className="grid grid-cols-3 gap-3">
+            {businessTaxonomy.map((group) => (
+              <Link
+                key={group.slug}
+                href={`/industries/${group.slug}`}
+                className="rounded-lg p-3 text-sm font-black app-text-soft hover:bg-[var(--soft)] hover:text-indigo-600"
+              >
+                {group.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setMobileOpen((value) => !value)}
+        className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-black app-text-soft hover:bg-[var(--soft)] md:hidden"
+      >
+        {label}
+        <ChevronDown className="h-4 w-4" />
+      </button>
+      {mobileOpen && (
+        <div className="absolute left-1/2 top-12 z-50 max-h-[70vh] w-[calc(100vw-2rem)] -translate-x-1/2 overflow-y-auto rounded-2xl border p-4 shadow-2xl app-panel md:hidden">
+          <div className="grid gap-2">
+            {businessTaxonomy.map((group) => (
+              <Link key={group.slug} href={`/industries/${group.slug}`} className="rounded-lg px-3 py-2 text-sm font-black app-text-soft hover:bg-[var(--soft)]">
+                {group.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

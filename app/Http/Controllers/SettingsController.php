@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Salon;
+use App\Support\BusinessTaxonomy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class SettingsController extends Controller
 {
@@ -18,8 +21,7 @@ class SettingsController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'business_name' => ['required', 'string', 'max:255'],
             'timezone' => ['required', 'string', 'max:80'],
-            'industry' => ['nullable', 'string', 'max:120'],
-            'business_type' => ['nullable', 'string', 'max:120'],
+            'business_type' => ['required', 'string', 'max:100', Rule::in(BusinessTaxonomy::businessTypeSlugs())],
             'country' => ['nullable', 'string', 'size:2'],
             'website' => ['nullable', 'url', 'max:255'],
             'business_phone' => ['nullable', 'string', 'max:60'],
@@ -46,9 +48,8 @@ class SettingsController extends Controller
             'name' => $data['business_name'],
             'logo_path' => $data['logo_path'] ?? $salon->logo_path,
             'timezone' => $data['timezone'],
-            'industry' => $data['industry'] ?? null,
             'mode' => $salon->mode ?: Salon::MODE_APPOINTMENT,
-            'business_type' => $data['business_type'] ?? null,
+            'business_type' => $data['business_type'],
             'country' => strtoupper($data['country'] ?? ''),
             'website' => $data['website'] ?? null,
             'business_phone' => $data['business_phone'] ?? null,
@@ -61,5 +62,24 @@ class SettingsController extends Controller
         ]);
 
         return back()->with('success', 'Setarile au fost salvate.');
+    }
+
+    public function destroy(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+        $salon = $user->salon;
+
+        if ($salon?->logo_path) {
+            Storage::disk('public')->delete($salon->logo_path);
+        }
+
+        Auth::guard('web')->logout();
+
+        $user->delete();
+
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('home')->with('success', 'Contul a fost sters.');
     }
 }
