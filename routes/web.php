@@ -13,6 +13,7 @@ use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\StaffController;
+use App\Http\Controllers\WidgetController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -34,7 +35,7 @@ Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::get('/dashboard/{section}', DashboardController::class)
-        ->whereIn('section', ['overview', 'onboarding', 'ai-settings', 'conversations', 'chat-audio', 'voice-calls', 'whatsapp', 'locations', 'staff', 'services', 'bookings', 'settings'])
+        ->whereIn('section', ['overview', 'onboarding', 'ai-settings', 'conversations', 'chat-audio', 'voice-calls', 'whatsapp', 'locations', 'staff', 'services', 'bookings', 'widget', 'settings'])
         ->name('dashboard.section');
 
     Route::post('/onboarding/skip', [OnboardingController::class, 'skip'])->name('onboarding.skip');
@@ -61,8 +62,15 @@ Route::middleware('auth')->group(function () {
 
     Route::put('/ai-settings', [AiSettingsController::class, 'update'])->name('ai-settings.update');
     Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
+    Route::put('/widget-settings', [WidgetController::class, 'updateSettings'])->name('widget-settings.update');
     Route::delete('/account', [SettingsController::class, 'destroy'])->name('account.destroy');
 });
+
+Route::get('/widget/{widgetKey}.js', [WidgetController::class, 'script'])->name('widget.script');
+Route::get('/widget/{widgetKey}', [WidgetController::class, 'show'])->name('widget.show');
+Route::post('/widget/{widgetKey}/chat', [WidgetController::class, 'chat'])
+    ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class)
+    ->name('widget.chat');
 
 Route::get('/assistant/{salon}', [AssistantController::class, 'show'])->name('assistant.show');
 Route::post('/assistant/{salon}/chat', [AssistantController::class, 'chat'])

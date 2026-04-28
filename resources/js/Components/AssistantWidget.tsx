@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { Mic, Send, Sparkles, User } from 'lucide-react';
+import { MessageSquarePlus, Mic, Send, Sparkles, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { ChatShell } from '@/Components/ChatShell';
 import { Salon } from '@/types';
@@ -47,19 +47,19 @@ function csrfTokens() {
   };
 }
 
-function sessionKey(salonId: number) {
-  return `yougo-assistant:${salonId}:conversation-id`;
+function sessionKey(storageKey: string) {
+  return `yougo-assistant:${storageKey}:conversation-id`;
 }
 
-function messagesSessionKey(salonId: number) {
-  return `yougo-assistant:${salonId}:messages`;
+function messagesSessionKey(storageKey: string) {
+  return `yougo-assistant:${storageKey}:messages`;
 }
 
-function storedMessages(salonId: number): Message[] | null {
+function storedMessages(storageKey: string): Message[] | null {
   if (typeof window === 'undefined') return null;
 
   try {
-    const raw = window.sessionStorage.getItem(messagesSessionKey(salonId));
+    const raw = window.sessionStorage.getItem(messagesSessionKey(storageKey));
     if (!raw) return null;
 
     const parsed = JSON.parse(raw);
@@ -74,23 +74,39 @@ function storedMessages(salonId: number): Message[] | null {
 
     return messages.length ? messages : null;
   } catch {
-    window.sessionStorage.removeItem(messagesSessionKey(salonId));
+    window.sessionStorage.removeItem(messagesSessionKey(storageKey));
     return null;
   }
 }
 
-export function AssistantWidget({ salon, locale = 'ro' }: { salon: Salon; locale?: string }) {
+export function AssistantWidget({
+  salon,
+  locale = 'ro',
+  chatEndpoint,
+  storageKey,
+  compact = false,
+  primaryColor,
+}: {
+  salon: Salon;
+  locale?: string;
+  chatEndpoint?: string;
+  storageKey?: string;
+  compact?: boolean;
+  primaryColor?: string | null;
+}) {
   const t = useT();
   const name = assistantName(salon);
+  const conversationStorageKey = storageKey ?? String(salon.id);
+  const endpoint = chatEndpoint ?? `/assistant/${salon.id}/chat`;
   const fallbackMessage = salon.ai_handoff_message?.trim() || t('assistantFallback');
   const initialGreeting = useMemo(() => buildGreeting(salon, locale), [salon, locale]);
-  const [messages, setMessages] = useState<Message[]>(() => storedMessages(salon.id) ?? [{ role: 'assistant', content: initialGreeting }]);
+  const [messages, setMessages] = useState<Message[]>(() => storedMessages(conversationStorageKey) ?? [{ role: 'assistant', content: initialGreeting }]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
   const [conversationId, setConversationId] = useState<number | null>(() => {
     if (typeof window === 'undefined') return null;
-    const stored = window.sessionStorage.getItem(sessionKey(salon.id));
+    const stored = window.sessionStorage.getItem(sessionKey(conversationStorageKey));
     return stored ? Number(stored) || null : null;
   });
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -100,12 +116,12 @@ export function AssistantWidget({ salon, locale = 'ro' }: { salon: Salon; locale
 
   useEffect(() => {
     if (!conversationId) return;
-    window.sessionStorage.setItem(sessionKey(salon.id), String(conversationId));
-  }, [conversationId, salon.id]);
+    window.sessionStorage.setItem(sessionKey(conversationStorageKey), String(conversationId));
+  }, [conversationId, conversationStorageKey]);
 
   useEffect(() => {
-    window.sessionStorage.setItem(messagesSessionKey(salon.id), JSON.stringify(messages.slice(-30)));
-  }, [messages, salon.id]);
+    window.sessionStorage.setItem(messagesSessionKey(conversationStorageKey), JSON.stringify(messages.slice(-30)));
+  }, [messages, conversationStorageKey]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -121,7 +137,7 @@ export function AssistantWidget({ salon, locale = 'ro' }: { salon: Salon; locale
 
     try {
       const tokens = csrfTokens();
-      const response = await fetch(`/assistant/${salon.id}/chat`, {
+      const response = await fetch(endpoint, {
         method: 'POST',
         credentials: 'same-origin',
         headers: {
@@ -157,6 +173,17 @@ export function AssistantWidget({ salon, locale = 'ro' }: { salon: Salon; locale
     void send(input);
   }
 
+  function startNewChat() {
+    const greeting = { role: 'assistant' as const, content: initialGreeting };
+
+    setMessages([greeting]);
+    setInput('');
+    setConversationId(null);
+    conversationIdRef.current = null;
+    window.sessionStorage.removeItem(sessionKey(conversationStorageKey));
+    window.sessionStorage.setItem(messagesSessionKey(conversationStorageKey), JSON.stringify([greeting]));
+  }
+
   function startVoice() {
     if (loading) return;
 
@@ -188,21 +215,33 @@ export function AssistantWidget({ salon, locale = 'ro' }: { salon: Salon; locale
       title={name}
       statusLabel={loading ? assistantTypingLabel(salon, locale) : 'Online'}
       bodyRef={scrollRef}
-      heightClassName="h-[min(680px,calc(100vh-8rem))] min-h-[520px]"
+      heightClassName={compact ? 'h-screen min-h-screen rounded-none' : 'h-[min(680px,calc(100vh-8rem))] min-h-[520px]'}
       className="border-[var(--app-border)] bg-[var(--app-shell)]"
       headerClassName="border-[var(--app-border)] bg-gradient-to-r from-blue-500/15 to-blue-900/15 dark:from-blue-500/25 dark:to-blue-900/25"
       bodyClassName="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4"
       footerClassName="border-t border-[var(--app-border)] p-4"
       action={
-        <button
-          type="button"
-          aria-label={t('voiceAgent')}
-          onClick={startVoice}
-          disabled={loading}
-          className={`flex h-10 w-10 items-center justify-center rounded-lg border transition app-panel app-text-soft hover:bg-[var(--app-panel-soft)] disabled:cursor-not-allowed disabled:opacity-50 ${listening ? 'border-red-500 bg-red-600 text-white hover:bg-red-700' : ''}`}
-        >
-          <Mic className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            aria-label={t('newChat')}
+            title={t('newChat')}
+            onClick={startNewChat}
+            disabled={loading}
+            className="flex h-10 w-10 items-center justify-center rounded-lg border transition app-panel app-text-soft hover:bg-[var(--app-panel-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <MessageSquarePlus className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            aria-label={t('voiceAgent')}
+            onClick={startVoice}
+            disabled={loading}
+            className={`flex h-10 w-10 items-center justify-center rounded-lg border transition app-panel app-text-soft hover:bg-[var(--app-panel-soft)] disabled:cursor-not-allowed disabled:opacity-50 ${listening ? 'border-red-500 bg-red-600 text-white hover:bg-red-700' : ''}`}
+          >
+            <Mic className="h-5 w-5" />
+          </button>
+        </div>
       }
       footer={
         <form onSubmit={submit}>
@@ -216,7 +255,8 @@ export function AssistantWidget({ salon, locale = 'ro' }: { salon: Salon; locale
             />
             <button
               type="submit"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white transition disabled:cursor-not-allowed disabled:opacity-50"
+              style={{ backgroundColor: primaryColor || '#2563eb' }}
               disabled={!input.trim() || loading}
             >
               <Send className="h-4 w-4" />

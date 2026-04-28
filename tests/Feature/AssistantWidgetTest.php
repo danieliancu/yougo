@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Salon;
 use App\Models\User;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -94,6 +95,52 @@ class AssistantWidgetTest extends TestCase
         $conversation->refresh();
         $this->assertSame('open', $conversation->status);
         $this->assertSame('inquiry', $conversation->intent);
+    }
+
+    public function test_chat_can_return_availability_slots_from_tool_call(): void
+    {
+        config(['services.gemini.key' => 'test-key']);
+        Http::fake([
+            '*' => Http::response([
+                'candidates' => [[
+                    'content' => [
+                        'parts' => [[
+                            'functionCall' => [
+                                'name' => 'checkAvailability',
+                                'args' => [
+                                    'location_id' => '1',
+                                    'service_id' => '1',
+                                    'date' => '2026-04-28',
+                                ],
+                            ],
+                        ]],
+                    ],
+                ]],
+            ], 200),
+        ]);
+
+        $salon = $this->createSalon();
+        $location = $salon->locations()->create([
+            'name' => 'Central',
+            'address' => 'Main Street',
+            'hours' => ['tue' => '10:00 - 11:00'],
+        ]);
+        $salon->services()->create([
+            'name' => 'Tuns',
+            'price' => '100',
+            'duration' => 30,
+            'location_ids' => [$location->id],
+        ]);
+
+        $response = $this->postJson("/assistant/{$salon->id}/chat", [
+            'messages' => [
+                ['role' => 'user', 'content' => 'Ce ore sunt libere maine?'],
+            ],
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('message', 'Am gasit urmatoarele sloturi libere: 10:00, 10:30. Ce varianta preferi?')
+            ->assertJsonStructure(['message', 'conversation_id']);
     }
 
     private function createSalon(array $attributes = []): Salon

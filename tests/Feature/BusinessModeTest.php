@@ -124,6 +124,7 @@ class BusinessModeTest extends TestCase
         $this->assertStringContainsString('Nu inventa niciodata staff_id', $instruction);
         $this->assertStringContainsString('capacitate maxima simultana: implicit 1', $instruction);
         $this->assertStringContainsString('Nu ghici capacitatea', $instruction);
+        $this->assertStringContainsString('foloseste checkAvailability', $instruction);
         $this->assertStringContainsString('Inainte sa folosesti bookBooking, recapituleaza datele si cere confirmarea clientului', $instruction);
         $this->assertStringContainsString('Programarile create de AI raman pending si trebuie confirmate de echipa.', $instruction);
     }
@@ -141,11 +142,14 @@ class BusinessModeTest extends TestCase
         ]);
         $toolRequired = $payload['tools'][0]['functionDeclarations'][0]['parameters']['required'];
         $toolProperties = $payload['tools'][0]['functionDeclarations'][0]['parameters']['properties'];
+        $availabilityTool = $payload['tools'][0]['functionDeclarations'][1];
 
         $this->assertSame(['client_name', 'service', 'location', 'date', 'time'], $required);
         $this->assertSame(['client_name', 'service_id', 'location_id', 'date', 'time'], $toolRequired);
         $this->assertArrayHasKey('staff_id', $toolProperties);
         $this->assertNotContains('staff_id', $toolRequired);
+        $this->assertSame('checkAvailability', $availabilityTool['name']);
+        $this->assertSame(['location_id', 'service_id', 'date'], $availabilityTool['parameters']['required']);
     }
 
     public function test_default_required_fields_work_when_settings_are_missing(): void

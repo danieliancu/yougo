@@ -8,7 +8,7 @@ use App\Models\Salon;
 
 class ConversationService
 {
-    public function resolve(Salon $salon, ?int $conversationId): Conversation
+    public function resolve(Salon $salon, ?int $conversationId, string $channel = 'chat'): Conversation
     {
         if ($conversationId) {
             $conversation = $salon->conversations()->whereKey($conversationId)->first();
@@ -32,11 +32,13 @@ class ConversationService
         }
 
         return $salon->conversations()->create([
-            'channel' => 'chat',
+            'channel' => $channel,
             'status' => 'open',
             'intent' => 'inquiry',
             'visitor_number' => $next,
-            'summary' => 'Conversatie noua pornita din widgetul public.',
+            'summary' => $channel === 'web_widget'
+                ? 'Conversatie noua pornita din widgetul embed.'
+                : 'Conversatie noua pornita din widgetul public.',
             'last_message_at' => now(),
         ]);
     }

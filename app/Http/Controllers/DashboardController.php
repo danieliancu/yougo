@@ -14,12 +14,13 @@ class DashboardController extends Controller
 {
     public function __invoke(Request $request, DashboardDataService $dashboardData, OnboardingChecklistService $onboardingChecklist, string $section = 'overview'): Response
     {
-        $allowed = ['overview', 'onboarding', 'ai-settings', 'conversations', 'chat-audio', 'voice-calls', 'whatsapp', 'locations', 'staff', 'services', 'bookings', 'settings'];
+        $allowed = ['overview', 'onboarding', 'ai-settings', 'conversations', 'chat-audio', 'voice-calls', 'whatsapp', 'locations', 'staff', 'services', 'bookings', 'widget', 'settings'];
         abort_unless(in_array($section, $allowed, true), 404);
 
         $salon = $request->user()->salon()->firstOrCreate([], [
             'name' => "{$request->user()->name}'s Salon",
         ]);
+        $salon->ensureWidgetKey();
         $now = Carbon::now($salon->timezone ?: config('app.timezone'));
 
         $salon->bookings()
@@ -68,6 +69,7 @@ class DashboardController extends Controller
             'salon' => $salon,
             'overview' => $dashboardData->overview($salon),
             'onboarding' => $onboardingChecklist->forSalon($salon),
+            'appUrl' => $request->getSchemeAndHttpHost(),
         ]);
     }
 }

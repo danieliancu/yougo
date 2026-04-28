@@ -56,6 +56,8 @@ export type Booking = {
   date: string;
   time: string;
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  source?: string | null;
+  notification_sent_at?: string | null;
   location?: Location | null;
   service?: Service | null;
   staff_member?: Staff | null;
@@ -75,7 +77,7 @@ export type Conversation = {
   salon_id: number;
   booking_id?: number | null;
   visitor_number?: number | null;
-  channel: 'chat' | 'voice';
+  channel: 'chat' | 'voice' | 'web_widget' | string;
   contact_name?: string | null;
   contact_phone?: string | null;
   contact_email?: string | null;
@@ -98,6 +100,11 @@ export type Salon = {
   industry?: string | null;
   mode?: 'appointment' | 'reservation' | 'lead' | string | null;
   business_type?: string | null;
+  widget_key?: string | null;
+  widget_enabled?: boolean;
+  widget_allowed_domains?: string[] | null;
+  widget_primary_color?: string | null;
+  widget_position?: 'bottom-right' | 'bottom-left' | string | null;
   onboarding_completed?: boolean;
   onboarding_skipped?: boolean;
   onboarding_completed_at?: string | null;

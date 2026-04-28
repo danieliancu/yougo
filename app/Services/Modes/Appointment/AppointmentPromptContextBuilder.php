@@ -24,6 +24,7 @@ class AppointmentPromptContextBuilder
             $this->bookingPolicy($salon),
             'Daca clientul cere un anumit membru al echipei, foloseste staff_id doar daca acel ID este listat la serviciul selectat. Nu inventa niciodata staff_id si nu transforma numele legacy de staff in ID.',
             'Nu ghici capacitatea. Sistemul valideaza automat capacitatea locatiei si serviciului inainte de crearea programarii.',
+            'Daca o ora ceruta nu este disponibila sau clientul intreaba ce ore sunt libere, foloseste checkAvailability cu service_id, location_id, date si optional staff_id. Propune doar sloturile returnate de sistem si nu inventa disponibilitate.',
             $this->knowledgeRules(),
         ])->filter()->implode(' ');
     }

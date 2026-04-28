@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class Salon extends Model
 {
@@ -23,6 +24,11 @@ class Salon extends Model
         'industry',
         'mode',
         'business_type',
+        'widget_key',
+        'widget_enabled',
+        'widget_allowed_domains',
+        'widget_primary_color',
+        'widget_position',
         'onboarding_completed',
         'onboarding_skipped',
         'onboarding_completed_at',
@@ -59,6 +65,8 @@ class Salon extends Model
             'email_notifications' => 'boolean',
             'missed_call_alerts' => 'boolean',
             'booking_confirmations' => 'boolean',
+            'widget_enabled' => 'boolean',
+            'widget_allowed_domains' => 'array',
             'onboarding_completed' => 'boolean',
             'onboarding_skipped' => 'boolean',
             'onboarding_completed_at' => 'datetime',
@@ -70,6 +78,41 @@ class Salon extends Model
             'ai_booking_enabled' => 'boolean',
             'ai_collect_phone' => 'boolean',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (Salon $salon) {
+            if (! $salon->widget_key) {
+                $salon->widget_key = static::generateWidgetKey();
+            }
+
+            if (! $salon->widget_position) {
+                $salon->widget_position = 'bottom-right';
+            }
+
+            if ($salon->widget_enabled === null) {
+                $salon->widget_enabled = true;
+            }
+        });
+    }
+
+    public static function generateWidgetKey(): string
+    {
+        do {
+            $key = Str::random(40);
+        } while (static::query()->where('widget_key', $key)->exists());
+
+        return $key;
+    }
+
+    public function ensureWidgetKey(): string
+    {
+        if (! $this->widget_key) {
+            $this->forceFill(['widget_key' => static::generateWidgetKey()])->save();
+        }
+
+        return $this->widget_key;
     }
 
     public function user(): BelongsTo

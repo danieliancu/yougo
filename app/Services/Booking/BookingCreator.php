@@ -12,7 +12,7 @@ class BookingCreator
     {
     }
 
-    public function createFromAiFunctionCall(Salon $salon, array $args): Booking
+    public function createFromAiFunctionCall(Salon $salon, array $args, ?string $source = null): Booking
     {
         $locationId = (int) Arr::get($args, 'location_id');
         $serviceId = (int) Arr::get($args, 'service_id');
@@ -32,6 +32,7 @@ class BookingCreator
             'date' => $dateStr,
             'time' => $timeStr,
             'status' => 'pending',
+            'source' => $source,
         ]);
     }
 

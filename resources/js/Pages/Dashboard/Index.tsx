@@ -8,10 +8,11 @@ import { useT } from '@/i18n';
 import { businessTaxonomy, findBusinessType, normalizeBusinessTypeSlug } from '@/data/businessTaxonomy';
 
 type Props = PageProps<{
-  section: 'overview' | 'onboarding' | 'ai-settings' | 'conversations' | 'chat-audio' | 'voice-calls' | 'whatsapp' | 'locations' | 'staff' | 'services' | 'bookings' | 'settings';
+  section: 'overview' | 'onboarding' | 'ai-settings' | 'conversations' | 'chat-audio' | 'voice-calls' | 'whatsapp' | 'locations' | 'staff' | 'services' | 'bookings' | 'widget' | 'settings';
   salon: Salon;
   overview: OverviewData;
   onboarding: OnboardingChecklist;
+  appUrl: string;
 }>;
 
 const nav = [
@@ -26,6 +27,7 @@ const nav = [
   { id: 'staff', label: 'staff', href: '/dashboard/staff', icon: Users },
   { id: 'services', label: 'services', href: '/dashboard/services', icon: Scissors },
   { id: 'bookings', label: 'bookings', href: '/dashboard/bookings', icon: Calendar },
+  { id: 'widget', label: 'widget', href: '/dashboard/widget', icon: QrCode },
 ];
 
 export default function DashboardIndex() {
@@ -47,6 +49,7 @@ export default function DashboardIndex() {
     staff: t('staffSubtitle'),
     services: t('servicesSubtitle'),
     bookings: t('bookingsSubtitle'),
+    widget: t('widgetSubtitle'),
     settings: t('settingsSubtitle'),
   };
   const headerSubtitle = headerSubtitles[section] ?? '';
@@ -166,6 +169,7 @@ export default function DashboardIndex() {
           {section === 'staff' && <StaffManagement salon={salon} query={query} />}
           {section === 'services' && <Services salon={salon} query={query} />}
           {section === 'bookings' && <Bookings salon={salon} query={query} />}
+          {section === 'widget' && <WidgetSettings salon={salon} />}
           {section === 'settings' && <SettingsPage salon={salon} />}
         </div>
       </main>
@@ -229,11 +233,6 @@ function DashboardSidebarContent({ salon, section, user, t, onNavigate }: { salo
         })}
       </nav>
       <div className="shrink-0 border-t border-white/10 p-4">
-        <Link href={`/assistant/${salon.id}`} onClick={onNavigate} className="mb-4 flex items-center justify-center gap-2 rounded-lg bg-white/10 px-4 py-3 text-sm font-bold text-white hover:bg-white/15">
-          <ExternalLink className="h-4 w-4" />
-          {t('previewPublicAi')}
-        </Link>
-
         <div className="relative">
           {accountOpen && (
             <div className="absolute bottom-full left-0 right-0 mb-2 rounded-lg border border-white/10 bg-slate-950 p-1 shadow-2xl">
@@ -381,6 +380,112 @@ function HeaderSearch({ query, onChange, placeholder }: { query: string; onChang
         </div>
       )}
     </>
+  );
+}
+
+function WidgetSettings({ salon }: { salon: Salon }) {
+  const t = useT();
+  const { appUrl } = usePage<Props>().props;
+  const embedCode = `<script async src="${appUrl}/widget/${salon.widget_key}.js"></script>`;
+  const [domainsText, setDomainsText] = useState((salon.widget_allowed_domains ?? []).join('\n'));
+  const [copied, setCopied] = useState(false);
+  const form = useForm({
+    widget_enabled: Boolean(salon.widget_enabled ?? true),
+    widget_allowed_domains: salon.widget_allowed_domains ?? [],
+    widget_primary_color: salon.widget_primary_color ?? '',
+    widget_position: salon.widget_position ?? 'bottom-right',
+  });
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    form.transform((data) => ({
+      ...data,
+      widget_allowed_domains: domainsText
+        .split(/[\n,]+/)
+        .map((domain) => domain.trim())
+        .filter(Boolean),
+    }));
+    form.put('/widget-settings', { preserveScroll: true });
+  }
+
+  async function copyEmbedCode() {
+    await navigator.clipboard?.writeText(embedCode);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card className="p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-xl font-black app-text">{t('previewAssistantTitle')}</h2>
+            <p className="mt-2 max-w-2xl text-sm app-text-muted">{t('previewAssistantHelp')}</p>
+          </div>
+          <a href={`/assistant/${salon.id}`} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-black text-white transition hover:bg-indigo-700">
+            <ExternalLink className="h-4 w-4" />
+            {t('openPreview')}
+          </a>
+        </div>
+      </Card>
+
+      <form onSubmit={submit}>
+        <Card className="p-6">
+          <div className="flex flex-col gap-2">
+            <h2 className="text-xl font-black app-text">{t('installWidgetTitle')}</h2>
+            <p className="max-w-2xl text-sm app-text-muted">{t('installWidgetHelp')}</p>
+            <p className="text-sm font-semibold app-text-soft">{t('widgetUsesConfiguredRules')}</p>
+          </div>
+
+          <div className="mt-6 rounded-lg border p-4 app-panel-soft app-border">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <code className="block min-w-0 overflow-x-auto whitespace-nowrap rounded-md px-3 py-2 text-xs font-bold app-panel app-text">{embedCode}</code>
+              <SecondaryButton type="button" onClick={copyEmbedCode}>{copied ? t('copied') : t('copyCode')}</SecondaryButton>
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-4 lg:grid-cols-2">
+            <label className="flex items-center justify-between gap-4 rounded-lg border p-4 app-panel app-border">
+              <span>
+                <span className="block text-sm font-black app-text">{t('widgetEnabled')}</span>
+                <span className="block text-xs font-semibold app-text-muted">{t('widgetEnabledHelp')}</span>
+              </span>
+              <input type="checkbox" checked={form.data.widget_enabled} onChange={(event) => form.setData('widget_enabled', event.target.checked)} className="h-5 w-5 rounded border-slate-300 text-indigo-600" />
+            </label>
+
+            <Field label={t('widgetPosition')} error={form.errors.widget_position}>
+              <select value={form.data.widget_position} onChange={(event) => form.setData('widget_position', event.target.value)} className="h-11 w-full rounded-lg border px-3 text-sm font-semibold app-panel app-text">
+                <option value="bottom-right">bottom-right</option>
+                <option value="bottom-left">bottom-left</option>
+              </select>
+            </Field>
+
+            <Field label={t('widgetPrimaryColor')} error={form.errors.widget_primary_color}>
+              <div className="flex gap-3">
+                <input type="color" value={form.data.widget_primary_color || '#2563eb'} onChange={(event) => form.setData('widget_primary_color', event.target.value)} className="h-11 w-16 rounded-lg border app-panel app-border" />
+                <Input value={form.data.widget_primary_color} onChange={(event) => form.setData('widget_primary_color', event.target.value)} placeholder="#2563eb" />
+              </div>
+            </Field>
+
+            <Field label={t('allowedDomains')} error={form.errors.widget_allowed_domains}>
+              <textarea value={domainsText} onChange={(event) => setDomainsText(event.target.value)} rows={4} placeholder="example.com&#10;www.example.ro" className="w-full rounded-lg border px-3 py-2 text-sm font-semibold app-panel app-text placeholder:text-[var(--app-text-muted)]" />
+              <p className="mt-2 text-xs font-semibold app-text-muted">{t('allowedDomainsHelp')}</p>
+            </Field>
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Button type="submit" disabled={form.processing}>
+              <Save className="h-4 w-4" />
+              {t('saveChanges')}
+            </Button>
+            <a href={`/assistant/${salon.id}`} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-black transition app-panel app-text-soft hover:bg-[var(--app-panel-soft)]">
+              <ExternalLink className="h-4 w-4" />
+              {t('openPreview')}
+            </a>
+          </div>
+        </Card>
+      </form>
+    </div>
   );
 }
 
@@ -611,10 +716,10 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
   const t = useT();
   const [selectedId, setSelectedId] = useState(salon.conversations[0]?.id ?? null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [channelFilter, setChannelFilter] = useState<'all' | 'voice' | 'chat' | 'whatsapp'>('all');
+  const [channelFilter, setChannelFilter] = useState<'all' | 'voice' | 'chat' | 'whatsapp'>('chat');
   const metrics = overview.metrics;
   const conversations = salon.conversations.filter((conversation) => {
-    if (channelFilter !== 'all' && (conversation.channel as string) !== channelFilter) return false;
+    if (!conversationMatchesChannel(conversation, channelFilter)) return false;
 
     const haystack = [
       conversation.contact_name,
@@ -774,6 +879,15 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
 function conversationTitle(conversation: Conversation, t?: (key: string, params?: Record<string, string | number>) => string) {
   const num = conversation.visitor_number ?? conversation.id;
   return conversation.contact_name || conversation.contact_phone || conversation.contact_email || (t ? t('visitorLabel', { id: num }) : `Visitor #${num}`);
+}
+
+function conversationMatchesChannel(conversation: Conversation, filter: 'all' | 'voice' | 'chat' | 'whatsapp') {
+  const channel = conversation.channel as string;
+
+  if (filter === 'all') return true;
+  if (filter === 'chat') return channel === 'chat' || channel === 'web_widget';
+
+  return channel === filter;
 }
 
 function ConversationFilterButton({ active, onClick, icon: Icon, children }: { active: boolean; onClick: () => void; icon?: any; children: React.ReactNode }) {
@@ -1588,9 +1702,8 @@ function Locations({ salon }: { salon: Salon }) {
     event.preventDefault();
     if (formHasHourErrors) return;
 
-    form
-      .transform((data) => ({ ...data, hours: normalizeHoursRecord(data.hours) }))
-      .post('/locations', {
+    form.transform((data) => ({ ...data, hours: normalizeHoursRecord(data.hours) }));
+    form.post('/locations', {
       preserveScroll: true,
       onSuccess: () => {
         form.reset();
@@ -1616,9 +1729,8 @@ function Locations({ salon }: { salon: Salon }) {
     if (!editingId) return;
     if (editHasHourErrors) return;
 
-    editForm
-      .transform((data) => ({ ...data, hours: normalizeHoursRecord(data.hours) }))
-      .put(`/locations/${editingId}`, {
+    editForm.transform((data) => ({ ...data, hours: normalizeHoursRecord(data.hours) }));
+    editForm.put(`/locations/${editingId}`, {
       preserveScroll: true,
       onSuccess: () => setEditingId(null),
     });
@@ -3356,7 +3468,7 @@ function BookingsDayCards({
               </span>
             </div>
             <span className="rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-black text-indigo-700 dark:text-indigo-200">
-              {group.bookings[0]?.time} - {group.bookings.at(-1)?.time}
+              {group.bookings[0]?.time} - {lastBookingEndTime(group.bookings)}
             </span>
           </div>
           <div className="divide-y app-border">
@@ -3464,6 +3576,18 @@ function bookingTimeRange(time: string, durationMinutes?: number | null) {
   const endH = Math.floor(totalEnd / 60) % 24;
   const endM = totalEnd % 60;
   return `${time} - ${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+}
+
+function lastBookingEndTime(bookings: Salon['bookings']) {
+  const last = bookings.at(-1);
+
+  if (!last) return '';
+
+  if (!last.service?.duration) {
+    return last.time;
+  }
+
+  return bookingTimeRange(last.time, last.service.duration).split(' - ')[1] ?? last.time;
 }
 
 function formatBookingDay(date: string) {

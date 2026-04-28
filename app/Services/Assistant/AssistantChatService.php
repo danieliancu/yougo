@@ -5,6 +5,7 @@ namespace App\Services\Assistant;
 use App\Models\Salon;
 use App\Services\Conversation\ConversationService;
 use App\Services\Modes\Appointment\AppointmentToolHandler;
+use App\Services\Notifications\BookingNotificationService;
 use Illuminate\Support\Facades\Http;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -15,13 +16,14 @@ class AssistantChatService
         private readonly AssistantResponseParser $responseParser,
         private readonly ConversationService $conversationService,
         private readonly AppointmentToolHandler $appointmentToolHandler,
+        private readonly BookingNotificationService $bookingNotificationService,
     ) {
     }
 
-    public function handle(Salon $salon, array $data): array
+    public function handle(Salon $salon, array $data, string $channel = 'chat'): array
     {
         $salon->load(['locations', 'services']);
-        $conversation = $this->conversationService->resolve($salon, $data['conversation_id'] ?? null);
+        $conversation = $this->conversationService->resolve($salon, $data['conversation_id'] ?? null, $channel);
         $this->conversationService->saveLatestUserMessage($conversation, $data['messages']);
 
         if (! config('services.gemini.key')) {
@@ -59,9 +61,19 @@ class AssistantChatService
                 continue;
             }
 
+            if ($this->appointmentToolHandler->isAvailabilityCall($functionCall)) {
+                $text = $this->appointmentToolHandler->availabilityMessage($salon, $functionCall);
+                continue;
+            }
+
+            if (! $this->appointmentToolHandler->isBookingCall($functionCall)) {
+                continue;
+            }
+
             try {
                 $booking = $this->appointmentToolHandler->handle($salon, $functionCall);
                 $this->conversationService->attachBooking($conversation, $booking);
+                $this->bookingNotificationService->sendAiBookingNotification($booking, $conversation);
                 $text = sprintf(
                     'Am inregistrat programarea pentru %s la ora %s. Te vom contacta pentru confirmare.',
                     $booking->date->locale('ro')->translatedFormat('j F'),

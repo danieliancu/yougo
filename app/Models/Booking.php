@@ -24,6 +24,8 @@ class Booking extends Model
         'date',
         'time',
         'status',
+        'source',
+        'notification_sent_at',
     ];
 
     protected function casts(): array
@@ -31,6 +33,7 @@ class Booking extends Model
         return [
             'date' => 'date:Y-m-d',
             'staff' => 'array',
+            'notification_sent_at' => 'datetime',
         ];
     }
 

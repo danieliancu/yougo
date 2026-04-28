@@ -9,6 +9,7 @@ use App\Models\Service;
 use App\Models\User;
 use App\Services\Booking\AvailabilityChecker;
 use App\Services\Booking\BookingCreator;
+use App\Services\Booking\AvailabilitySlotFinder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -271,6 +272,31 @@ class BookingAvailabilityTest extends TestCase
         $this->assertSame($location->id, $result[0]->id);
     }
 
+    public function test_availability_slot_finder_returns_free_slots(): void
+    {
+        [$salon, $location, $service] = $this->appointmentSetup(['duration' => 30]);
+        $location->update(['hours' => ['tue' => '10:00 - 12:00']]);
+        $this->createBooking($salon, $location, $service, '2026-04-28', '10:00', 'confirmed');
+
+        $slots = app(AvailabilitySlotFinder::class)->find($salon, $location->id, $service->id, '2026-04-28');
+
+        $this->assertSame(['10:30', '11:00', '11:30'], $slots);
+    }
+
+    public function test_availability_slot_finder_respects_staff_availability(): void
+    {
+        [$salon, $location, $service] = $this->appointmentSetup(['duration' => 30]);
+        $location->update(['hours' => ['tue' => '10:00 - 12:00'], 'max_concurrent_bookings' => 2]);
+        $service->update(['max_concurrent_bookings' => 2]);
+        $staff = $this->createAssignableStaff($salon, $location, $service, [
+            'working_hours' => ['tue' => '10:30 - 12:00'],
+        ]);
+
+        $slots = app(AvailabilitySlotFinder::class)->find($salon, $location->id, $service->id, '2026-04-28', $staff->id);
+
+        $this->assertSame(['10:30', '11:00', '11:30'], $slots);
+    }
+
     public function test_allows_valid_booking_slot(): void
     {
         [$salon, $location, $service] = $this->appointmentSetup(['duration' => 60]);
@@ -449,6 +475,22 @@ class BookingAvailabilityTest extends TestCase
 
         $this->assertSame($staff->id, $booking->staff_id);
         $this->assertSame([$staff->name], $booking->staff);
+    }
+
+    public function test_booking_creator_stores_source_when_provided(): void
+    {
+        [$salon, $location, $service] = $this->appointmentSetup();
+
+        $booking = app(BookingCreator::class)->createFromAiFunctionCall($salon, [
+            'client_name' => 'Ana Pop',
+            'client_phone' => '0700000000',
+            'location_id' => (string) $location->id,
+            'service_id' => (string) $service->id,
+            'date' => '2026-04-28',
+            'time' => '10:00',
+        ], 'ai_assistant');
+
+        $this->assertSame('ai_assistant', $booking->source);
     }
 
     public function test_booking_creator_normalizes_ai_hour_to_hh_mm(): void

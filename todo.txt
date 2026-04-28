@@ -2,9 +2,6 @@
 4. Onboarding checklist / setup wizard
 2. Staff availability reală în booking (in progress)
 
-
-
-
 Capacity rules
 pentru 
 locație = max 1 simultan
@@ -12,14 +9,22 @@ serviciu = max 1 simultan
 staff = opțional, dar folosit dacă există
 (cu recomandare Set capacity rules to avoid overbooking)
 
-
-
-
 3. Notificări când AI-ul creează programări
+   Check availability - inform when busy
 5. Pregătire embed real pentru widget
+
+
+
+
+
+
 10. Billing / pay-as-you-go
 
 6. WhatsApp
 7. Telefon
 8. Lead Mode
 9. Reservation Mode
+
+
+
+
