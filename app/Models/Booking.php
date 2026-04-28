@@ -17,6 +17,7 @@ class Booking extends Model
         'salon_id',
         'location_id',
         'service_id',
+        'staff_id',
         'client_name',
         'client_phone',
         'staff',
@@ -46,6 +47,11 @@ class Booking extends Model
     public function service(): BelongsTo
     {
         return $this->belongsTo(Service::class);
+    }
+
+    public function staffMember(): BelongsTo
+    {
+        return $this->belongsTo(Staff::class, 'staff_id');
     }
 
     public function conversations(): HasMany

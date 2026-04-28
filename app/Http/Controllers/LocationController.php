@@ -19,6 +19,7 @@ class LocationController extends Controller
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'hours' => ['nullable', 'array'],
+            'max_concurrent_bookings' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
         $data['hours'] = $this->normalizeHours($data['hours'] ?? []);
@@ -38,6 +39,7 @@ class LocationController extends Controller
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'hours' => ['nullable', 'array'],
+            'max_concurrent_bookings' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
         $data['hours'] = $this->normalizeHours($data['hours'] ?? []);

@@ -65,5 +65,9 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::get('/assistant/{salon}', [AssistantController::class, 'show'])->name('assistant.show');
-Route::post('/assistant/{salon}/chat', [AssistantController::class, 'chat'])->name('assistant.chat');
-Route::post('/assistant/{salon}/abandon', [AssistantController::class, 'abandon'])->name('assistant.abandon');
+Route::post('/assistant/{salon}/chat', [AssistantController::class, 'chat'])
+    ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class)
+    ->name('assistant.chat');
+Route::post('/assistant/{salon}/abandon', [AssistantController::class, 'abandon'])
+    ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class)
+    ->name('assistant.abandon');

@@ -12,6 +12,7 @@ export type Location = {
   email?: string | null;
   phone?: string | null;
   hours?: Record<string, string> | null;
+  max_concurrent_bookings?: number | null;
 };
 
 export type Staff = {
@@ -37,6 +38,7 @@ export type Service = {
   staff?: string[] | null;
   price: string | number;
   duration: number;
+  max_concurrent_bookings?: number | null;
   location_ids?: number[] | null;
   notes?: string | null;
   staff_members?: Staff[];
@@ -47,6 +49,7 @@ export type Booking = {
   salon_id: number;
   location_id?: number | null;
   service_id?: number | null;
+  staff_id?: number | null;
   client_name: string;
   client_phone?: string | null;
   staff?: string[] | null;
@@ -55,6 +58,7 @@ export type Booking = {
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
   location?: Location | null;
   service?: Service | null;
+  staff_member?: Staff | null;
   created_at?: string;
 };
 

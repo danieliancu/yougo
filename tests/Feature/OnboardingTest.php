@@ -70,6 +70,8 @@ class OnboardingTest extends TestCase
         $this->assertFalse($this->step($checklist, 'staff')['required']);
         $this->assertTrue($this->step($checklist, 'staff')['optional']);
         $this->assertFalse($this->step($checklist, 'install_widget')['required']);
+        $this->assertFalse($this->step($checklist, 'capacity_rules')['required']);
+        $this->assertTrue($this->step($checklist, 'capacity_rules')['optional']);
         $this->assertTrue($this->step($checklist, 'install_widget')['coming_soon']);
         $this->assertTrue($checklist['can_complete']);
     }
@@ -124,7 +126,7 @@ class OnboardingTest extends TestCase
                 ->component('Dashboard/Index')
                 ->where('onboarding.completed', false)
                 ->where('onboarding.next_step.key', 'location')
-                ->has('onboarding.steps', 7)
+                ->has('onboarding.steps', 8)
             );
     }
 

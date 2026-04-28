@@ -32,13 +32,13 @@ class DashboardDataService
                 'conversion_rate' => $totalConversations > 0 ? round(($totalBookings / $totalConversations) * 100, 1) : 0.0,
             ],
             'latest_conversations' => $salon->conversations()
-                ->with('booking')
+                ->with('booking.staffMember')
                 ->latest('last_message_at')
                 ->latest()
                 ->limit(5)
                 ->get(),
             'latest_bookings' => $salon->bookings()
-                ->with(['location', 'service'])
+                ->with(['location', 'service', 'staffMember'])
                 ->latest('date')
                 ->latest('time')
                 ->limit(5)

@@ -34,19 +34,17 @@ function buildGreeting(salon: Salon, locale: string): string {
     : `Hi! I'm ${name}, the virtual assistant for ${salon.name}. I can help with services, locations, and bookings.`;
 }
 
-function csrfToken() {
-  const metaToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
-
-  if (metaToken) {
-    return metaToken;
-  }
-
+function csrfTokens() {
+  const metaToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
   const cookieToken = document.cookie
     .split('; ')
     .find((cookie) => cookie.startsWith('XSRF-TOKEN='))
     ?.split('=')[1];
 
-  return cookieToken ? decodeURIComponent(cookieToken) : '';
+  return {
+    csrf: metaToken,
+    xsrf: cookieToken ? decodeURIComponent(cookieToken) : '',
+  };
 }
 
 function sessionKey(salonId: number) {
@@ -122,15 +120,15 @@ export function AssistantWidget({ salon, locale = 'ro' }: { salon: Salon; locale
     setLoading(true);
 
     try {
-      const token = csrfToken();
+      const tokens = csrfTokens();
       const response = await fetch(`/assistant/${salon.id}/chat`, {
         method: 'POST',
         credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
-          'X-CSRF-TOKEN': token,
-          'X-XSRF-TOKEN': token,
+          ...(tokens.csrf ? { 'X-CSRF-TOKEN': tokens.csrf } : {}),
+          ...(tokens.xsrf ? { 'X-XSRF-TOKEN': tokens.xsrf } : {}),
         },
         body: JSON.stringify({ conversation_id: conversationIdRef.current, messages: nextMessages }),
       });

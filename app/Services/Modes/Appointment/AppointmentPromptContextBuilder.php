@@ -22,6 +22,8 @@ class AppointmentPromptContextBuilder
             'Staff disponibil: '.($this->staffDetails($salon) ?: 'nu exista staff configurat').'.',
             'Campuri obligatorii pentru programare: '.implode(', ', $this->requiredFieldsResolver->resolve($salon)).'.',
             $this->bookingPolicy($salon),
+            'Daca clientul cere un anumit membru al echipei, foloseste staff_id doar daca acel ID este listat la serviciul selectat. Nu inventa niciodata staff_id si nu transforma numele legacy de staff in ID.',
+            'Nu ghici capacitatea. Sistemul valideaza automat capacitatea locatiei si serviciului inainte de crearea programarii.',
             $this->knowledgeRules(),
         ])->filter()->implode(' ');
     }
@@ -39,6 +41,7 @@ class AppointmentPromptContextBuilder
                     $location->address ? "adresa: {$location->address}" : null,
                     $location->phone ? "telefon: {$location->phone}" : null,
                     $location->email ? "email: {$location->email}" : null,
+                    $location->max_concurrent_bookings ? "capacitate maxima simultana: {$location->max_concurrent_bookings}" : "capacitate maxima simultana: implicit 1",
                     $hours ? "program: {$hours}" : null,
                 ])->filter()->implode(', ');
             })
@@ -58,6 +61,7 @@ class AppointmentPromptContextBuilder
                     $staff ? "staff: {$staff}" : null,
                     filled($service->price) ? "pret sau tarif: {$service->price}" : null,
                     $service->duration ? "durata: {$service->duration} minute" : null,
+                    $service->max_concurrent_bookings ? "capacitate maxima simultana serviciu: {$service->max_concurrent_bookings}" : "capacitate maxima simultana serviciu: implicit 1",
                     "disponibil la locatiile ID: {$locationIds}",
                     filled($service->notes) ? "note: {$service->notes}" : null,
                 ])->filter()->implode(', ');

@@ -11,12 +11,13 @@ class Service extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['salon_id', 'name', 'type', 'staff', 'price', 'duration', 'location_ids', 'notes'];
+    protected $fillable = ['salon_id', 'name', 'type', 'staff', 'price', 'duration', 'max_concurrent_bookings', 'location_ids', 'notes'];
 
     protected function casts(): array
     {
         return [
             'duration' => 'integer',
+            'max_concurrent_bookings' => 'integer',
             'staff' => 'array',
             'location_ids' => 'array',
         ];

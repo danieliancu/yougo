@@ -25,6 +25,7 @@ class BookingCreator
         return $salon->bookings()->create([
             'location_id' => $locationId,
             'service_id' => $serviceId,
+            'staff_id' => $staff?->id,
             'client_name' => (string) Arr::get($args, 'client_name'),
             'client_phone' => (string) Arr::get($args, 'client_phone', ''),
             'staff' => $staff ? [$staff->name] : collect(Arr::wrap(Arr::get($args, 'staff', [])))->filter()->values()->all(),

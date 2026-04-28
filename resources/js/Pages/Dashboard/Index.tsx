@@ -1262,6 +1262,8 @@ function Overview({ salon, overview, onboarding }: { salon: Salon; overview: Ove
 }
 
 function OverviewBookingRow({ booking, t }: { booking: Booking; t: (key: string) => string }) {
+  const staffLabel = bookingStaffLabel(booking);
+
   return (
     <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
@@ -1269,6 +1271,7 @@ function OverviewBookingRow({ booking, t }: { booking: Booking; t: (key: string)
         <p className="mt-1 truncate text-xs app-text-muted">
           {[booking.service?.name, booking.location?.name].filter(Boolean).join(' • ') || t('appointment')}
         </p>
+        {staffLabel && <p className="mt-1 truncate text-xs app-text-muted">{t('assignedStaff')}: {staffLabel}</p>}
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-3">
         <span className="text-xs font-black app-text-muted">{formatBookingDay(booking.date)} {booking.time}</span>
@@ -1276,6 +1279,14 @@ function OverviewBookingRow({ booking, t }: { booking: Booking; t: (key: string)
       </div>
     </div>
   );
+}
+
+function bookingStaffLabel(booking: Booking): string {
+  if (booking.staff_member?.name) {
+    return booking.staff_member.name;
+  }
+
+  return (booking.staff ?? []).filter(Boolean).join(' • ');
 }
 
 function Stat({ label, value, icon: Icon, tone = 'indigo' }: { label: string; value: number | string; icon: any; tone?: 'indigo' | 'amber' | 'green' | 'blue' | 'slate' }) {
@@ -1558,6 +1569,7 @@ function Locations({ salon }: { salon: Salon }) {
     email: '',
     phone: '',
     hours: defaultHours,
+    max_concurrent_bookings: '',
   });
   const editForm = useForm({
     name: '',
@@ -1565,6 +1577,7 @@ function Locations({ salon }: { salon: Salon }) {
     email: '',
     phone: '',
     hours: defaultHours,
+    max_concurrent_bookings: '',
   });
   const formHourErrors = validateHours(form.data.hours);
   const editHourErrors = validateHours(editForm.data.hours);
@@ -1594,6 +1607,7 @@ function Locations({ salon }: { salon: Salon }) {
       email: location.email ?? '',
       phone: location.phone ?? '',
       hours: { ...defaultHours, ...(location.hours ?? {}) },
+      max_concurrent_bookings: location.max_concurrent_bookings ? String(location.max_concurrent_bookings) : '',
     });
   }
 
@@ -1634,6 +1648,10 @@ function Locations({ salon }: { salon: Salon }) {
             <Field label="Adresa" error={form.errors.address}><Input value={form.data.address} onChange={(event) => form.setData('address', event.target.value)} /></Field>
             <Field label="Telefon" error={form.errors.phone}><Input value={form.data.phone} onChange={(event) => form.setData('phone', event.target.value)} /></Field>
             <Field label="Email" error={form.errors.email}><Input value={form.data.email} onChange={(event) => form.setData('email', event.target.value)} /></Field>
+            <Field label={t('maxSimultaneousBookings')} error={form.errors.max_concurrent_bookings}>
+              <Input type="number" min={1} max={100} value={form.data.max_concurrent_bookings} onChange={(event) => form.setData('max_concurrent_bookings', event.target.value)} />
+              <span className="block text-xs app-text-muted">{t('locationCapacityHelp')}</span>
+            </Field>
             <div className="lg:col-span-4">
               <HoursEditor
                 title={t('operatingHours')}
@@ -1660,6 +1678,10 @@ function Locations({ salon }: { salon: Salon }) {
                   <Field label="Telefon" error={editForm.errors.phone}><Input value={editForm.data.phone} onChange={(event) => editForm.setData('phone', event.target.value)} /></Field>
                   <Field label="Adresa" error={editForm.errors.address}><Input value={editForm.data.address} onChange={(event) => editForm.setData('address', event.target.value)} /></Field>
                   <Field label="Email" error={editForm.errors.email}><Input value={editForm.data.email} onChange={(event) => editForm.setData('email', event.target.value)} /></Field>
+                  <Field label={t('maxSimultaneousBookings')} error={editForm.errors.max_concurrent_bookings}>
+                    <Input type="number" min={1} max={100} value={editForm.data.max_concurrent_bookings} onChange={(event) => editForm.setData('max_concurrent_bookings', event.target.value)} />
+                    <span className="block text-xs app-text-muted">{t('locationCapacityHelp')}</span>
+                  </Field>
                 </div>
                 <HoursEditor
                   title={t('operatingHours')}
@@ -1692,6 +1714,7 @@ function Locations({ salon }: { salon: Salon }) {
                 <div className="mt-5 space-y-2 text-sm app-text-soft">
                   <p>{location.phone || t('phoneMissing')}</p>
                   <p>{location.email || t('emailMissing')}</p>
+                  <p>{capacityLabel(location.max_concurrent_bookings, t)}</p>
                   <div className="rounded-lg mt-8 app-panel-soft">
                     <p className="mb-2 flex items-center gap-2 font-black app-text"><Clock className="h-4 w-4 text-indigo-600" /> {t('operatingHours')}</p>
                     <HoursList hours={{ ...defaultHours, ...(location.hours ?? {}) }} />
@@ -2134,6 +2157,10 @@ function StaffLocationPicker({ locations, selectedIds, onChange, emptyLabel }: {
   return <MultiSelectDropdown options={locations.map((location) => ({ value: location.id, label: location.name }))} selected={selectedIds ?? []} onChange={(next) => onChange(next as number[])} emptyLabel={emptyLabel} />;
 }
 
+function capacityLabel(value: number | null | undefined, t: (key: string) => string): string {
+  return value ? t('capacityBookingsAtSameTime', { count: value }) : t('defaultCapacityOne');
+}
+
 function InfoLine({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border p-3 app-border">
@@ -2152,8 +2179,8 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
   const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
   const [branchFilter, setBranchFilter] = useState<number[]>([]);
   const [categoryDrafts, setCategoryDrafts] = useState<string[]>(salon.service_categories ?? []);
-  const form = useForm({ name: '', type: '', price: '', duration: 30, location_ids: [] as number[], notes: '' });
-  const editForm = useForm({ name: '', type: '', price: '', duration: 30, location_ids: [] as number[], notes: '' });
+  const form = useForm({ name: '', type: '', price: '', duration: 30, max_concurrent_bookings: '', location_ids: [] as number[], notes: '' });
+  const editForm = useForm({ name: '', type: '', price: '', duration: 30, max_concurrent_bookings: '', location_ids: [] as number[], notes: '' });
   const serviceStats = {
     services: salon.services.length,
     categories: (salon.service_categories ?? []).filter(Boolean).length,
@@ -2218,6 +2245,7 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
       type,
       price: String(service.price ?? ''),
       duration: service.duration,
+      max_concurrent_bookings: service.max_concurrent_bookings ? String(service.max_concurrent_bookings) : '',
       location_ids: service.location_ids ?? [],
       notes: service.notes ?? '',
     }, { preserveScroll: true });
@@ -2312,10 +2340,16 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
               />
             </ServiceConfiguratorField>
           </div>
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="grid gap-4">
             <Field label={t('service')} error={editForm.errors.name}><Input value={editForm.data.name} onChange={(event) => editForm.setData('name', event.target.value)} /></Field>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-3">
             <Field label={t('priceRon')} error={editForm.errors.price}><Input value={editForm.data.price} onChange={(event) => editForm.setData('price', event.target.value)} placeholder={t('pricePlaceholder')} /></Field>
             <Field label={t('durationMin')} error={editForm.errors.duration}><Input type="number" value={editForm.data.duration} onChange={(event) => editForm.setData('duration', Number(event.target.value))} /></Field>
+            <Field label={t('maxSimultaneousBookingsForService')} error={editForm.errors.max_concurrent_bookings}>
+              <Input type="number" min={1} max={100} value={editForm.data.max_concurrent_bookings} onChange={(event) => editForm.setData('max_concurrent_bookings', event.target.value)} />
+              <span className="block text-xs app-text-muted">{t('serviceCapacityHelp')}</span>
+            </Field>
           </div>
           <Field label={t('serviceNotes')} error={editForm.errors.notes}>
             <textarea rows={3} value={editForm.data.notes} onChange={(event) => editForm.setData('notes', event.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none app-panel app-text" placeholder={t('serviceNotesPlaceholder')} />
@@ -2372,6 +2406,10 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
             <Field label={t('service')} error={form.errors.name}><Input value={form.data.name} onChange={(event) => form.setData('name', event.target.value)} /></Field>
             <Field label={t('priceRon')} error={form.errors.price}><Input value={form.data.price} onChange={(event) => form.setData('price', event.target.value)} placeholder={t('pricePlaceholder')} /></Field>
             <Field label={t('durationMin')} error={form.errors.duration}><Input type="number" value={form.data.duration} onChange={(event) => form.setData('duration', Number(event.target.value))} /></Field>
+            <Field label={t('maxSimultaneousBookingsForService')} error={form.errors.max_concurrent_bookings}>
+              <Input type="number" min={1} max={100} value={form.data.max_concurrent_bookings} onChange={(event) => form.setData('max_concurrent_bookings', event.target.value)} />
+              <span className="block text-xs app-text-muted">{t('serviceCapacityHelp')}</span>
+            </Field>
           </div>
           <Field label={t('serviceNotes')} error={form.errors.notes}>
             <textarea rows={3} value={form.data.notes} onChange={(event) => form.setData('notes', event.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none app-panel app-text" placeholder={t('serviceNotesPlaceholder')} />
@@ -2405,6 +2443,18 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
       <Card className="overflow-hidden">
         <Table headers={[
           t('service'),
+          <span key="capacity-header" className="inline-flex items-center gap-1.5">
+            <span className="leading-tight">
+              {t('simultaneousBookingsLine1')}<br />
+              {t('simultaneousBookingsLine2')}
+            </span>
+            <span className="group relative inline-flex">
+              <span className="flex h-4 w-4 items-center justify-center rounded-full border text-[10px] font-black app-border app-text-muted">i</span>
+              <span className="pointer-events-none absolute left-1/2 top-6 z-50 hidden w-56 -translate-x-1/2 rounded-lg border px-3 py-2 text-xs normal-case tracking-normal shadow-lg group-hover:block app-panel app-text">
+                {t('simultaneousBookingsHelp')}
+              </span>
+            </span>
+          </span>,
           <CategoryFilterHeader
             key="cat-filter"
             label={t('category')}
@@ -2447,6 +2497,7 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
                       </div>
                     )}
                   </td>
+                  <td className="px-5 py-4 text-sm font-black app-text">{service.max_concurrent_bookings ?? 1}</td>
                   <td className="px-5 py-4 text-sm app-text-soft">{service.type || ''}</td>
                   <td className="px-5 py-4">
                     <BranchPicker
@@ -3333,8 +3384,8 @@ function BookingsDayCards({
                     <span className="mx-1.5 app-text-muted" aria-hidden="true">•</span>
                     <span>{booking.location?.name || `Locatie #${booking.location_id}`}</span>
                   </p>
-                  {Boolean(booking.staff?.length) && (
-                    <p className="text-xs app-text-muted">{booking.staff?.join(' • ')}</p>
+                  {bookingStaffLabel(booking) && (
+                    <p className="text-xs app-text-muted">{t('assignedStaff')}: {bookingStaffLabel(booking)}</p>
                   )}
                   {!!booking.service?.notes && <ServiceNotesPill notes={booking.service.notes} />}
                 </div>

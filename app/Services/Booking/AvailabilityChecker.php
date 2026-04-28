@@ -28,8 +28,15 @@ class AvailabilityChecker
         $start = $this->parseTime($date, $timeStr);
         $duration = $this->serviceDuration($service);
         $end = $start->copy()->addMinutes($duration);
+
         $this->checkLocationHours($location, $date, $start, $end);
-        $this->checkOverlappingBookings($salon, $locationId, $dateStr, $start, $end);
+        $this->checkLocationCapacity($salon, $location, $dateStr, $start, $end);
+        $this->checkServiceCapacity($salon, $service, $locationId, $dateStr, $start, $end);
+
+        if ($staff) {
+            $this->checkStaffHours($staff, $date, $start, $end);
+            $this->checkOverlappingStaffBookings($salon, $staff, $dateStr, $start, $end);
+        }
 
         return [$location, $service, $date, $staff];
     }
@@ -67,19 +74,17 @@ class AvailabilityChecker
         abort_unless($staff, 422, 'Staff-ul selectat nu apartine salonului.');
         abort_unless($staff->active, 422, "Staff-ul {$staff->name} nu este activ.");
 
+        abort_unless(
+            $service->staffMembers()->whereKey($staff->id)->exists(),
+            422,
+            "Staff-ul {$staff->name} nu este alocat serviciului {$service->name}."
+        );
+
         $staffLocationIds = $staff->locations()->pluck('locations.id')->map(fn ($id) => (int) $id)->all();
         if (count($staffLocationIds) > 0) {
             abort_unless(in_array($locationId, $staffLocationIds, true), 422, "Staff-ul {$staff->name} nu lucreaza la locatia selectata.");
         } elseif ($staff->location_id !== null) {
             abort_unless((int) $staff->location_id === $locationId, 422, "Staff-ul {$staff->name} nu lucreaza la locatia selectata.");
-        }
-
-        if ($service->staffMembers()->exists()) {
-            abort_unless(
-                $service->staffMembers()->whereKey($staff->id)->exists(),
-                422,
-                "Staff-ul {$staff->name} nu este alocat serviciului {$service->name}."
-            );
         }
 
         return $staff;
@@ -109,7 +114,7 @@ class AvailabilityChecker
             abort(422, "Locatia {$location->name} este inchisa in ziua selectata.");
         }
 
-        [$opensAt, $closesAt] = $this->parseLocationHours($location, $date, $dayHours);
+        [$opensAt, $closesAt] = $this->parseLocationHours($location, $date, (string) $dayHours);
 
         abort_unless(
             $start->gte($opensAt) && $start->lt($closesAt),
@@ -124,9 +129,43 @@ class AvailabilityChecker
         );
     }
 
+    private function checkStaffHours(Staff $staff, Carbon $date, Carbon $start, Carbon $end): void
+    {
+        $dayKey = strtolower($date->format('D'));
+        $hours = $staff->working_hours ?? [];
+        $dayHours = $hours[$dayKey] ?? null;
+
+        if (! $dayHours) {
+            return;
+        }
+
+        if (stripos($dayHours, 'inchis') !== false || stripos($dayHours, 'closed') !== false) {
+            abort(422, "Staff-ul {$staff->name} nu lucreaza in ziua selectata.");
+        }
+
+        $parsed = $this->parseHours($date, (string) $dayHours);
+        if (! $parsed) {
+            return;
+        }
+
+        [$startsAt, $endsAt] = $parsed;
+
+        abort_unless(
+            $start->gte($startsAt) && $start->lt($endsAt),
+            422,
+            "Ora {$start->format('H:i')} este in afara programului staff-ului {$staff->name} ({$dayHours})."
+        );
+
+        abort_unless(
+            $end->lte($endsAt),
+            422,
+            "Programarea se termina la {$end->format('H:i')}, dupa programul staff-ului {$staff->name} ({$endsAt->format('H:i')})."
+        );
+    }
+
     private function parseLocationHours(Location $location, Carbon $date, string $dayHours): array
     {
-        $normalized = str_replace(['–', '—'], '-', trim($dayHours));
+        $normalized = str_replace(['â€“', 'â€”', '–', '—'], '-', trim($dayHours));
 
         abort_unless(
             preg_match('/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/', $normalized, $m),
@@ -159,6 +198,35 @@ class AvailabilityChecker
         return [$opensAt, $closesAt];
     }
 
+    private function parseHours(Carbon $date, string $dayHours): ?array
+    {
+        $normalized = str_replace(['â€“', 'â€”', '–', '—'], '-', trim($dayHours));
+
+        if (! preg_match('/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/', $normalized, $m)) {
+            return null;
+        }
+
+        [$openHour, $openMinute, $closeHour, $closeMinute] = [
+            (int) $m[1],
+            (int) $m[2],
+            (int) $m[3],
+            (int) $m[4],
+        ];
+
+        if (! $this->validTimeParts($openHour, $openMinute) || ! $this->validTimeParts($closeHour, $closeMinute)) {
+            return null;
+        }
+
+        $opensAt = $date->copy()->setTime($openHour, $openMinute);
+        $closesAt = $date->copy()->setTime($closeHour, $closeMinute);
+
+        if (! $opensAt->lt($closesAt)) {
+            return null;
+        }
+
+        return [$opensAt, $closesAt];
+    }
+
     private function validTimeParts(int $hour, int $minute): bool
     {
         return $hour >= 0 && $hour <= 23 && $minute >= 0 && $minute <= 59;
@@ -179,6 +247,61 @@ class AvailabilityChecker
 
             if ($start->lt($existingEnd) && $end->gt($existingStart)) {
                 abort(422, "Intervalul {$start->format('H:i')} - {$end->format('H:i')} se suprapune cu o programare existenta.");
+            }
+        }
+    }
+
+    private function checkLocationCapacity(Salon $salon, Location $location, string $dateStr, Carbon $start, Carbon $end): void
+    {
+        $capacity = $location->max_concurrent_bookings ?: 1;
+        $overlapping = $this->overlappingBookings($salon, $dateStr, $start, $end)
+            ->where('location_id', $location->id)
+            ->count();
+
+        abort_unless($overlapping < $capacity, 422, 'Locatia este complet ocupata in intervalul selectat.');
+    }
+
+    private function checkServiceCapacity(Salon $salon, Service $service, int $locationId, string $dateStr, Carbon $start, Carbon $end): void
+    {
+        $capacity = $service->max_concurrent_bookings ?: 1;
+        $overlapping = $this->overlappingBookings($salon, $dateStr, $start, $end)
+            ->where('location_id', $locationId)
+            ->where('service_id', $service->id)
+            ->count();
+
+        abort_unless($overlapping < $capacity, 422, 'Serviciul este complet ocupat in intervalul selectat.');
+    }
+
+    private function overlappingBookings(Salon $salon, string $dateStr, Carbon $start, Carbon $end)
+    {
+        return $salon->bookings()
+            ->with('service')
+            ->whereDate('date', $dateStr)
+            ->whereIn('status', ['pending', 'confirmed'])
+            ->get()
+            ->filter(function (Booking $booking) use ($start, $end) {
+                $existingStart = $this->parseTime($start, $booking->time);
+                $existingEnd = $existingStart->copy()->addMinutes($this->bookingDuration($booking));
+
+                return $start->lt($existingEnd) && $end->gt($existingStart);
+            });
+    }
+
+    private function checkOverlappingStaffBookings(Salon $salon, Staff $staff, string $dateStr, Carbon $start, Carbon $end): void
+    {
+        $bookings = $salon->bookings()
+            ->with('service')
+            ->where('staff_id', $staff->id)
+            ->whereDate('date', $dateStr)
+            ->whereIn('status', ['pending', 'confirmed'])
+            ->get();
+
+        foreach ($bookings as $booking) {
+            $existingStart = $this->parseTime($start, $booking->time);
+            $existingEnd = $existingStart->copy()->addMinutes($this->bookingDuration($booking));
+
+            if ($start->lt($existingEnd) && $end->gt($existingStart)) {
+                abort(422, "Staff-ul {$staff->name} are deja o programare in intervalul selectat.");
             }
         }
     }

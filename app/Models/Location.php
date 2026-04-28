@@ -12,12 +12,13 @@ class Location extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['salon_id', 'name', 'address', 'email', 'phone', 'hours'];
+    protected $fillable = ['salon_id', 'name', 'address', 'email', 'phone', 'hours', 'max_concurrent_bookings'];
 
     protected function casts(): array
     {
         return [
             'hours' => 'array',
+            'max_concurrent_bookings' => 'integer',
         ];
     }
 

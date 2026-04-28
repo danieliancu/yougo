@@ -1,8 +1,20 @@
 1. Staff Management UI
 4. Onboarding checklist / setup wizard
+2. Staff availability reală în booking (in progress)
 
 
-2. Staff availability reală în booking
+
+
+Capacity rules
+pentru 
+locație = max 1 simultan
+serviciu = max 1 simultan
+staff = opțional, dar folosit dacă există
+(cu recomandare Set capacity rules to avoid overbooking)
+
+
+
+
 3. Notificări când AI-ul creează programări
 5. Pregătire embed real pentru widget
 10. Billing / pay-as-you-go

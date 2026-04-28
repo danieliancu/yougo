@@ -67,6 +67,16 @@ class OnboardingChecklistService
                 true
             ),
             $this->step(
+                'capacity_rules',
+                'onboardingCapacityRules',
+                'onboardingCapacityRulesDescription',
+                '/dashboard/services',
+                $salon->locations()->whereNotNull('max_concurrent_bookings')->exists()
+                    || $salon->services()->whereNotNull('max_concurrent_bookings')->exists(),
+                false,
+                true
+            ),
+            $this->step(
                 'install_widget',
                 'onboardingInstallWidget',
                 'onboardingInstallWidgetDescription',
