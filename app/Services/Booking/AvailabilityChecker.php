@@ -67,7 +67,10 @@ class AvailabilityChecker
         abort_unless($staff, 422, 'Staff-ul selectat nu apartine salonului.');
         abort_unless($staff->active, 422, "Staff-ul {$staff->name} nu este activ.");
 
-        if ($staff->location_id !== null) {
+        $staffLocationIds = $staff->locations()->pluck('locations.id')->map(fn ($id) => (int) $id)->all();
+        if (count($staffLocationIds) > 0) {
+            abort_unless(in_array($locationId, $staffLocationIds, true), 422, "Staff-ul {$staff->name} nu lucreaza la locatia selectata.");
+        } elseif ($staff->location_id !== null) {
             abort_unless((int) $staff->location_id === $locationId, 422, "Staff-ul {$staff->name} nu lucreaza la locatia selectata.");
         }
 

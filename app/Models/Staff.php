@@ -42,6 +42,11 @@ class Staff extends Model
         return $this->belongsTo(Location::class);
     }
 
+    public function locations(): BelongsToMany
+    {
+        return $this->belongsToMany(Location::class, 'staff_location')->withTimestamps();
+    }
+
     public function services(): BelongsToMany
     {
         return $this->belongsToMany(Service::class, 'service_staff')->withTimestamps();

@@ -14,6 +14,21 @@ export type Location = {
   hours?: Record<string, string> | null;
 };
 
+export type Staff = {
+  id: number;
+  salon_id: number;
+  location_id?: number | null;
+  name: string;
+  role?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  active?: boolean;
+  working_hours?: Record<string, string> | null;
+  location?: Location | null;
+  locations?: Location[];
+  services?: Service[];
+};
+
 export type Service = {
   id: number;
   salon_id: number;
@@ -24,6 +39,7 @@ export type Service = {
   duration: number;
   location_ids?: number[] | null;
   notes?: string | null;
+  staff_members?: Staff[];
 };
 
 export type Booking = {
@@ -79,6 +95,9 @@ export type Salon = {
   mode?: 'appointment' | 'reservation' | 'lead' | string | null;
   business_type?: string | null;
   onboarding_completed?: boolean;
+  onboarding_skipped?: boolean;
+  onboarding_completed_at?: string | null;
+  onboarding_skipped_at?: string | null;
   country?: string | null;
   website?: string | null;
   business_phone?: string | null;
@@ -104,9 +123,32 @@ export type Salon = {
   ai_handoff_message?: string | null;
   ai_unknown_answer_policy?: 'say_unknown' | 'handoff' | string | null;
   locations: Location[];
+  staff: Staff[];
   services: Service[];
   bookings: Booking[];
   conversations: Conversation[];
+};
+
+export type OnboardingStep = {
+  key: string;
+  label_key: string;
+  description_key: string;
+  href: string;
+  completed: boolean;
+  required: boolean;
+  optional: boolean;
+  coming_soon: boolean;
+};
+
+export type OnboardingChecklist = {
+  steps: OnboardingStep[];
+  progress: number;
+  completed_count: number;
+  total_required: number;
+  can_complete: boolean;
+  next_step?: OnboardingStep | null;
+  completed: boolean;
+  skipped: boolean;
 };
 
 export type OverviewData = {

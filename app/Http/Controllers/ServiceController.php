@@ -25,7 +25,9 @@ class ServiceController extends Controller
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
         $this->validateLocations($request, $data['location_ids'] ?? []);
-        $data['staff'] = $this->normalizeStaff($data['staff'] ?? []);
+        if ($request->has('staff')) {
+            $data['staff'] = $this->normalizeStaff($data['staff'] ?? []);
+        }
 
         $salon->services()->create($data);
 
@@ -48,7 +50,9 @@ class ServiceController extends Controller
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
         $this->validateLocations($request, $data['location_ids'] ?? []);
-        $data['staff'] = $this->normalizeStaff($data['staff'] ?? []);
+        if ($request->has('staff')) {
+            $data['staff'] = $this->normalizeStaff($data['staff'] ?? []);
+        }
 
         $service->update($data);
 

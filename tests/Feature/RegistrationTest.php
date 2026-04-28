@@ -40,7 +40,7 @@ class RegistrationTest extends TestCase
             'business_type' => 'clinic-healthcare',
         ]));
 
-        $response->assertRedirect(route('dashboard'));
+        $response->assertRedirect(route('dashboard.section', ['section' => 'onboarding']));
         $this->assertAuthenticated();
 
         $salon = Salon::query()->firstOrFail();
@@ -67,7 +67,7 @@ class RegistrationTest extends TestCase
     {
         $response = $this->post('/register', $this->validRegistrationData(['industry' => 'medical-clinic']));
 
-        $response->assertRedirect(route('dashboard'));
+        $response->assertRedirect(route('dashboard.section', ['section' => 'onboarding']));
         $this->assertDatabaseHas('salons', [
             'business_type' => 'salon-beauty',
             'industry' => null,
@@ -80,7 +80,7 @@ class RegistrationTest extends TestCase
             'business_type' => 'clinic-healthcare',
         ]));
 
-        $response->assertRedirect(route('dashboard'));
+        $response->assertRedirect(route('dashboard.section', ['section' => 'onboarding']));
         $this->assertDatabaseHas('salons', [
             'business_type' => 'clinic-healthcare',
             'industry' => null,

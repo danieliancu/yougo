@@ -1,45 +1,50 @@
-import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+﻿import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { AlertModal, Badge, Button, Card, ConfirmationModal, DangerButton, Field, Input, SecondaryButton, ThemeToggle } from '@/Components/Ui';
-import { Booking, Conversation, Location as SalonLocation, OverviewData, PageProps, Salon, Service, User as AuthUser } from '@/types';
+import { Booking, Conversation, Location as SalonLocation, OnboardingChecklist, OnboardingStep, OverviewData, PageProps, Salon, Service, Staff, User as AuthUser } from '@/types';
 import { AlertTriangle, Bell, Bot, Building2, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, Download, ExternalLink, FileText, Globe2, LayoutDashboard, List, LogOut, MapPin, Menu, MessageCircle, MessageSquare, Pencil, Phone, Plus, QrCode, Save, Scissors, Search, Settings, Smartphone, Sparkles, Trash2, User, Users, Volume2, X, XCircle } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { businessTaxonomy, findBusinessType, normalizeBusinessTypeSlug } from '@/data/businessTaxonomy';
 
 type Props = PageProps<{
-  section: 'overview' | 'ai-settings' | 'conversations' | 'chat-audio' | 'voice-calls' | 'whatsapp' | 'locations' | 'services' | 'bookings' | 'settings';
+  section: 'overview' | 'onboarding' | 'ai-settings' | 'conversations' | 'chat-audio' | 'voice-calls' | 'whatsapp' | 'locations' | 'staff' | 'services' | 'bookings' | 'settings';
   salon: Salon;
   overview: OverviewData;
+  onboarding: OnboardingChecklist;
 }>;
 
 const nav = [
   { id: 'overview', label: 'overview', href: '/dashboard', icon: LayoutDashboard },
+  { id: 'onboarding', label: 'setup', href: '/dashboard/onboarding', icon: List },
   { id: 'ai-settings', label: 'aiSettings', href: '/dashboard/ai-settings', icon: Sparkles, dividerAfter: true },
   { id: 'conversations', label: 'conversations', href: '/dashboard/conversations', icon: MessageSquare },
   { id: 'chat-audio', label: 'chatAudio', href: '/dashboard/chat-audio', icon: Volume2 },
   { id: 'voice-calls', label: 'voiceCalls', href: '/dashboard/voice-calls', icon: Phone },
   { id: 'whatsapp', label: 'whatsapp', href: '/dashboard/whatsapp', icon: MessageCircle, dividerAfter: true },
   { id: 'locations', label: 'locations', href: '/dashboard/locations', icon: MapPin },
+  { id: 'staff', label: 'staff', href: '/dashboard/staff', icon: Users },
   { id: 'services', label: 'services', href: '/dashboard/services', icon: Scissors },
   { id: 'bookings', label: 'bookings', href: '/dashboard/bookings', icon: Calendar },
 ];
 
 export default function DashboardIndex() {
   const t = useT();
-  const { auth, salon, section, locale, overview } = usePage<Props>().props;
+  const { auth, salon, section, locale, overview, onboarding } = usePage<Props>().props;
   const titleKey = section === 'locations'
     ? 'salonLocations'
     : nav.find((item) => item.id === section)?.label ?? section;
   const title = t(titleKey);
   const headerSubtitles: Partial<Record<Props['section'], string>> = {
     overview: t('overviewSubtitle'),
+    onboarding: t('onboardingPageHelper'),
     'ai-settings': t('aiSettingsSubtitle'),
     conversations: t('conversationSubtitle'),
     'chat-audio': t('chatAudioSubtitle'),
     'voice-calls': t('voiceCallsSubtitle'),
     whatsapp: t('whatsappSubtitle'),
     locations: t('locationsSubtitle'),
+    staff: t('staffSubtitle'),
     services: t('servicesSubtitle'),
     bookings: t('bookingsSubtitle'),
     settings: t('settingsSubtitle'),
@@ -55,6 +60,7 @@ export default function DashboardIndex() {
     'voice-calls': t('searchByPhoneOrTranscript'),
     whatsapp: t('searchWhatsappConversations'),
     services: t('searchServices'),
+    staff: t('searchStaff'),
     bookings: t('searchBookings'),
   };
 
@@ -149,13 +155,15 @@ export default function DashboardIndex() {
           </div>
         </header>
         <div className={`min-w-0 flex-1 overflow-x-hidden ${section === 'conversations' ? 'overflow-hidden' : 'overflow-y-auto p-5 lg:p-8'}`}>
-          {section === 'overview' && <Overview salon={salon} overview={overview} />}
+          {section === 'overview' && <Overview salon={salon} overview={overview} onboarding={onboarding} />}
+          {section === 'onboarding' && <OnboardingSetup onboarding={onboarding} />}
           {section === 'ai-settings' && <AiSettings salon={salon} />}
           {section === 'conversations' && <Conversations salon={salon} query={query} overview={overview} />}
           {section === 'chat-audio' && <ChatAudio salon={salon} query={query} />}
           {section === 'voice-calls' && <VoiceCalls query={query} />}
           {section === 'whatsapp' && <WhatsAppConversations query={query} />}
           {section === 'locations' && <Locations salon={salon} />}
+          {section === 'staff' && <StaffManagement salon={salon} query={query} />}
           {section === 'services' && <Services salon={salon} query={query} />}
           {section === 'bookings' && <Bookings salon={salon} query={query} />}
           {section === 'settings' && <SettingsPage salon={salon} />}
@@ -215,7 +223,7 @@ function DashboardSidebarContent({ salon, section, user, t, onNavigate }: { salo
                 <span className="min-w-0 flex-1 truncate">{t(item.label)}</span>
                 {item.id === 'bookings' && hasPendingBookings && <span className="railway-lights shrink-0" aria-hidden="true" />}
               </Link>
-              {item.dividerAfter && <div className="mx-4 my-2 h-px bg-white/10" />}
+              {item.dividerAfter && <div className="mx-3 my-3 h-0.5 rounded-full bg-white/25" />}
             </div>
           );
         })}
@@ -1019,7 +1027,139 @@ function ActivityLegendItem({ color, label }: { color: string; label: string }) 
   );
 }
 
-function Overview({ salon, overview }: { salon: Salon; overview: OverviewData }) {
+function OnboardingSetup({ onboarding }: { onboarding: OnboardingChecklist }) {
+  const t = useT();
+  const nextStep = onboarding.next_step;
+
+  function skip() {
+    router.post('/onboarding/skip', {}, { preserveScroll: true });
+  }
+
+  function complete() {
+    router.post('/onboarding/complete', {}, { preserveScroll: true });
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card className="p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-3xl">
+            <h2 className="text-2xl font-black app-text">{t('onboardingHeading')}</h2>
+            <p className="mt-2 text-sm leading-6 app-text-muted">{t('onboardingPageHelper')}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <SecondaryButton onClick={skip}>{t('skipForNow')}</SecondaryButton>
+            <Button onClick={complete} disabled={!onboarding.can_complete}>{t('markSetupComplete')}</Button>
+          </div>
+        </div>
+        <OnboardingProgress onboarding={onboarding} />
+        {nextStep && (
+          <div className="mt-5 flex flex-col gap-3 rounded-lg border p-4 app-border app-panel-soft sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide app-text-muted">{t('nextStep')}</p>
+              <p className="mt-1 font-black app-text">{t(nextStep.label_key)}</p>
+            </div>
+            <Link href={nextStep.href} className="inline-flex h-10 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700">
+              {t('continueSetup')}
+            </Link>
+          </div>
+        )}
+      </Card>
+
+      <div className="grid gap-3">
+        {onboarding.steps.map((step) => (
+          <OnboardingStepRow key={step.key} step={step} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function OnboardingProgress({ onboarding }: { onboarding: OnboardingChecklist }) {
+  return (
+    <div className="mt-6">
+      <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+        <span className="font-black app-text">{onboarding.completed_count}/{onboarding.total_required}</span>
+        <span className="font-black text-indigo-600">{onboarding.progress}%</span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full app-panel-soft">
+        <div className="h-full rounded-full bg-indigo-600 transition-all" style={{ width: `${onboarding.progress}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function OnboardingStepRow({ step }: { step: OnboardingStep }) {
+  const t = useT();
+  const status = step.completed
+    ? t('complete')
+    : step.coming_soon
+      ? t('comingSoon')
+      : step.optional
+        ? t('optional')
+        : t('notComplete');
+  const tone = step.completed ? 'green' : step.coming_soon ? 'slate' : step.optional ? 'slate' : 'amber';
+
+  return (
+    <Card className="p-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${step.completed ? 'bg-emerald-100 text-emerald-700' : 'app-panel-soft app-text-muted'}`}>
+            {step.completed ? <Check className="h-4 w-4" /> : <List className="h-4 w-4" />}
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-black app-text">{t(step.label_key)}</p>
+              <Badge tone={tone as any}>{status}</Badge>
+            </div>
+            <p className="mt-1 text-sm app-text-muted">{t(step.description_key)}</p>
+          </div>
+        </div>
+        {!step.coming_soon && (
+          <Link href={step.href} className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border px-3 text-sm font-bold app-panel app-text-soft hover:bg-[var(--app-panel-soft)]">
+            {t('continueSetup')}
+          </Link>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function OnboardingReminder({ onboarding }: { onboarding: OnboardingChecklist }) {
+  const t = useT();
+  if (onboarding.completed) return null;
+
+  const nextStep = onboarding.next_step;
+
+  return (
+    <Card className="border-indigo-500/30 p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <p className="text-lg font-black app-text">{t('onboardingHeading')}</p>
+          <p className="mt-1 text-sm app-text-muted">
+            {onboarding.skipped ? t('setupSkippedReminder') : t('onboardingPageHelper')}
+          </p>
+          {nextStep && (
+            <p className="mt-2 text-sm font-bold app-text">
+              {t('nextStep')}: {t(nextStep.label_key)}
+            </p>
+          )}
+          <OnboardingProgress onboarding={onboarding} />
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Link href="/dashboard/onboarding" className="inline-flex h-10 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700">
+            {t('continueSetup')}
+          </Link>
+          {!onboarding.skipped && (
+            <SecondaryButton onClick={() => router.post('/onboarding/skip', {}, { preserveScroll: true })}>{t('skipForNow')}</SecondaryButton>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function Overview({ salon, overview, onboarding }: { salon: Salon; overview: OverviewData; onboarding: OnboardingChecklist }) {
   const t = useT();
   const assistantName = salon.ai_assistant_name?.trim() || 'Bella';
   const [activityRange, setActivityRange] = useState<'week' | 'month'>('week');
@@ -1029,6 +1169,7 @@ function Overview({ salon, overview }: { salon: Salon; overview: OverviewData })
 
   return (
     <div className="space-y-6">
+      <OnboardingReminder onboarding={onboarding} />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Stat label={t('totalBookings')} value={metrics.total_bookings} icon={Calendar} tone="green" />
         <Stat label={t('conversionRate')} value={`${metrics.conversion_rate}%`} icon={CheckCircle2} tone="amber" />
@@ -1765,24 +1906,259 @@ function HoursList({ hours }: { hours: Record<string, string> }) {
   );
 }
 
+function StaffManagement({ salon, query }: { salon: Salon; query: string }) {
+  const t = useT();
+  const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [confirmation, setConfirmation] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+  const defaultLocationIds = salon.locations.length === 1 ? [salon.locations[0].id] : [];
+  const form = useForm({ name: '', role: '', email: '', phone: '', location_ids: defaultLocationIds, active: true, service_ids: [] as number[] });
+  const editForm = useForm({ name: '', role: '', email: '', phone: '', location_ids: defaultLocationIds, active: true, service_ids: [] as number[] });
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const filteredStaff = (salon.staff ?? []).filter((staffMember) => {
+    if (!normalizedQuery) return true;
+    const searchable = [staffMember.name, staffMember.role, staffMember.email, staffMember.phone, staffLocationNames(staffMember), ...(staffMember.services ?? []).map((service) => service.name)];
+    return searchable.filter(Boolean).some((value) => String(value).toLocaleLowerCase().includes(normalizedQuery));
+  });
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    form.post('/staff', {
+      preserveScroll: true,
+      onSuccess: () => {
+        form.reset();
+        form.setData({ name: '', role: '', email: '', phone: '', location_ids: defaultLocationIds, active: true, service_ids: [] });
+        setAdding(false);
+      },
+    });
+  }
+
+  function startEdit(staffMember: Staff) {
+    const locationIds = (staffMember.locations ?? []).map((location) => location.id);
+    setEditingId(staffMember.id);
+    editForm.setData({
+      name: staffMember.name,
+      role: staffMember.role ?? '',
+      email: staffMember.email ?? '',
+      phone: staffMember.phone ?? '',
+      location_ids: locationIds.length > 0 ? locationIds : staffMember.location_id ? [staffMember.location_id] : defaultLocationIds,
+      active: Boolean(staffMember.active ?? true),
+      service_ids: (staffMember.services ?? []).map((service) => service.id),
+    });
+  }
+
+  function submitEdit(event: FormEvent) {
+    event.preventDefault();
+    if (!editingId) return;
+    editForm.put(`/staff/${editingId}`, { preserveScroll: true, onSuccess: () => setEditingId(null) });
+  }
+
+  return (
+    <div className="space-y-6">
+      <ConfirmationModal
+        open={confirmation !== null}
+        title={confirmation?.title ?? ''}
+        message={confirmation?.message ?? ''}
+        confirmLabel={t('delete')}
+        cancelLabel={t('cancel')}
+        onCancel={() => setConfirmation(null)}
+        onConfirm={() => {
+          if (!confirmation) return;
+          confirmation.onConfirm();
+          setConfirmation(null);
+        }}
+      />
+      <Toolbar title="" subtitle="" hideText action={<Button onClick={() => setAdding(true)}><Plus className="h-4 w-4" /> {t('addStaffMember')}</Button>} />
+      {adding && (
+        <Card className="p-5">
+          <form className="space-y-5" onSubmit={submit}>
+            <StaffFormFields salon={salon} form={form} t={t} />
+            <div className="flex gap-2">
+              <Button type="submit" disabled={form.processing}>{t('save')}</Button>
+              <SecondaryButton type="button" onClick={() => setAdding(false)}>{t('cancel')}</SecondaryButton>
+            </div>
+          </form>
+        </Card>
+      )}
+      {filteredStaff.length === 0 ? (
+        <Card className="flex min-h-52 flex-col items-center justify-center p-8 text-center">
+          <Users className="mb-4 h-10 w-10 app-text-muted" />
+          <p className="text-lg font-black app-text">{t('noStaffMembersYet')}</p>
+          <p className="mt-2 max-w-xl text-sm app-text-muted">{t('staffEmptyHelp')}</p>
+          <Button className="mt-5" onClick={() => setAdding(true)}><Plus className="h-4 w-4" /> {t('addYourTeam')}</Button>
+        </Card>
+      ) : (
+        <div className="grid gap-4 xl:grid-cols-2">
+          {filteredStaff.map((staffMember) => (
+            <Card key={staffMember.id} className="p-5">
+              {editingId === staffMember.id ? (
+                <form className="space-y-5" onSubmit={submitEdit}>
+                  <StaffFormFields salon={salon} form={editForm} t={t} />
+                  <div className="flex gap-2">
+                    <Button type="submit" disabled={editForm.processing}>{t('save')}</Button>
+                    <SecondaryButton type="button" onClick={() => setEditingId(null)}>{t('cancel')}</SecondaryButton>
+                  </div>
+                </form>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="truncate text-lg font-black app-text">{staffMember.name}</h3>
+                        <Badge tone={staffMember.active ? 'green' : 'slate'}>{staffMember.active ? t('active') : t('inactive')}</Badge>
+                      </div>
+                      <p className="mt-1 text-sm app-text-muted">{staffMember.role || t('role')}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <SecondaryButton onClick={() => startEdit(staffMember)}><Pencil className="h-4 w-4" /></SecondaryButton>
+                      <DangerButton onClick={() => setConfirmation({
+                        title: t('deleteStaffMember'),
+                        message: t('deleteStaffMemberConfirm'),
+                        onConfirm: () => router.delete(`/staff/${staffMember.id}`, { preserveScroll: true }),
+                      })}><Trash2 className="h-4 w-4" /></DangerButton>
+                    </div>
+                  </div>
+                  <div className="grid gap-3 text-sm sm:grid-cols-2">
+                    <InfoLine label={t('location')} value={staffLocationNames(staffMember)} />
+                    <InfoLine label={t('services')} value={(staffMember.services ?? []).map((service) => service.name).join(', ') || '-'} />
+                    <InfoLine label={t('email')} value={staffMember.email || '-'} />
+                    <InfoLine label={t('phone')} value={staffMember.phone || '-'} />
+                  </div>
+                </div>
+              )}
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StaffFormFields({ salon, form, t }: { salon: Salon; form: any; t: (key: string) => string }) {
+  const serviceGroups = useMemo(() => {
+    const groups = new Map<string, Service[]>();
+    salon.services.forEach((service) => {
+      const category = service.type || t('noCategory');
+      groups.set(category, [...(groups.get(category) ?? []), service]);
+    });
+    return Array.from(groups.entries()).map(([category, services]) => ({ category, services }));
+  }, [salon.services, t]);
+
+  useEffect(() => {
+    if (salon.locations.length === 1 && (form.data.location_ids ?? []).length === 0) {
+      form.setData('location_ids', [salon.locations[0].id]);
+    }
+  }, [salon.locations, form.data.location_ids]);
+
+  function toggleService(serviceId: number) {
+    const selected = form.data.service_ids.includes(serviceId)
+      ? form.data.service_ids.filter((id: number) => id !== serviceId)
+      : [...form.data.service_ids, serviceId];
+    form.setData('service_ids', selected);
+  }
+
+  function toggleCategoryServices(serviceIds: number[]) {
+    const selectedIds = form.data.service_ids as number[];
+    const allSelected = serviceIds.every((id) => selectedIds.includes(id));
+    const next = allSelected
+      ? selectedIds.filter((id) => !serviceIds.includes(id))
+      : [...selectedIds, ...serviceIds.filter((id) => !selectedIds.includes(id))];
+    form.setData('service_ids', next);
+  }
+
+  return (
+    <>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Field label={t('staffMemberName')} error={form.errors.name}><Input value={form.data.name} onChange={(event) => form.setData('name', event.target.value)} /></Field>
+        <Field label={t('role')} error={form.errors.role}><Input value={form.data.role} onChange={(event) => form.setData('role', event.target.value)} /></Field>
+        <Field label={t('location')} error={form.errors.location_ids || form.errors.location_id}>
+          <StaffLocationPicker locations={salon.locations} selectedIds={form.data.location_ids ?? []} onChange={(locationIds) => form.setData('location_ids', locationIds)} emptyLabel={t('noBranches')} />
+        </Field>
+        <Field label={t('email')} error={form.errors.email}><Input type="email" value={form.data.email} onChange={(event) => form.setData('email', event.target.value)} /></Field>
+        <Field label={t('phone')} error={form.errors.phone}><Input value={form.data.phone} onChange={(event) => form.setData('phone', event.target.value)} /></Field>
+        <div className="flex items-end"><ToggleRow title={t('active')} subtitle={form.data.active ? t('active') : t('inactive')} checked={form.data.active} onChange={(checked) => form.setData('active', checked)} /></div>
+      </div>
+      <div>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-black app-text">{t('services')}</p></div>
+        {salon.services.length === 0 ? (
+          <p className="rounded-lg border p-4 text-sm app-text-muted app-border">{t('noServices')}</p>
+        ) : (
+          <div className="space-y-2">
+            {serviceGroups.map(({ category, services }) => {
+              const serviceIds = services.map((service) => service.id);
+              const allCategorySelected = serviceIds.length > 0 && serviceIds.every((id) => form.data.service_ids.includes(id));
+              return (
+                <details key={category} className="rounded-lg border app-border app-panel">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
+                    <span className="font-black app-text">{category}</span>
+                    <span className="flex items-center gap-3">
+                      <button type="button" onClick={(event) => { event.preventDefault(); toggleCategoryServices(serviceIds); }} className="text-xs font-black text-indigo-600 hover:underline">
+                        {allCategorySelected ? t('clearSelection') : t('selectAll')}
+                      </button>
+                      <ChevronDown className="h-4 w-4 app-text-muted" />
+                    </span>
+                  </summary>
+                  <div className="divide-y border-t app-border">
+                    {services.map((service) => {
+                      const checked = form.data.service_ids.includes(service.id);
+                      return (
+                        <label key={service.id} className="flex cursor-pointer items-center gap-3 px-4 py-3 text-sm font-semibold transition app-border app-text-soft hover:bg-[var(--app-panel-soft)]">
+                          <input type="checkbox" checked={checked} onChange={() => toggleService(service.id)} className="h-4 w-4 rounded border-[var(--app-border)] text-indigo-600 focus:ring-indigo-500" />
+                          <span className="app-text">{service.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </details>
+              );
+            })}
+          </div>
+        )}
+        {form.errors.service_ids && <p className="mt-2 text-xs font-bold text-red-500">{form.errors.service_ids}</p>}
+      </div>
+    </>
+  );
+}
+
+function staffLocationNames(staffMember: Staff): string {
+  const locations = staffMember.locations ?? [];
+  if (locations.length > 0) return locations.map((location) => location.name).join(', ');
+  return staffMember.location?.name ?? '-';
+}
+
+function StaffLocationPicker({ locations, selectedIds, onChange, emptyLabel }: { locations: SalonLocation[]; selectedIds: number[]; onChange: (ids: number[]) => void; emptyLabel: string }) {
+  if (locations.length === 0) return <p className="text-sm app-text-muted">{emptyLabel}</p>;
+  if (locations.length === 1) {
+    return <div className="flex h-10 w-full items-center rounded-lg border px-3 text-sm font-semibold app-panel app-text app-border">{locations[0].name}</div>;
+  }
+  return <MultiSelectDropdown options={locations.map((location) => ({ value: location.id, label: location.name }))} selected={selectedIds ?? []} onChange={(next) => onChange(next as number[])} emptyLabel={emptyLabel} />;
+}
+
+function InfoLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border p-3 app-border">
+      <p className="text-xs font-black uppercase tracking-wide app-text-muted">{label}</p>
+      <p className="mt-1 break-words font-semibold app-text">{value}</p>
+    </div>
+  );
+}
+
 function Services({ salon, query }: { salon: Salon; query: string }) {
   const t = useT();
   const [adding, setAdding] = useState(false);
   const [managingCategories, setManagingCategories] = useState(false);
-  const [managingStaff, setManagingStaff] = useState(false);
   const [editingServiceId, setEditingServiceId] = useState<number | null>(null);
   const [confirmation, setConfirmation] = useState<{ title: string; message: string; tone?: 'danger' | 'neutral'; confirmLabel?: string; onConfirm: () => void } | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
   const [branchFilter, setBranchFilter] = useState<number[]>([]);
   const [categoryDrafts, setCategoryDrafts] = useState<string[]>(salon.service_categories ?? []);
-  const [staffDrafts, setStaffDrafts] = useState<string[]>(salon.service_staff ?? []);
-  const form = useForm({ name: '', type: '', staff: [] as string[], price: '', duration: 30, location_ids: [] as number[], notes: '' });
-  const editForm = useForm({ name: '', type: '', staff: [] as string[], price: '', duration: 30, location_ids: [] as number[], notes: '' });
+  const form = useForm({ name: '', type: '', price: '', duration: 30, location_ids: [] as number[], notes: '' });
+  const editForm = useForm({ name: '', type: '', price: '', duration: 30, location_ids: [] as number[], notes: '' });
   const serviceStats = {
     services: salon.services.length,
     categories: (salon.service_categories ?? []).filter(Boolean).length,
     locations: salon.locations.length,
-    staff: (salon.service_staff ?? []).filter(Boolean).length,
+    staff: (salon.staff ?? []).length,
   };
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const filteredServices = salon.services.filter((service) => {
@@ -1802,7 +2178,7 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
       service.price,
       service.duration,
       service.notes,
-      ...(service.staff ?? []),
+      ...(service.staff_members ?? []).map((staffMember) => staffMember.name),
       ...serviceLocationNames,
     ];
 
@@ -1829,7 +2205,6 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
     router.put(`/services/${service.id}`, {
       name: service.name,
       type: service.type ?? '',
-      staff: service.staff ?? [],
       price: String(service.price ?? ''),
       duration: service.duration,
       location_ids: locationIds,
@@ -1841,7 +2216,6 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
     router.put(`/services/${service.id}`, {
       name: service.name,
       type,
-      staff: service.staff ?? [],
       price: String(service.price ?? ''),
       duration: service.duration,
       location_ids: service.location_ids ?? [],
@@ -1854,7 +2228,6 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
     editForm.setData({
       name: service.name,
       type: service.type ?? '',
-      staff: service.staff ?? [],
       price: String(service.price ?? ''),
       duration: service.duration,
       location_ids: service.location_ids ?? [],
@@ -1878,7 +2251,6 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
       return;
     }
 
-    setManagingStaff(false);
     setCategoryDrafts((salon.service_categories ?? []).length > 0 ? [...(salon.service_categories ?? [])] : ['']);
     setManagingCategories(true);
   }
@@ -1904,38 +2276,6 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
     });
   }
 
-  function openStaffManager() {
-    if (managingStaff) {
-      setManagingStaff(false);
-      return;
-    }
-
-    setManagingCategories(false);
-    setStaffDrafts((salon.service_staff ?? []).length > 0 ? [...(salon.service_staff ?? [])] : ['']);
-    setManagingStaff(true);
-  }
-
-  function updateStaffDraft(index: number, value: string) {
-    setStaffDrafts((current) => current.map((item, itemIndex) => itemIndex === index ? value : item));
-  }
-
-  function addStaffDraft() {
-    setStaffDrafts((current) => [...current, '']);
-  }
-
-  function removeStaffDraft(index: number) {
-    setStaffDrafts((current) => current.filter((_, itemIndex) => itemIndex !== index));
-  }
-
-  function saveStaff() {
-    router.put('/services/staff', {
-      staff: staffDrafts,
-    }, {
-      preserveScroll: true,
-      onSuccess: () => setManagingStaff(false),
-    });
-  }
-
   return (
     <div className="space-y-6">
       <ConfirmationModal
@@ -1954,7 +2294,7 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
       />
       <EditModal open={editingServiceId !== null} title={t('editService')} onClose={() => setEditingServiceId(null)}>
         <form className="space-y-5" onSubmit={submitEditService}>
-          <div className="grid gap-4 xl:grid-cols-3">
+          <div className="grid gap-4 xl:grid-cols-2">
             <ServiceConfiguratorField icon={FileText} label={t('category')} error={editForm.errors.type}>
               <select className="h-10 w-full rounded-lg border px-3 text-sm outline-none app-panel app-text" value={editForm.data.type} onChange={(event) => editForm.setData('type', event.target.value)}>
                 <option value="">{t('noCategory')}</option>
@@ -1962,14 +2302,6 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
                   <option key={category} value={category}>{category}</option>
                 ))}
               </select>
-            </ServiceConfiguratorField>
-            <ServiceConfiguratorField icon={Users} label={t('staff')} error={editForm.errors.staff}>
-              <StaffPicker
-                staffOptions={Array.from(new Set([...(salon.service_staff ?? []), ...(editForm.data.staff ?? [])]))}
-                selectedStaff={editForm.data.staff}
-                onChange={(staff) => editForm.setData('staff', staff)}
-                emptyLabel={t('noStaff')}
-              />
             </ServiceConfiguratorField>
             <ServiceConfiguratorField icon={MapPin} label={t('availableBranches')} error={editForm.errors.location_ids}>
               <BranchPicker
@@ -2016,31 +2348,9 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
           </div>
         </div>
       </EditModal>
-      <EditModal open={managingStaff} title={t('serviceStaff')} onClose={() => setManagingStaff(false)}>
-        <div className="space-y-4">
-          <p className="text-sm app-text-muted">{t('serviceStaffHelp')}</p>
-          <div className="space-y-3">
-            {staffDrafts.map((staffMember, index) => (
-              <div key={index} className="flex gap-2">
-                <Input value={staffMember} onChange={(event) => updateStaffDraft(index, event.target.value)} placeholder={t('staff')} />
-                <DangerButton onClick={() => setConfirmation({
-                  title: t('removeStaffMember'),
-                  message: t('removeStaffMemberConfirm'),
-                  onConfirm: () => removeStaffDraft(index),
-                })}><Trash2 className="h-4 w-4" /></DangerButton>
-              </div>
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <SecondaryButton onClick={addStaffDraft}><Plus className="h-4 w-4" /> {t('addStaff')}</SecondaryButton>
-            <Button onClick={saveStaff}>{t('save')}</Button>
-            <SecondaryButton onClick={() => setManagingStaff(false)}>{t('cancel')}</SecondaryButton>
-          </div>
-        </div>
-      </EditModal>
       <EditModal open={adding} title={t('addService')} onClose={() => setAdding(false)}>
         <form className="space-y-5" onSubmit={submit}>
-          <div className="grid gap-4 xl:grid-cols-3">
+          <div className="grid gap-4 xl:grid-cols-2">
             <ServiceConfiguratorField icon={FileText} label={t('category')} error={form.errors.type}>
               <select className="h-10 w-full rounded-lg border px-3 text-sm outline-none app-panel app-text" value={form.data.type} onChange={(event) => form.setData('type', event.target.value)}>
                 <option value="">{t('noCategory')}</option>
@@ -2048,14 +2358,6 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
                   <option key={category} value={category}>{category}</option>
                 ))}
               </select>
-            </ServiceConfiguratorField>
-            <ServiceConfiguratorField icon={Users} label={t('staff')} error={form.errors.staff}>
-              <StaffPicker
-                staffOptions={salon.service_staff ?? []}
-                selectedStaff={form.data.staff}
-                onChange={(staff) => form.setData('staff', staff)}
-                emptyLabel={t('noStaff')}
-              />
             </ServiceConfiguratorField>
             <ServiceConfiguratorField icon={MapPin} label={t('availableBranches')} error={form.errors.location_ids}>
               <BranchPicker
@@ -2087,7 +2389,9 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
         action={
           <div className="flex flex-wrap gap-2">
             <SecondaryButton onClick={openCategoryManager}><Plus className="h-4 w-4" /> {t('addCategory')}</SecondaryButton>
-            <SecondaryButton onClick={openStaffManager}><Plus className="h-4 w-4" /> {t('addStaff')}</SecondaryButton>
+            <Link href="/dashboard/staff" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold transition app-panel app-text-soft hover:bg-[var(--app-panel-soft)]">
+              <Users className="h-4 w-4" /> {t('manageStaff')}
+            </Link>
             <Button onClick={() => setAdding(true)}><Plus className="h-4 w-4" /> {t('addService')}</Button>
           </div>
         }
@@ -2127,10 +2431,20 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
                       <p className="font-bold app-text">{service.name}</p>
                       {!!service.notes && <ServiceNotesPill notes={service.notes} />}
                     </div>
-                    {!!service.staff?.length && (
-                      <p className="mt-1 text-xs font-semibold app-text-muted">
-                        {service.staff.join(' • ')}
-                      </p>
+                    {(service.staff_members ?? []).length > 0 && (
+                      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm app-text-soft">
+                        {(service.staff_members ?? []).map((staffMember, index) => (
+                          <span key={staffMember.id} className="inline-flex items-center gap-1.5">
+                            {index > 0 && <span className="app-text-muted">•</span>}
+                            <span>{staffMember.name}</span>
+                            {!staffMember.active && (
+                              <span className="rounded-full border border-slate-200 px-1.5 py-0.5 text-[10px] font-black uppercase app-panel app-text-muted">
+                                {t('inactive')}
+                              </span>
+                            )}
+                          </span>
+                        ))}
+                      </div>
                     )}
                   </td>
                   <td className="px-5 py-4 text-sm app-text-soft">{service.type || ''}</td>

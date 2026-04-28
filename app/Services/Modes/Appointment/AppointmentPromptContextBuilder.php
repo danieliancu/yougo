@@ -77,10 +77,14 @@ class AppointmentPromptContextBuilder
         if ($staff->isNotEmpty()) {
             return $staff
                 ->map(function ($staffMember) {
+                    $locations = $staffMember->relationLoaded('locations') && $staffMember->locations->isNotEmpty()
+                        ? $staffMember->locations->pluck('name')->filter()->implode(', ')
+                        : $staffMember->location?->name;
+
                     return collect([
                         "ID {$staffMember->id}: {$staffMember->name}",
                         $staffMember->role ? "rol: {$staffMember->role}" : null,
-                        $staffMember->location ? "locatie: {$staffMember->location->name}" : null,
+                        $locations ? "locatii: {$locations}" : null,
                         $staffMember->email ? "email: {$staffMember->email}" : null,
                         $staffMember->phone ? "telefon: {$staffMember->phone}" : null,
                     ])->filter()->implode(', ');

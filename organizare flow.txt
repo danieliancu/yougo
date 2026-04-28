@@ -1,0 +1,80 @@
+appointment
+reservation
+lead
+
+
+Appointment mode
+
+Pentru businessuri unde clientul vrea o programare la o oră.
+
+Exemple:
+
+salon
+clinică
+service auto
+dentist
+consultant
+terapeut
+cursuri
+
+Flow:
+
+ce serviciu?
+ce locație?
+ce staff?
+ce dată?
+ce oră?
+nume?
+telefon?
+
+
+
+
+Reservation mode
+
+Pentru businessuri unde clientul rezervă o resursă pe o perioadă.
+
+Exemple:
+
+hotel
+restaurant
+rental
+închirieri auto
+închirieri echipamente
+spații evenimente
+
+Flow:
+
+ce resursă?
+de când?
+până când?
+câte persoane?
+disponibilitate?
+confirmare rezervare?
+
+
+
+Lead mode
+
+Pentru businessuri unde AI-ul nu face rezervare directă, ci colectează o cerere.
+
+Exemple:
+
+imobiliare
+avocați
+contabili
+auto sales
+agenții
+servicii profesionale
+construcții
+
+Flow:
+
+ce cauți?
+ce buget ai?
+unde?
+cât de urgent?
+nume?
+telefon?
+trimite lead către echipă
+

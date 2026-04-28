@@ -47,6 +47,6 @@ class RegisteredUserController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        return redirect()->route('dashboard')->with('success', 'Cont creat cu succes.');
+        return redirect()->route('dashboard.section', ['section' => 'onboarding'])->with('success', 'Cont creat cu succes.');
     }
 }

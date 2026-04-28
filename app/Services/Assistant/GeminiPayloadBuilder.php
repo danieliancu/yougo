@@ -17,7 +17,7 @@ class GeminiPayloadBuilder
 
     public function build(Salon $salon, array $messages): array
     {
-        $salon->loadMissing(['staff.location', 'services.staffMembers']);
+        $salon->loadMissing(['staff.location', 'staff.locations', 'services.staffMembers']);
 
         $payload = [
             'systemInstruction' => [

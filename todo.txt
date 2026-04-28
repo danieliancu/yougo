@@ -1,11 +1,13 @@
-- sa scrie data natural in conversatie, si fara an, in loc de 04-11-2026 sa fie 11 aprilie.
-
-- /chat-audio - aici sa avem sus:
-Total Chat
-Audio
-Finalizate
-Abandonate
+1. Staff Management UI
+4. Onboarding checklist / setup wizard
 
 
-dashboard/ai-settings 
-aici la Identitate si comportament fa toate fieldurile pe un singur rand
+2. Staff availability reală în booking
+3. Notificări când AI-ul creează programări
+5. Pregătire embed real pentru widget
+10. Billing / pay-as-you-go
+
+6. WhatsApp
+7. Telefon
+8. Lead Mode
+9. Reservation Mode

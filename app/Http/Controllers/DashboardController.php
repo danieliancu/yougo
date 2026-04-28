@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Salon;
 use App\Services\Dashboard\DashboardDataService;
+use App\Services\Onboarding\OnboardingChecklistService;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -11,9 +12,9 @@ use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function __invoke(Request $request, DashboardDataService $dashboardData, string $section = 'overview'): Response
+    public function __invoke(Request $request, DashboardDataService $dashboardData, OnboardingChecklistService $onboardingChecklist, string $section = 'overview'): Response
     {
-        $allowed = ['overview', 'ai-settings', 'conversations', 'chat-audio', 'voice-calls', 'whatsapp', 'locations', 'services', 'bookings', 'settings'];
+        $allowed = ['overview', 'onboarding', 'ai-settings', 'conversations', 'chat-audio', 'voice-calls', 'whatsapp', 'locations', 'staff', 'services', 'bookings', 'settings'];
         abort_unless(in_array($section, $allowed, true), 404);
 
         $salon = $request->user()->salon()->firstOrCreate([], [
@@ -49,7 +50,8 @@ class DashboardController extends Controller
 
         $salon->load([
             'locations' => fn ($query) => $query->latest(),
-            'services' => fn ($query) => $query->latest(),
+            'staff' => fn ($query) => $query->with(['location', 'locations', 'services'])->latest(),
+            'services' => fn ($query) => $query->with('staffMembers')->latest(),
             'bookings' => fn ($query) => $query->with(['location', 'service'])->latest(),
             'conversations' => fn ($query) => $query
                 ->with([
@@ -65,6 +67,7 @@ class DashboardController extends Controller
             'section' => $section,
             'salon' => $salon,
             'overview' => $dashboardData->overview($salon),
+            'onboarding' => $onboardingChecklist->forSalon($salon),
         ]);
     }
 }
