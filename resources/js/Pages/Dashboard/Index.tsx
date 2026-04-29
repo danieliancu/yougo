@@ -15,6 +15,10 @@ type Props = PageProps<{
   appUrl: string;
 }>;
 
+type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
+
+const TABLE_PILL_CLASS = 'inline-flex items-center justify-center whitespace-nowrap rounded-md font-semibold uppercase tracking-wide min-w-28 px-2 py-1 text-[10px]';
+
 const nav = [
   { id: 'overview', label: 'overview', href: '/dashboard', icon: LayoutDashboard },
   { id: 'onboarding', label: 'setup', href: '/dashboard/onboarding', icon: List },
@@ -147,8 +151,8 @@ export default function DashboardIndex() {
               <Menu className="h-5 w-5" />
             </button>
             <div className="min-w-0">
-              <h1 className="truncate text-lg font-black app-text">{title}</h1>
-              {headerSubtitle && <p className="truncate text-xs font-semibold app-text-muted">{headerSubtitle}</p>}
+              <h1 className="truncate text-lg font-bold app-text">{title}</h1>
+              {headerSubtitle && <p className="truncate text-xs font-medium app-text-muted">{headerSubtitle}</p>}
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-3">
@@ -177,7 +181,7 @@ export default function DashboardIndex() {
   );
 }
 
-function DashboardSidebar({ salon, section, user, t }: { salon: Salon; section: Props['section']; user: AuthUser | null; t: (key: string) => string }) {
+function DashboardSidebar({ salon, section, user, t }: { salon: Salon; section: Props['section']; user: AuthUser | null; t: TranslateFn }) {
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden h-screen w-72 shrink-0 flex-col overflow-hidden app-sidebar lg:flex">
       <div className="shrink-0 border-b border-white/10 p-6">
@@ -196,7 +200,7 @@ function Brand({ salon, onClick }: { salon: Salon; onClick?: () => void }) {
         {salon.logo_path ? (
           <img src={`/storage/${salon.logo_path}`} className="h-7 w-7 shrink-0 rounded-md object-cover" alt={salon.name} />
         ) : (
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/10 text-xs font-black text-white">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/10 text-xs font-bold text-white">
             {salon.name.slice(0, 1).toUpperCase()}
           </span>
         )}
@@ -206,7 +210,7 @@ function Brand({ salon, onClick }: { salon: Salon; onClick?: () => void }) {
   );
 }
 
-function DashboardSidebarContent({ salon, section, user, t, onNavigate }: { salon: Salon; section: Props['section']; user: AuthUser | null; t: (key: string) => string; onNavigate?: () => void }) {
+function DashboardSidebarContent({ salon, section, user, t, onNavigate }: { salon: Salon; section: Props['section']; user: AuthUser | null; t: TranslateFn; onNavigate?: () => void }) {
   const [accountOpen, setAccountOpen] = useState(false);
   const hasPendingBookings = salon.bookings.some((booking) => booking.status === 'pending');
 
@@ -260,11 +264,11 @@ function DashboardSidebarContent({ salon, section, user, t, onNavigate }: { salo
             onClick={() => setAccountOpen((open) => !open)}
             className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left hover:bg-white/10"
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10 text-sm font-black text-white">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10 text-sm font-bold text-white">
               {(user?.name ?? 'U').slice(0, 1).toUpperCase()}
             </span>
             <span className="min-w-0">
-              <span className="block truncate text-sm font-black text-white">{user?.name}</span>
+              <span className="block truncate text-sm font-bold text-white">{user?.name}</span>
               <span className="block truncate text-xs text-slate-400">{user?.email}</span>
             </span>
           </button>
@@ -287,7 +291,7 @@ function LanguageToggle({ locale, onChange }: { locale: 'ro' | 'en'; onChange: (
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex h-10 min-w-20 items-center justify-center gap-2 rounded-lg border px-3 text-xs font-black uppercase app-panel app-text-soft hover:bg-[var(--app-panel-soft)]"
+        className="flex h-10 min-w-20 items-center justify-center gap-2 rounded-lg border px-3 text-xs font-bold uppercase app-panel app-text-soft hover:bg-[var(--app-panel-soft)]"
         aria-expanded={open}
       >
         <span aria-hidden="true">{active.flag}</span>
@@ -356,7 +360,7 @@ function HeaderSearch({ query, onChange, placeholder }: { query: string; onChang
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 px-4 pt-24 xl:hidden">
           <div className="w-full max-w-md rounded-lg border p-4 shadow-2xl app-panel">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <p className="text-sm font-black app-text">{placeholder}</p>
+              <p className="text-sm font-bold app-text">{placeholder}</p>
               <button
                 type="button"
                 aria-label="Close search"
@@ -419,10 +423,10 @@ function WidgetSettings({ salon }: { salon: Salon }) {
       <Card className="p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h2 className="text-xl font-black app-text">{t('previewAssistantTitle')}</h2>
+            <h2 className="text-xl font-bold app-text">{t('previewAssistantTitle')}</h2>
             <p className="mt-2 max-w-2xl text-sm app-text-muted">{t('previewAssistantHelp')}</p>
           </div>
-          <a href={`/assistant/${salon.id}`} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-black text-white transition hover:bg-indigo-700">
+          <a href={`/assistant/${salon.id}`} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-bold text-white transition hover:bg-indigo-700">
             <ExternalLink className="h-4 w-4" />
             {t('openPreview')}
           </a>
@@ -432,9 +436,9 @@ function WidgetSettings({ salon }: { salon: Salon }) {
       <form onSubmit={submit}>
         <Card className="p-6">
           <div className="flex flex-col gap-2">
-            <h2 className="text-xl font-black app-text">{t('installWidgetTitle')}</h2>
+            <h2 className="text-xl font-bold app-text">{t('installWidgetTitle')}</h2>
             <p className="max-w-2xl text-sm app-text-muted">{t('installWidgetHelp')}</p>
-            <p className="text-sm font-semibold app-text-soft">{t('widgetUsesConfiguredRules')}</p>
+            <p className="text-sm font-medium app-text-soft">{t('widgetUsesConfiguredRules')}</p>
           </div>
 
           <div className="mt-6 rounded-lg border p-4 app-panel-soft app-border">
@@ -447,14 +451,14 @@ function WidgetSettings({ salon }: { salon: Salon }) {
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
             <label className="flex items-center justify-between gap-4 rounded-lg border p-4 app-panel app-border">
               <span>
-                <span className="block text-sm font-black app-text">{t('widgetEnabled')}</span>
-                <span className="block text-xs font-semibold app-text-muted">{t('widgetEnabledHelp')}</span>
+                <span className="block text-sm font-bold app-text">{t('widgetEnabled')}</span>
+                <span className="block text-xs font-medium app-text-muted">{t('widgetEnabledHelp')}</span>
               </span>
               <input type="checkbox" checked={form.data.widget_enabled} onChange={(event) => form.setData('widget_enabled', event.target.checked)} className="h-5 w-5 rounded border-slate-300 text-indigo-600" />
             </label>
 
             <Field label={t('widgetPosition')} error={form.errors.widget_position}>
-              <select value={form.data.widget_position} onChange={(event) => form.setData('widget_position', event.target.value)} className="h-11 w-full rounded-lg border px-3 text-sm font-semibold app-panel app-text">
+              <select value={form.data.widget_position} onChange={(event) => form.setData('widget_position', event.target.value)} className="h-11 w-full rounded-lg border px-3 text-sm font-medium app-panel app-text">
                 <option value="bottom-right">bottom-right</option>
                 <option value="bottom-left">bottom-left</option>
               </select>
@@ -468,8 +472,8 @@ function WidgetSettings({ salon }: { salon: Salon }) {
             </Field>
 
             <Field label={t('allowedDomains')} error={form.errors.widget_allowed_domains}>
-              <textarea value={domainsText} onChange={(event) => setDomainsText(event.target.value)} rows={4} placeholder="example.com&#10;www.example.ro" className="w-full rounded-lg border px-3 py-2 text-sm font-semibold app-panel app-text placeholder:text-[var(--app-text-muted)]" />
-              <p className="mt-2 text-xs font-semibold app-text-muted">{t('allowedDomainsHelp')}</p>
+              <textarea value={domainsText} onChange={(event) => setDomainsText(event.target.value)} rows={4} placeholder="example.com&#10;www.example.ro" className="w-full rounded-lg border px-3 py-2 text-sm font-medium app-panel app-text placeholder:text-[var(--app-text-muted)]" />
+              <p className="mt-2 text-xs font-medium app-text-muted">{t('allowedDomainsHelp')}</p>
             </Field>
           </div>
 
@@ -478,7 +482,7 @@ function WidgetSettings({ salon }: { salon: Salon }) {
               <Save className="h-4 w-4" />
               {t('saveChanges')}
             </Button>
-            <a href={`/assistant/${salon.id}`} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-black transition app-panel app-text-soft hover:bg-[var(--app-panel-soft)]">
+            <a href={`/assistant/${salon.id}`} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-bold transition app-panel app-text-soft hover:bg-[var(--app-panel-soft)]">
               <ExternalLink className="h-4 w-4" />
               {t('openPreview')}
             </a>
@@ -532,12 +536,12 @@ function SettingsPage({ salon }: { salon: Salon }) {
 
         <SettingsPanel icon={Building2} title={t('organization')} subtitle={t('organizationSubtitle')}>
           <div className="mb-6">
-            <p className="mb-3 text-sm font-black">{t('businessLogo')}</p>
+            <p className="mb-3 text-sm font-bold">{t('businessLogo')}</p>
             <div className="flex items-center gap-4">
               <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-slate-800 text-slate-400">
                 <Building2 className="h-8 w-8" />
               </div>
-              <label className="inline-flex h-10 cursor-pointer items-center rounded-lg border border-slate-700 px-4 text-sm font-black hover:bg-slate-900">
+              <label className="inline-flex h-10 cursor-pointer items-center rounded-lg border border-slate-700 px-4 text-sm font-bold hover:bg-slate-900">
                 {t('uploadLogo')}
                 <input className="hidden" type="file" accept=".png,.jpg,.jpeg,.svg" onChange={(event) => form.setData('logo', event.target.files?.[0] ?? null)} />
               </label>
@@ -612,13 +616,13 @@ function SettingsPage({ salon }: { salon: Salon }) {
         <SettingsPanel icon={AlertTriangle} title={t('dangerZone')} subtitle={t('dangerZoneSubtitle')}>
           <div className="flex flex-col gap-4 rounded-lg border border-red-500/30 bg-red-500/5 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="font-black text-red-400">{t('deleteAccount')}</p>
+              <p className="font-bold text-red-400">{t('deleteAccount')}</p>
               <p className="mt-1 text-sm app-text-muted">{t('deleteAccountHelp')}</p>
             </div>
             <button
               type="button"
               onClick={() => setShowDeleteAccount(true)}
-              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-black text-white hover:bg-red-700"
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-bold text-white hover:bg-red-700"
             >
               <Trash2 className="h-4 w-4" />
               {t('deleteAccount')}
@@ -628,7 +632,7 @@ function SettingsPage({ salon }: { salon: Salon }) {
       </div>
 
       <div className="mt-6 flex justify-end">
-        <button disabled={form.processing} className="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-black text-white hover:bg-blue-700 disabled:opacity-60">
+        <button disabled={form.processing} className="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-60">
           <Save className="h-4 w-4" />
           {t('saveChanges')}
         </button>
@@ -653,7 +657,7 @@ function SettingsPanel({ icon: Icon, title, subtitle, children }: { icon: any; t
       <div className="mb-7 flex items-start gap-3">
         <Icon className="mt-1 h-5 w-5 app-text" />
         <div>
-          <h3 className="text-2xl font-black app-text">{title}</h3>
+          <h3 className="text-2xl font-bold app-text">{title}</h3>
           <p className="mt-1 text-sm app-text-muted">{subtitle}</p>
         </div>
       </div>
@@ -665,7 +669,7 @@ function SettingsPanel({ icon: Icon, title, subtitle, children }: { icon: any; t
 function DarkField({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-black app-text">{label}</span>
+      <span className="mb-2 block text-sm font-bold app-text">{label}</span>
       {children}
       {error && <span className="mt-1 block text-xs font-bold text-red-400">{error}</span>}
     </label>
@@ -673,18 +677,18 @@ function DarkField({ label, error, children }: { label: string; error?: string; 
 }
 
 function DarkInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={`h-10 w-full rounded-lg border px-3 text-sm font-semibold outline-none placeholder:text-[var(--app-text-muted)] focus:border-blue-500 disabled:opacity-60 app-panel ${props.className ?? ''}`} />;
+  return <input {...props} className={`h-10 w-full rounded-lg border px-3 text-sm font-medium outline-none placeholder:text-[var(--app-text-muted)] focus:border-blue-500 disabled:opacity-60 app-panel ${props.className ?? ''}`} />;
 }
 
 function DarkSelect(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select {...props} className={`h-10 w-full rounded-lg border px-3 text-sm font-semibold outline-none focus:border-blue-500 app-panel ${props.className ?? ''}`} />;
+  return <select {...props} className={`h-10 w-full rounded-lg border px-3 text-sm font-medium outline-none focus:border-blue-500 app-panel ${props.className ?? ''}`} />;
 }
 
 function ToggleRow({ title, subtitle, checked, onChange }: { title: string; subtitle: string; checked: boolean; onChange: (checked: boolean) => void }) {
   return (
     <div className="flex items-center justify-between gap-4 py-7">
       <div>
-        <p className="font-black app-text">{title}</p>
+        <p className="font-bold app-text">{title}</p>
         <p className="mt-1 text-sm app-text-muted">{subtitle}</p>
       </div>
       <button type="button" onClick={() => onChange(!checked)} className={`relative h-6 w-11 rounded-full transition ${checked ? 'bg-blue-600' : 'bg-slate-700'}`}>
@@ -703,11 +707,11 @@ function IntegrationRow({ icon: Icon, title, subtitle }: { icon: any; title: str
           <Icon className="h-5 w-5" />
         </div>
         <div>
-          <p className="font-black app-text">{title}</p>
+          <p className="font-bold app-text">{title}</p>
           <p className="text-sm app-text-muted">{subtitle}</p>
         </div>
       </div>
-      <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-black text-green-800">{t('connected')}</span>
+      <span className="rounded-md bg-green-100 px-3 py-1 text-xs font-bold text-green-800">{t('connected')}</span>
     </div>
   );
 }
@@ -771,7 +775,7 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
         <div className="grid min-h-0 flex-1 overflow-hidden lg:grid-cols-[320px_minmax(0,1fr)_360px]">
           <aside className="min-h-0 overflow-y-auto border-b app-border app-panel-soft lg:border-b-0 lg:border-r">
             <div className="px-4 py-3 lg:p-4">
-              <p className="mb-3 text-xs font-black uppercase tracking-wide app-text-muted">{conversations.length} {t('conversations')}</p>
+              <p className="mb-3 text-xs font-bold uppercase tracking-wide app-text-muted">{conversations.length} {t('conversations')}</p>
               <div className="space-y-2">
                 {conversations.map((conversation) => {
                   const active = conversation.id === selected.id;
@@ -787,7 +791,7 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
                           onClick={() => setSelectedId(conversation.id)}
                           className="min-w-0 flex-1 text-left"
                         >
-                          <p className="truncate text-sm font-black app-text">{conversationTitle(conversation, t)}</p>
+                          <p className="truncate text-sm font-bold app-text">{conversationTitle(conversation, t)}</p>
                           <p className="mt-1 truncate text-xs app-text-muted">{lastMessage}</p>
                           <div className="mt-2">
                             <IntentPill intent={conversation.intent} compact bookingStatus={conversation.booking?.status} />
@@ -816,7 +820,7 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
                   {selected.channel === 'voice' ? <Phone className="h-5 w-5" /> : <MessageSquare className="h-5 w-5" />}
                 </div>
                 <div className="min-w-0">
-                  <h3 className="truncate text-xl font-black app-text sm:text-2xl">{selected.channel === 'voice' ? t('voiceCall') : t('chatConversation')}</h3>
+                  <h3 className="truncate text-xl font-bold app-text sm:text-2xl">{selected.channel === 'voice' ? t('voiceCall') : t('chatConversation')}</h3>
                   <p className="text-sm app-text-muted">{conversationTitle(selected, t)}</p>
                 </div>
               </div>
@@ -826,7 +830,7 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
             </div>
 
             <DarkPanel className="mt-6 flex min-h-0 flex-1 flex-col">
-              <div className="mb-6 flex items-center gap-2 text-lg font-black app-text">
+              <div className="mb-6 flex items-center gap-2 text-lg font-bold app-text">
                 <FileText className="h-5 w-5" />
                 {t('transcript')}
               </div>
@@ -846,17 +850,17 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
 
           <aside className="min-h-0 space-y-4 overflow-y-auto border-t p-4 app-border app-panel-soft sm:p-5 lg:space-y-6 lg:border-l lg:border-t-0 lg:p-8">
             <DarkPanel>
-              <h3 className="mb-6 text-lg font-black app-text">{t('summary')}</h3>
+              <h3 className="mb-6 text-lg font-bold app-text">{t('summary')}</h3>
               <p className="text-sm leading-6 app-text-soft">{conversationSummary(selected, t)}</p>
             </DarkPanel>
             <DarkPanel>
-              <h3 className="mb-6 flex items-center gap-2 text-lg font-black app-text"><FileText className="h-5 w-5" /> {t('details')}</h3>
+              <h3 className="mb-6 flex items-center gap-2 text-lg font-bold app-text"><FileText className="h-5 w-5" /> {t('details')}</h3>
               <Detail icon={Calendar} label={t('dateAndTime')} value={formatDate(selected.last_message_at || selected.created_at, salon.timezone)} />
               <Detail icon={Clock} label={t('duration')} value={formatDuration(selected.duration_seconds)} />
               <Detail icon={User} label={t('contact')} value={conversationTitle(selected, t)} />
             </DarkPanel>
             <DarkPanel>
-              <h3 className="mb-6 flex items-center gap-2 text-lg font-black app-text"><Phone className="h-5 w-5" /> {t('voiceAgent')}</h3>
+              <h3 className="mb-6 flex items-center gap-2 text-lg font-bold app-text"><Phone className="h-5 w-5" /> {t('voiceAgent')}</h3>
               <Detail icon={Bot} label={t('agent')} value={`${salon.ai_assistant_name?.trim() || 'Bella'} Romania Line`} />
               <Detail icon={Phone} label={t('businessPhone')} value={salon.locations[0]?.phone || '+40 000 000 000'} />
             </DarkPanel>
@@ -866,7 +870,7 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
         <div className="flex min-h-[520px] items-center justify-center p-8 text-center">
           <div>
             <MessageSquare className="mx-auto mb-4 h-10 w-10 text-slate-700" />
-            <h3 className="text-xl font-black app-text">{emptyTitle}</h3>
+            <h3 className="text-xl font-bold app-text">{emptyTitle}</h3>
             <p className="mt-2 text-sm app-text-muted">{emptyHelp}</p>
           </div>
         </div>
@@ -903,7 +907,7 @@ function ConversationFilterButton({ active, onClick, icon: Icon, children }: { a
   );
 }
 
-function conversationSummary(conversation: Conversation, t: (key: string) => string) {
+function conversationSummary(conversation: Conversation, t: TranslateFn) {
   const status = conversation.booking?.status;
 
   if (status === 'pending') return t('bookingSummaryPending');
@@ -944,11 +948,11 @@ function IntentPill({ intent, compact = false, bookingStatus }: { intent: string
 
   return (
     <div className="flex items-center gap-1.5">
-      <span className={`inline-flex justify-center rounded-full font-black uppercase tracking-wide ${compact ? 'min-w-20 px-2 py-1 text-[10px]' : 'min-w-24 px-3 py-1 text-xs'} ${tone}`}>
+      <span className={`inline-flex justify-center rounded-md font-bold uppercase tracking-wide ${compact ? 'min-w-20 px-2 py-1 text-[10px]' : 'min-w-24 px-3 py-1 text-xs'} ${tone}`}>
         {labels[intent] ?? t('intentUnknown')}
       </span>
       {intent === 'booking' && bookingStatus && (
-        <span className={`inline-flex items-center gap-1.5 justify-center rounded-full font-black uppercase tracking-wide ${compact ? 'min-w-20 px-2 py-1 text-[10px]' : 'min-w-24 px-3 py-1 text-xs'} ${statusTones[bookingStatus] ?? statusTones.completed}`}>
+        <span className={`inline-flex items-center gap-1.5 justify-center rounded-md font-bold uppercase tracking-wide ${compact ? 'min-w-20 px-2 py-1 text-[10px]' : 'min-w-24 px-3 py-1 text-xs'} ${statusTones[bookingStatus] ?? statusTones.completed}`}>
           {bookingStatus === 'pending' && <span className="railway-lights shrink-0" aria-hidden="true" />}
           {statusLabels[bookingStatus] ?? bookingStatus}
         </span>
@@ -957,7 +961,7 @@ function IntentPill({ intent, compact = false, bookingStatus }: { intent: string
   );
 }
 
-function StatusPill({ status, t, className = '' }: { status: string; t: (key: string) => string; className?: string }) {
+function StatusPill({ status, t, className = '' }: { status: string; t: TranslateFn; className?: string }) {
   const tones: Record<string, string> = {
     pending: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
     confirmed: 'bg-green-700 text-white dark:bg-green-700 dark:text-white',
@@ -976,7 +980,7 @@ function StatusPill({ status, t, className = '' }: { status: string; t: (key: st
   };
 
   return (
-    <span className={`inline-flex h-8 min-w-32 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-xs font-black uppercase tracking-wide ${tones[status] ?? tones.completed} ${className}`}>
+    <span className={`${TABLE_PILL_CLASS} gap-1.5 ${tones[status] ?? tones.completed} ${className}`}>
       {status === 'pending' && <span className="railway-lights shrink-0" aria-hidden="true" />}
       {labels[status] ?? status}
     </span>
@@ -1032,7 +1036,7 @@ function DarkPanel({ children, className = '' }: { children: React.ReactNode; cl
 }
 
 function Avatar({ label, muted = false }: { label: string; muted?: boolean }) {
-  return <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black ${muted ? 'app-panel-soft app-text-soft' : 'bg-blue-600 text-white'}`}>{label}</div>;
+  return <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${muted ? 'app-panel-soft app-text-soft' : 'bg-blue-600 text-white'}`}>{label}</div>;
 }
 
 function Detail({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
@@ -1041,7 +1045,7 @@ function Detail({ icon: Icon, label, value }: { icon: any; label: string; value:
       <Icon className="mt-1 h-4 w-4 shrink-0 app-text-muted" />
       <div>
         <p className="text-xs app-text-muted">{label}</p>
-        <p className="text-sm font-black app-text">{value}</p>
+        <p className="text-sm font-bold app-text">{value}</p>
       </div>
     </div>
   );
@@ -1122,7 +1126,7 @@ function getConversationDate(conversation: Conversation) {
   return new Date(conversation.last_message_at || conversation.created_at || Date.now());
 }
 
-function activitySeriesLabels(t: (key: string) => string): Record<string, string> {
+function activitySeriesLabels(t: TranslateFn): Record<string, string> {
   return {
     phoneDone: t('phoneCalls'),
     chatWhatsDone: t('chatWhats'),
@@ -1158,7 +1162,7 @@ function OnboardingSetup({ onboarding }: { onboarding: OnboardingChecklist }) {
       <Card className="p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-3xl">
-            <h2 className="text-2xl font-black app-text">{t('onboardingHeading')}</h2>
+            <h2 className="text-2xl font-bold app-text">{t('onboardingHeading')}</h2>
             <p className="mt-2 text-sm leading-6 app-text-muted">{t('onboardingPageHelper')}</p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -1170,10 +1174,10 @@ function OnboardingSetup({ onboarding }: { onboarding: OnboardingChecklist }) {
         {nextStep && (
           <div className="mt-5 flex flex-col gap-3 rounded-lg border p-4 app-border app-panel-soft sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-wide app-text-muted">{t('nextStep')}</p>
-              <p className="mt-1 font-black app-text">{t(nextStep.label_key)}</p>
+              <p className="text-xs font-bold uppercase tracking-wide app-text-muted">{t('nextStep')}</p>
+              <p className="mt-1 font-bold app-text">{t(nextStep.label_key)}</p>
             </div>
-            <Link href={nextStep.href} className="inline-flex h-10 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700">
+            <Link href={nextStep.href} className="inline-flex h-10 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700">
               {t('continueSetup')}
             </Link>
           </div>
@@ -1193,8 +1197,8 @@ function OnboardingProgress({ onboarding }: { onboarding: OnboardingChecklist })
   return (
     <div className="mt-6">
       <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-        <span className="font-black app-text">{onboarding.completed_count}/{onboarding.total_required}</span>
-        <span className="font-black text-indigo-600">{onboarding.progress}%</span>
+        <span className="font-bold app-text">{onboarding.completed_count}/{onboarding.total_required}</span>
+        <span className="font-bold text-indigo-600">{onboarding.progress}%</span>
       </div>
       <div className="h-2 overflow-hidden rounded-full app-panel-soft">
         <div className="h-full rounded-full bg-indigo-600 transition-all" style={{ width: `${onboarding.progress}%` }} />
@@ -1223,7 +1227,7 @@ function OnboardingStepRow({ step }: { step: OnboardingStep }) {
           </span>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="font-black app-text">{t(step.label_key)}</p>
+              <p className="font-bold app-text">{t(step.label_key)}</p>
               <Badge tone={tone as any}>{status}</Badge>
             </div>
             <p className="mt-1 text-sm app-text-muted">{t(step.description_key)}</p>
@@ -1249,7 +1253,7 @@ function OnboardingReminder({ onboarding }: { onboarding: OnboardingChecklist })
     <Card className="border-indigo-500/30 p-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
-          <p className="text-lg font-black app-text">{t('onboardingHeading')}</p>
+          <p className="text-lg font-bold app-text">{t('onboardingHeading')}</p>
           <p className="mt-1 text-sm app-text-muted">
             {onboarding.skipped ? t('setupSkippedReminder') : t('onboardingPageHelper')}
           </p>
@@ -1261,7 +1265,7 @@ function OnboardingReminder({ onboarding }: { onboarding: OnboardingChecklist })
           <OnboardingProgress onboarding={onboarding} />
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
-          <Link href="/dashboard/onboarding" className="inline-flex h-10 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700">
+          <Link href="/dashboard/onboarding" className="inline-flex h-10 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700">
             {t('continueSetup')}
           </Link>
           {!onboarding.skipped && (
@@ -1293,19 +1297,19 @@ function Overview({ salon, overview, onboarding }: { salon: Salon; overview: Ove
       <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
         <Card className="p-5">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-xs font-black uppercase tracking-wide app-text-muted">{t('activityReport')}</h2>
+            <h2 className="text-xs font-bold uppercase tracking-wide app-text-muted">{t('activityReport')}</h2>
             <div className="inline-flex rounded-lg border p-1 app-panel">
               <button
                 type="button"
                 onClick={() => setActivityRange('week')}
-                className={`h-8 rounded-md px-3 text-xs font-black transition ${activityRange === 'week' ? 'bg-indigo-600 text-white' : 'app-text-muted hover:bg-[var(--app-panel-soft)]'}`}
+                className={`h-8 rounded-md px-3 text-xs font-bold transition ${activityRange === 'week' ? 'bg-indigo-600 text-white' : 'app-text-muted hover:bg-[var(--app-panel-soft)]'}`}
               >
                 {t('week')}
               </button>
               <button
                 type="button"
                 onClick={() => setActivityRange('month')}
-                className={`h-8 rounded-md px-3 text-xs font-black transition ${activityRange === 'month' ? 'bg-indigo-600 text-white' : 'app-text-muted hover:bg-[var(--app-panel-soft)]'}`}
+                className={`h-8 rounded-md px-3 text-xs font-bold transition ${activityRange === 'month' ? 'bg-indigo-600 text-white' : 'app-text-muted hover:bg-[var(--app-panel-soft)]'}`}
               >
                 {t('month')}
               </button>
@@ -1335,8 +1339,8 @@ function Overview({ salon, overview, onboarding }: { salon: Salon; overview: Ove
           </div>
         </Card>
         <Card className="p-5">
-          <h2 className="mb-4 text-xs font-black uppercase tracking-wide app-accent-text">{t('assistantLive')}</h2>
-          <p className="text-2xl font-black app-text">{t('bellaOnline', { name: assistantName })}</p>
+          <h2 className="mb-4 text-xs font-bold uppercase tracking-wide app-accent-text">{t('assistantLive')}</h2>
+          <p className="text-2xl font-bold app-text">{t('bellaOnline', { name: assistantName })}</p>
           <p className="mt-2 text-sm app-text-soft">{t('overviewAiWorkSummary')}</p>
           <div className="mt-6 rounded-lg app-soft-tint">
             <p className="px-4 pt-4 pb-2 text-xs font-bold uppercase app-accent-text">{t('latestConversations')}</p>
@@ -1357,7 +1361,7 @@ function Overview({ salon, overview, onboarding }: { salon: Salon; overview: Ove
       </div>
       <Card className="overflow-hidden">
         <div className="border-b p-5 app-border">
-          <h2 className="text-lg font-black app-text">{t('latestBookings')}</h2>
+          <h2 className="text-lg font-bold app-text">{t('latestBookings')}</h2>
         </div>
         {overview.latest_bookings.length === 0 ? (
           <div className="flex min-h-24 items-center justify-center p-6 text-sm app-text-muted">
@@ -1375,20 +1379,20 @@ function Overview({ salon, overview, onboarding }: { salon: Salon; overview: Ove
   );
 }
 
-function OverviewBookingRow({ booking, t }: { booking: Booking; t: (key: string) => string }) {
+function OverviewBookingRow({ booking, t }: { booking: Booking; t: TranslateFn }) {
   const staffLabel = bookingStaffLabel(booking);
 
   return (
     <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
-        <p className="truncate text-sm font-black app-text">{booking.client_name}</p>
+        <p className="truncate text-sm font-bold app-text">{booking.client_name}</p>
         <p className="mt-1 truncate text-xs app-text-muted">
-          {[booking.service?.name, booking.location?.name].filter(Boolean).join(' • ') || t('appointment')}
+          {[booking.service?.name, booking.location?.name].filter(Boolean).join(' \u2022 ') || t('appointment')}
         </p>
         {staffLabel && <p className="mt-1 truncate text-xs app-text-muted">{t('assignedStaff')}: {staffLabel}</p>}
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-3">
-        <span className="text-xs font-black app-text-muted">{formatBookingDay(booking.date)} {booking.time}</span>
+        <span className="text-xs font-bold app-text-muted">{formatBookingDay(booking.date)} {booking.time}</span>
         <StatusPill status={booking.status} t={t} className="min-w-0 px-2 py-0.5 text-[10px]" />
       </div>
     </div>
@@ -1400,7 +1404,7 @@ function bookingStaffLabel(booking: Booking): string {
     return booking.staff_member.name;
   }
 
-  return (booking.staff ?? []).filter(Boolean).join(' • ');
+  return (booking.staff ?? []).filter(Boolean).join(' \u2022 ');
 }
 
 function Stat({ label, value, icon: Icon, tone = 'indigo' }: { label: string; value: number | string; icon: any; tone?: 'indigo' | 'amber' | 'green' | 'blue' | 'slate' }) {
@@ -1416,8 +1420,8 @@ function Stat({ label, value, icon: Icon, tone = 'indigo' }: { label: string; va
       <div className={`mb-4 flex h-10 w-10 items-center justify-center rounded-lg ${colors[tone]}`}>
         <Icon className="h-5 w-5" />
       </div>
-      <p className="text-xs font-black uppercase tracking-wide app-text-muted">{label}</p>
-      <p className="mt-1 text-3xl font-black app-text">{value}</p>
+      <p className="text-xs font-bold uppercase tracking-wide app-text-muted">{label}</p>
+      <p className="mt-1 text-3xl font-bold app-text">{value}</p>
     </Card>
   );
 }
@@ -1477,7 +1481,7 @@ function AiSettings({ salon }: { salon: Salon }) {
         <div className="mb-6 flex items-start gap-3">
           <Sparkles className="mt-1 h-5 w-5 text-indigo-500" />
           <div>
-            <h2 className="text-xl font-black app-text">{t('aiIdentityBehavior')}</h2>
+            <h2 className="text-xl font-bold app-text">{t('aiIdentityBehavior')}</h2>
             <p className="mt-1 text-sm app-text-muted">{t('aiIdentityBehaviorHelp')}</p>
           </div>
         </div>
@@ -1514,13 +1518,13 @@ function AiSettings({ salon }: { salon: Salon }) {
         <div className="mb-6 flex items-start gap-3">
           <Building2 className="mt-1 h-5 w-5 text-indigo-500" />
           <div>
-            <h2 className="text-xl font-black app-text">{t('aiBusinessContext')}</h2>
+            <h2 className="text-xl font-bold app-text">{t('aiBusinessContext')}</h2>
             <p className="mt-1 text-sm app-text-muted">{t('aiBusinessContextHelp')}</p>
           </div>
         </div>
         <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <div>
-            <p className="mb-3 text-sm font-black app-text">{t('industryCategories')}</p>
+            <p className="mb-3 text-sm font-bold app-text">{t('industryCategories')}</p>
             <div className="grid gap-2 sm:grid-cols-2">
               {selectedBusinessType?.industries.map((category) => {
                 const checked = form.data.ai_industry_categories.includes(category.slug);
@@ -1556,7 +1560,7 @@ function AiSettings({ salon }: { salon: Salon }) {
               </select>
             </Field>
             <div>
-              <p className="mb-2 text-sm font-black app-text">{t('customAiContext')}</p>
+              <p className="mb-2 text-sm font-bold app-text">{t('customAiContext')}</p>
               <div className="flex gap-2">
                 <Input
                   value={customContextInput}
@@ -1569,7 +1573,7 @@ function AiSettings({ salon }: { salon: Salon }) {
                   }}
                   placeholder={t('customAiContextPlaceholder')}
                 />
-                <button type="button" onClick={addCustomContext} className="inline-flex h-10 shrink-0 items-center rounded-lg bg-indigo-600 px-4 text-sm font-black text-white hover:bg-indigo-700">
+                <button type="button" onClick={addCustomContext} className="inline-flex h-10 shrink-0 items-center rounded-lg bg-indigo-600 px-4 text-sm font-bold text-white hover:bg-indigo-700">
                   {t('add')}
                 </button>
               </div>
@@ -1582,7 +1586,7 @@ function AiSettings({ salon }: { salon: Salon }) {
                       key={item}
                       type="button"
                       onClick={() => removeCustomContext(item)}
-                      className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-black app-border app-text-soft hover:bg-[var(--app-panel-soft)]"
+                      className="inline-flex items-center gap-2 rounded-md border px-3 py-1 text-xs font-bold app-border app-text-soft hover:bg-[var(--app-panel-soft)]"
                       title={t('remove')}
                     >
                       {item}
@@ -1600,7 +1604,7 @@ function AiSettings({ salon }: { salon: Salon }) {
         <div className="mb-6 flex items-start gap-3">
           <FileText className="mt-1 h-5 w-5 text-indigo-500" />
           <div>
-            <h2 className="text-xl font-black app-text">{t('aiKnowledge')}</h2>
+            <h2 className="text-xl font-bold app-text">{t('aiKnowledge')}</h2>
             <p className="mt-1 text-sm app-text-muted">{t('aiKnowledgeHelp')}</p>
           </div>
         </div>
@@ -1630,7 +1634,7 @@ function AiSettings({ salon }: { salon: Salon }) {
         <div className="mb-6 flex items-start gap-3">
           <Calendar className="mt-1 h-5 w-5 text-indigo-500" />
           <div>
-            <h2 className="text-xl font-black app-text">{t('aiBookingBehavior')}</h2>
+            <h2 className="text-xl font-bold app-text">{t('aiBookingBehavior')}</h2>
             <p className="mt-1 text-sm app-text-muted">{t('aiBookingBehaviorHelp')}</p>
           </div>
         </div>
@@ -1811,7 +1815,7 @@ function Locations({ salon }: { salon: Salon }) {
               <>
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h3 className="text-lg font-black app-text">{location.name}</h3>
+                    <h3 className="text-lg font-bold app-text">{location.name}</h3>
                     <p className="mt-1 text-sm app-text-soft">{location.address}</p>
                   </div>
                   <div className="flex gap-2">
@@ -1824,11 +1828,11 @@ function Locations({ salon }: { salon: Salon }) {
                   </div>
                 </div>
                 <div className="mt-5 space-y-2 text-sm app-text-soft">
-                  <p>{location.phone || t('phoneMissing')}</p>
-                  <p>{location.email || t('emailMissing')}</p>
-                  <p>{capacityLabel(location.max_concurrent_bookings, t)}</p>
-                  <div className="rounded-lg mt-8 app-panel-soft">
-                    <p className="mb-2 flex items-center gap-2 font-black app-text"><Clock className="h-4 w-4 text-indigo-600" /> {t('operatingHours')}</p>
+                  <ContactMetaLine label={t('phone')} value={location.phone || t('phoneMissing')} />
+                  <ContactMetaLine label={t('email')} value={location.email || t('emailMissing')} />
+                  <ContactMetaLine label={t('defaultLabel')} value={capacityValue(location.max_concurrent_bookings, t)} />
+                  <div className="rounded-lg mt-8 app-panel-soft p-4">
+                    <p className="mb-2 flex items-center gap-2 font-bold app-text"><Clock className="h-4 w-4 text-indigo-600" /> {t('operatingHours')}</p>
                     <HoursList hours={{ ...defaultHours, ...(location.hours ?? {}) }} />
                   </div>
                 </div>
@@ -1864,7 +1868,7 @@ function normalizeHourValue(value: string): { normalized: string; error?: HourVa
     return { normalized: 'Inchis' };
   }
 
-  const normalizedDash = raw.replace(/[–—]/g, '-');
+  const normalizedDash = raw.replace(/[â€“â€”]/g, '-');
   const match = normalizedDash.match(/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/);
 
   if (!match) {
@@ -1959,16 +1963,16 @@ function HoursEditor({ title, hours, onChange, onBulkApply, errors }: { title: s
 
   return (
     <div className="rounded-lg border p-4 app-panel-soft">
-      <p className="mb-3 text-sm font-black app-text">{title}</p>
+      <p className="mb-3 text-sm font-bold app-text">{title}</p>
       <div className="mb-4 space-y-3 rounded-lg border p-3 app-panel">
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => selectDays(weekdayKeys)} className="rounded-full border px-3 py-1 text-xs font-bold app-panel app-text-soft hover:bg-[var(--app-panel-soft)]">
+          <button type="button" onClick={() => selectDays(weekdayKeys)} className="rounded-md border px-3 py-1 text-xs font-bold app-panel app-text-soft hover:bg-[var(--app-panel-soft)]">
             {t('weekdays')}
           </button>
-          <button type="button" onClick={() => selectDays(weekendKeys)} className="rounded-full border px-3 py-1 text-xs font-bold app-panel app-text-soft hover:bg-[var(--app-panel-soft)]">
+          <button type="button" onClick={() => selectDays(weekendKeys)} className="rounded-md border px-3 py-1 text-xs font-bold app-panel app-text-soft hover:bg-[var(--app-panel-soft)]">
             {t('weekend')}
           </button>
-          <button type="button" onClick={() => selectDays(hourDays.map(([key]) => key))} className="rounded-full border px-3 py-1 text-xs font-bold app-panel app-text-soft hover:bg-[var(--app-panel-soft)]">
+          <button type="button" onClick={() => selectDays(hourDays.map(([key]) => key))} className="rounded-md border px-3 py-1 text-xs font-bold app-panel app-text-soft hover:bg-[var(--app-panel-soft)]">
             {t('allDays')}
           </button>
         </div>
@@ -1981,7 +1985,7 @@ function HoursEditor({ title, hours, onChange, onBulkApply, errors }: { title: s
                 key={key}
                 type="button"
                 onClick={() => toggleDay(key)}
-                className={`rounded-full border px-3 py-1 text-xs font-bold transition ${active ? 'border-indigo-600 bg-indigo-600 text-white' : 'app-panel app-text-soft hover:bg-[var(--app-panel-soft)]'}`}
+                className={`rounded-md border px-3 py-1 text-xs font-bold transition ${active ? 'border-indigo-600 bg-indigo-600 text-white' : 'app-panel app-text-soft hover:bg-[var(--app-panel-soft)]'}`}
               >
                 {t(label)}
               </button>
@@ -2034,7 +2038,7 @@ function HoursList({ hours }: { hours: Record<string, string> }) {
       {hourDays.map(([key, label]) => (
         <div key={key} className="flex justify-between gap-3">
           <span className="app-text-muted">{t(label)}</span>
-          <span className="font-semibold app-text">{hours[key] || '-'}</span>
+          <span className="font-medium app-text">{hours[key] || '-'}</span>
         </div>
       ))}
     </div>
@@ -2118,7 +2122,7 @@ function StaffManagement({ salon, query }: { salon: Salon; query: string }) {
       {filteredStaff.length === 0 ? (
         <Card className="flex min-h-52 flex-col items-center justify-center p-8 text-center">
           <Users className="mb-4 h-10 w-10 app-text-muted" />
-          <p className="text-lg font-black app-text">{t('noStaffMembersYet')}</p>
+          <p className="text-lg font-bold app-text">{t('noStaffMembersYet')}</p>
           <p className="mt-2 max-w-xl text-sm app-text-muted">{t('staffEmptyHelp')}</p>
           <Button className="mt-5" onClick={() => setAdding(true)}><Plus className="h-4 w-4" /> {t('addYourTeam')}</Button>
         </Card>
@@ -2139,7 +2143,7 @@ function StaffManagement({ salon, query }: { salon: Salon; query: string }) {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="truncate text-lg font-black app-text">{staffMember.name}</h3>
+                        <h3 className="truncate text-lg font-bold app-text">{staffMember.name}</h3>
                         <Badge tone={staffMember.active ? 'green' : 'slate'}>{staffMember.active ? t('active') : t('inactive')}</Badge>
                       </div>
                       <p className="mt-1 text-sm app-text-muted">{staffMember.role || t('role')}</p>
@@ -2155,7 +2159,7 @@ function StaffManagement({ salon, query }: { salon: Salon; query: string }) {
                   </div>
                   <div className="grid gap-3 text-sm sm:grid-cols-2">
                     <InfoLine label={t('location')} value={staffLocationNames(staffMember)} />
-                    <InfoLine label={t('services')} value={(staffMember.services ?? []).map((service) => service.name).join(', ') || '-'} />
+                    <InfoLine label={t('services')} value={(staffMember.services ?? []).length > 0 ? (staffMember.services ?? []).map((service) => service.name) : '-'} />
                     <InfoLine label={t('email')} value={staffMember.email || '-'} />
                     <InfoLine label={t('phone')} value={staffMember.phone || '-'} />
                   </div>
@@ -2169,7 +2173,7 @@ function StaffManagement({ salon, query }: { salon: Salon; query: string }) {
   );
 }
 
-function StaffFormFields({ salon, form, t }: { salon: Salon; form: any; t: (key: string) => string }) {
+function StaffFormFields({ salon, form, t }: { salon: Salon; form: any; t: TranslateFn }) {
   const serviceGroups = useMemo(() => {
     const groups = new Map<string, Service[]>();
     salon.services.forEach((service) => {
@@ -2214,7 +2218,7 @@ function StaffFormFields({ salon, form, t }: { salon: Salon; form: any; t: (key:
         <div className="flex items-end"><ToggleRow title={t('active')} subtitle={form.data.active ? t('active') : t('inactive')} checked={form.data.active} onChange={(checked) => form.setData('active', checked)} /></div>
       </div>
       <div>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-black app-text">{t('services')}</p></div>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-bold app-text">{t('services')}</p></div>
         {salon.services.length === 0 ? (
           <p className="rounded-lg border p-4 text-sm app-text-muted app-border">{t('noServices')}</p>
         ) : (
@@ -2225,9 +2229,9 @@ function StaffFormFields({ salon, form, t }: { salon: Salon; form: any; t: (key:
               return (
                 <details key={category} className="rounded-lg border app-border app-panel">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
-                    <span className="font-black app-text">{category}</span>
+                    <span className="font-bold app-text">{category}</span>
                     <span className="flex items-center gap-3">
-                      <button type="button" onClick={(event) => { event.preventDefault(); toggleCategoryServices(serviceIds); }} className="text-xs font-black text-indigo-600 hover:underline">
+                      <button type="button" onClick={(event) => { event.preventDefault(); toggleCategoryServices(serviceIds); }} className="text-xs font-bold text-indigo-600 hover:underline">
                         {allCategorySelected ? t('clearSelection') : t('selectAll')}
                       </button>
                       <ChevronDown className="h-4 w-4 app-text-muted" />
@@ -2237,7 +2241,7 @@ function StaffFormFields({ salon, form, t }: { salon: Salon; form: any; t: (key:
                     {services.map((service) => {
                       const checked = form.data.service_ids.includes(service.id);
                       return (
-                        <label key={service.id} className="flex cursor-pointer items-center gap-3 px-4 py-3 text-sm font-semibold transition app-border app-text-soft hover:bg-[var(--app-panel-soft)]">
+                        <label key={service.id} className="flex cursor-pointer items-center gap-3 px-4 py-3 text-sm font-medium transition app-border app-text-soft hover:bg-[var(--app-panel-soft)]">
                           <input type="checkbox" checked={checked} onChange={() => toggleService(service.id)} className="h-4 w-4 rounded border-[var(--app-border)] text-indigo-600 focus:ring-indigo-500" />
                           <span className="app-text">{service.name}</span>
                         </label>
@@ -2264,20 +2268,38 @@ function staffLocationNames(staffMember: Staff): string {
 function StaffLocationPicker({ locations, selectedIds, onChange, emptyLabel }: { locations: SalonLocation[]; selectedIds: number[]; onChange: (ids: number[]) => void; emptyLabel: string }) {
   if (locations.length === 0) return <p className="text-sm app-text-muted">{emptyLabel}</p>;
   if (locations.length === 1) {
-    return <div className="flex h-10 w-full items-center rounded-lg border px-3 text-sm font-semibold app-panel app-text app-border">{locations[0].name}</div>;
+    return <div className="flex h-10 w-full items-center rounded-lg border px-3 text-sm font-medium app-panel app-text app-border">{locations[0].name}</div>;
   }
   return <MultiSelectDropdown options={locations.map((location) => ({ value: location.id, label: location.name }))} selected={selectedIds ?? []} onChange={(next) => onChange(next as number[])} emptyLabel={emptyLabel} />;
 }
 
-function capacityLabel(value: number | null | undefined, t: (key: string) => string): string {
+function capacityLabel(value: number | null | undefined, t: TranslateFn): string {
   return value ? t('capacityBookingsAtSameTime', { count: value }) : t('defaultCapacityOne');
 }
 
-function InfoLine({ label, value }: { label: string; value: string }) {
+function capacityValue(value: number | null | undefined, t: TranslateFn): string {
+  return value
+    ? t('capacityBookingsAtSameTime', { count: value })
+    : t('defaultCapacityOne').replace(/^(Implicit|Default):\s*/, '');
+}
+
+function ContactMetaLine({ label, value }: { label: string; value: string }) {
+  return (
+    <p>
+      <span className="font-semibold">{label}:</span> {value}
+    </p>
+  );
+}
+
+function InfoLine({ label, value }: { label: string; value: string | string[] }) {
+  const values = Array.isArray(value) ? value : [value];
+
   return (
     <div className="rounded-lg border p-3 app-border">
-      <p className="text-xs font-black uppercase tracking-wide app-text-muted">{label}</p>
-      <p className="mt-1 break-words font-semibold app-text">{value}</p>
+      <p className="text-xs font-bold uppercase tracking-wide app-text-muted">{label}</p>
+      <div className="mt-1 space-y-1 break-words font-medium app-text">
+        {values.map((item, index) => <p key={`${item}-${index}`}>{item}</p>)}
+      </div>
     </div>
   );
 }
@@ -2539,7 +2561,7 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
         action={
           <div className="flex flex-wrap gap-2">
             <SecondaryButton onClick={openCategoryManager}><Plus className="h-4 w-4" /> {t('addCategory')}</SecondaryButton>
-            <Link href="/dashboard/staff" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold transition app-panel app-text-soft hover:bg-[var(--app-panel-soft)]">
+            <Link href="/dashboard/staff" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium transition app-panel app-text-soft hover:bg-[var(--app-panel-soft)]">
               <Users className="h-4 w-4" /> {t('manageStaff')}
             </Link>
             <Button onClick={() => setAdding(true)}><Plus className="h-4 w-4" /> {t('addService')}</Button>
@@ -2561,7 +2583,7 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
               {t('simultaneousBookingsLine2')}
             </span>
             <span className="group relative inline-flex">
-              <span className="flex h-4 w-4 items-center justify-center rounded-full border text-[10px] font-black app-border app-text-muted">i</span>
+              <span className="flex h-4 w-4 items-center justify-center rounded-full border text-[10px] font-semibold app-border app-text-muted">i</span>
               <span className="pointer-events-none absolute left-1/2 top-6 z-50 hidden w-56 -translate-x-1/2 rounded-lg border px-3 py-2 text-xs normal-case tracking-normal shadow-lg group-hover:block app-panel app-text">
                 {t('simultaneousBookingsHelp')}
               </span>
@@ -2590,17 +2612,17 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
               <>
                   <td className="px-5 py-4 align-top">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-bold app-text">{service.name}</p>
+                      <p className="font-semibold app-text">{service.name}</p>
                       {!!service.notes && <ServiceNotesPill notes={service.notes} />}
                     </div>
                     {(service.staff_members ?? []).length > 0 && (
                       <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm app-text-soft">
                         {(service.staff_members ?? []).map((staffMember, index) => (
                           <span key={staffMember.id} className="inline-flex items-center gap-1.5">
-                            {index > 0 && <span className="app-text-muted">•</span>}
+                            {index > 0 && <span className="app-text-muted">{'\u2022'}</span>}
                             <span>{staffMember.name}</span>
                             {!staffMember.active && (
-                              <span className="rounded-full border border-slate-200 px-1.5 py-0.5 text-[10px] font-black uppercase app-panel app-text-muted">
+                              <span className={`${TABLE_PILL_CLASS} border border-slate-200 app-panel app-text-muted`}>
                                 {t('inactive')}
                               </span>
                             )}
@@ -2609,7 +2631,7 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
                       </div>
                     )}
                   </td>
-                  <td className="px-5 py-4 text-sm font-black app-text">{service.max_concurrent_bookings ?? 1}</td>
+                  <td className="px-5 py-4 text-sm font-semibold app-text">{service.max_concurrent_bookings ?? 1}</td>
                   <td className="px-5 py-4 text-sm app-text-soft">{service.type || ''}</td>
                   <td className="px-5 py-4">
                     <BranchPicker
@@ -2621,7 +2643,7 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
                     />
                   </td>
                   <td className="px-5 py-4 text-sm app-text-soft">{service.duration} min</td>
-                  <td className="px-5 py-4 font-black text-indigo-700">{service.price}</td>
+                  <td className="px-5 py-4 font-semibold text-indigo-700">{service.price}</td>
                   <td className="px-5 py-4">
                     <div className="flex justify-end gap-2">
                       <SecondaryButton onClick={() => startEditService(service)}><Pencil className="h-4 w-4" /></SecondaryButton>
@@ -2670,7 +2692,7 @@ function CategoryFilterHeader({ label, categories, selected, onChange }: { label
         className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 transition hover:bg-white/10 ${active ? 'text-indigo-400' : ''}`}
       >
         {label.toLocaleUpperCase()}
-        {active && <span className="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-black text-white">{selected.length}</span>}
+        {active && <span className="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-semibold text-white">{selected.length}</span>}
         <ChevronDown className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
@@ -2679,7 +2701,7 @@ function CategoryFilterHeader({ label, categories, selected, onChange }: { label
             <button
               type="button"
               onClick={() => { onChange([]); setOpen(false); }}
-              className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-xs font-semibold text-indigo-600 transition hover:bg-[var(--app-panel-soft)]"
+              className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-xs font-medium text-indigo-600 transition hover:bg-[var(--app-panel-soft)]"
             >
               Reset
             </button>
@@ -2691,7 +2713,7 @@ function CategoryFilterHeader({ label, categories, selected, onChange }: { label
                 key={category}
                 type="button"
                 onClick={() => toggle(category)}
-                className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-semibold transition hover:bg-[var(--app-panel-soft)]"
+                className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition hover:bg-[var(--app-panel-soft)]"
               >
                 <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${checked ? 'border-indigo-600 bg-indigo-600' : 'border-[var(--app-border)]'}`}>
                   {checked && <Check className="h-2.5 w-2.5 text-white" />}
@@ -2735,7 +2757,7 @@ function BranchFilterHeader({ label, locations, selected, onChange }: { label: s
         className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 transition hover:bg-white/10 ${active ? 'text-indigo-400' : ''}`}
       >
         {label.toLocaleUpperCase()}
-        {active && <span className="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-black text-white">{selected.length}</span>}
+        {active && <span className="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-semibold text-white">{selected.length}</span>}
         <ChevronDown className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
@@ -2744,7 +2766,7 @@ function BranchFilterHeader({ label, locations, selected, onChange }: { label: s
             <button
               type="button"
               onClick={() => { onChange([]); setOpen(false); }}
-              className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-xs font-semibold text-indigo-600 transition hover:bg-[var(--app-panel-soft)]"
+              className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-xs font-medium text-indigo-600 transition hover:bg-[var(--app-panel-soft)]"
             >
               Reset
             </button>
@@ -2756,7 +2778,7 @@ function BranchFilterHeader({ label, locations, selected, onChange }: { label: s
                 key={location.id}
                 type="button"
                 onClick={() => toggle(location.id)}
-                className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-semibold transition hover:bg-[var(--app-panel-soft)]"
+                className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition hover:bg-[var(--app-panel-soft)]"
               >
                 <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${checked ? 'border-indigo-600 bg-indigo-600' : 'border-[var(--app-border)]'}`}>
                   {checked && <Check className="h-2.5 w-2.5 text-white" />}
@@ -2784,7 +2806,7 @@ function CategoryPicker({ categories, selected, onChange, emptyLabel }: { catego
             key={category}
             type="button"
             onClick={() => onChange(active ? '' : category)}
-            className={`inline-flex items-center justify-center rounded-full border font-bold transition px-2.5 py-1 text-xs ${active ? 'border-indigo-600 bg-indigo-600 text-white' : 'app-panel app-text-soft hover:bg-[var(--app-panel-soft)]'}`}
+            className={`inline-flex items-center justify-center rounded-md border font-semibold transition px-2.5 py-1 text-xs ${active ? 'border-indigo-600 bg-indigo-600 text-white' : 'app-panel app-text-soft hover:bg-[var(--app-panel-soft)]'}`}
           >
             {category}
           </button>
@@ -2801,28 +2823,50 @@ function BranchPicker({ locations, selectedIds, onChange, label, emptyLabel, com
 
   if (compact) {
     const normalizedSelectedIds = selectedIds ?? [];
+    const singleLocation = locations.length === 1 ? locations[0] : null;
+
     function toggle(locationId: number) {
       const nextIds = normalizedSelectedIds.includes(locationId)
         ? normalizedSelectedIds.filter((id) => id !== locationId)
         : [...normalizedSelectedIds, locationId];
       onChange(nextIds);
     }
+
+    if (singleLocation) {
+      return (
+        <div>
+          {label && <p className="mb-2 text-xs font-bold uppercase tracking-wide app-text-muted">{label}</p>}
+          <div className="flex items-center gap-2 text-sm app-text-soft" title={singleLocation.address}>
+            <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-slate-300 bg-white dark:border-slate-600 dark:bg-white/5" aria-hidden="true">
+              <Check className="h-3 w-3 text-blue-600" strokeWidth={4} />
+            </span>
+            <span>{singleLocation.name}</span>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div>
-        {label && <p className="mb-2 text-xs font-black uppercase tracking-wide app-text-muted">{label}</p>}
-        <div className="flex flex-wrap gap-1.5">
-          {locations.map((location) => {
+        {label && <p className="mb-2 text-xs font-bold uppercase tracking-wide app-text-muted">{label}</p>}
+        <div className="flex flex-wrap items-center gap-y-1 text-sm app-text-soft">
+          {locations.map((location, index) => {
             const active = normalizedSelectedIds.includes(location.id);
             return (
-              <button
-                key={location.id}
-                type="button"
-                onClick={() => toggle(location.id)}
-                className={`inline-flex items-center justify-center rounded-full border font-bold transition min-w-24 px-2.5 py-1 text-xs ${active ? 'border-indigo-600 bg-indigo-600 text-white' : 'app-panel app-text-soft hover:bg-[var(--app-panel-soft)]'}`}
-                title={location.address}
-              >
-                {location.name}
-              </button>
+              <span key={location.id} className="inline-flex items-center">
+                {index > 0 && <span className="mx-2 app-text-muted" aria-hidden="true">{'\u2022'}</span>}
+                <button
+                  type="button"
+                  onClick={() => toggle(location.id)}
+                  className="inline-flex items-center gap-2 text-sm app-text-soft transition hover:app-text"
+                  title={location.address}
+                >
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-slate-300 bg-white dark:border-slate-600 dark:bg-white/5" aria-hidden="true">
+                    {active && <Check className="h-3 w-3 text-blue-600" strokeWidth={4} />}
+                  </span>
+                  <span>{location.name}</span>
+                </button>
+              </span>
             );
           })}
         </div>
@@ -2833,7 +2877,7 @@ function BranchPicker({ locations, selectedIds, onChange, label, emptyLabel, com
   const options = locations.map(l => ({ value: l.id, label: l.name }));
   return (
     <div>
-      {label && <p className="mb-2 text-xs font-black uppercase tracking-wide app-text-muted">{label}</p>}
+      {label && <p className="mb-2 text-xs font-bold uppercase tracking-wide app-text-muted">{label}</p>}
       <MultiSelectDropdown
         options={options}
         selected={selectedIds ?? []}
@@ -2902,7 +2946,7 @@ function MultiSelectDropdown({ options, selected, onChange, emptyLabel, renderLa
         onClick={() => setOpen(v => !v)}
         className="flex h-10 w-full items-center justify-between gap-2 rounded-lg border px-3 text-sm app-panel app-text hover:bg-[var(--app-panel-soft)]"
       >
-        <span className="truncate font-semibold">{triggerText}</span>
+        <span className="truncate font-medium">{triggerText}</span>
         <ChevronDown className={`h-4 w-4 shrink-0 app-text-muted transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
@@ -2914,7 +2958,7 @@ function MultiSelectDropdown({ options, selected, onChange, emptyLabel, renderLa
                 key={option.value}
                 type="button"
                 onClick={() => toggle(option.value)}
-                className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-semibold transition hover:bg-[var(--app-panel-soft)]"
+                className="flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition hover:bg-[var(--app-panel-soft)]"
               >
                 <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${active ? 'border-indigo-600 bg-indigo-600' : 'border-[var(--app-border)]'}`}>
                   {active && <Check className="h-2.5 w-2.5 text-white" />}
@@ -2980,7 +3024,7 @@ function ChatAudio({ salon, query }: { salon: Salon; query: string }) {
 
       <Card className="min-h-40 overflow-hidden">
         <div className="border-b p-5 app-border">
-          <h2 className="text-lg font-black app-text">{t('recentConversations')}</h2>
+          <h2 className="text-lg font-bold app-text">{t('recentConversations')}</h2>
         </div>
         {conversations.length === 0 ? (
           <div className="flex min-h-24 items-center justify-center p-6 text-sm app-text-muted">
@@ -2999,7 +3043,7 @@ function ChatAudio({ salon, query }: { salon: Salon; query: string }) {
                       <Icon className="h-4 w-4" />
                     </span>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-black app-text">{conversationTitle(conversation, t)}</p>
+                      <p className="truncate text-sm font-bold app-text">{conversationTitle(conversation, t)}</p>
                       <p className="truncate text-xs app-text-muted">{lastMessage}</p>
                     </div>
                   </div>
@@ -3036,7 +3080,7 @@ function VoiceCalls({ query: _query }: { query: string }) {
       </div>
 
       <Card className="min-h-40 p-6">
-        <h2 className="text-lg font-black app-text">{t('recentCalls')}</h2>
+        <h2 className="text-lg font-bold app-text">{t('recentCalls')}</h2>
         <div className="flex min-h-24 items-center justify-center text-sm app-text-muted">
           {t('noVoiceCallsFound')}
         </div>
@@ -3057,8 +3101,8 @@ function WhatsAppConversations({ query: _query }: { query: string }) {
               <QrCode className="h-6 w-6" />
             </span>
             <div>
-              <h2 className="text-lg font-black app-text">{t('whatsappBot')}</h2>
-              <span className="mt-1 inline-flex rounded-full bg-amber-400/20 px-2.5 py-1 text-[11px] font-black text-amber-600 dark:text-amber-300">
+              <h2 className="text-lg font-bold app-text">{t('whatsappBot')}</h2>
+              <span className="mt-1 inline-flex rounded-md bg-amber-400/20 px-2.5 py-1 text-[11px] font-bold text-amber-600 dark:text-amber-300">
                 {t('disconnected')}
               </span>
               <div className="mt-4">
@@ -3084,7 +3128,7 @@ function WhatsAppConversations({ query: _query }: { query: string }) {
       </div>
 
       <Card className="min-h-40 p-6">
-        <h2 className="text-lg font-black app-text">{t('whatsappConversations')}</h2>
+        <h2 className="text-lg font-bold app-text">{t('whatsappConversations')}</h2>
         <div className="flex min-h-24 items-center justify-center text-sm app-text-muted">
           {t('noWhatsappConversationsFound')}
         </div>
@@ -3109,7 +3153,7 @@ function ChannelStat({ icon: Icon, value, label, tone, compact = false }: { icon
           <Icon className={compact ? 'h-4 w-4' : 'h-5 w-5'} />
         </span>
         <div>
-          <p className={`${compact ? 'text-xl' : 'text-2xl'} font-black app-text`}>{value}</p>
+          <p className={`${compact ? 'text-xl' : 'text-2xl'} font-bold app-text`}>{value}</p>
           <p className={`${compact ? 'text-xs' : 'text-sm'} app-text-muted`}>{label}</p>
         </div>
       </div>
@@ -3152,7 +3196,7 @@ function Bookings({ salon, query }: { salon: Salon; query: string }) {
       today: salon.bookings.filter((booking) => booking.date === todayKey).length,
       upcoming: salon.bookings.filter((booking) => booking.date > todayKey && (booking.status === 'pending' || booking.status === 'confirmed')).length,
       pending: salon.bookings.filter((booking) => booking.status === 'pending').length,
-      cancelled: salon.bookings.filter((booking) => booking.status === 'cancelled').length,
+      cancelled: salon.bookings.filter((booking) => booking.status === 'cancelled' && booking.date >= todayKey).length,
     };
   }, [salon.bookings, todayKey]);
   const visibleBookings = useMemo(() => (
@@ -3332,7 +3376,7 @@ function Bookings({ salon, query }: { salon: Salon; query: string }) {
         <button
           type="button"
           onClick={startAddBooking}
-          className="inline-flex h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-black text-white transition hover:bg-blue-700"
+          className="inline-flex h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white transition hover:bg-blue-700"
         >
           <Plus className="h-4 w-4" />
           {t('newBooking')}
@@ -3408,7 +3452,7 @@ function BookingStat({ icon: Icon, value, label, tone }: { icon: any; value: num
           <Icon className="h-5 w-5" />
         </span>
         <div>
-          <p className="text-2xl font-black app-text">{value}</p>
+          <p className="text-2xl font-bold app-text">{value}</p>
           <p className="text-sm app-text-muted">{label}</p>
         </div>
       </div>
@@ -3442,7 +3486,7 @@ function BookingsDayCards({
   onDelete,
 }: {
   groups: ReturnType<typeof groupBookingsByDay>;
-  t: (key: string) => string;
+  t: TranslateFn;
   onEdit: (booking: Salon['bookings'][number]) => void;
   onConfirm: (booking: Salon['bookings'][number]) => void;
   onCancel: (booking: Salon['bookings'][number]) => void;
@@ -3462,12 +3506,12 @@ function BookingsDayCards({
         <Card key={group.date} className="overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b p-5 app-border app-panel-soft">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-base font-black capitalize app-text">{formatBookingDay(group.date)}</h3>
-              <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-red-600 px-2 text-xs font-black text-white">
+              <h3 className="text-base font-semibold capitalize app-text">{formatBookingDay(group.date)}</h3>
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-semibold leading-none text-white">
                 {group.bookings.length}
               </span>
             </div>
-            <span className="rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-black text-indigo-700 dark:text-indigo-200">
+            <span className={`${TABLE_PILL_CLASS} bg-indigo-500/10 text-indigo-700 dark:text-indigo-200`}>
               {group.bookings[0]?.time} - {lastBookingEndTime(group.bookings)}
             </span>
           </div>
@@ -3475,25 +3519,25 @@ function BookingsDayCards({
             {group.bookings.map((booking) => (
               <div key={booking.id} className="grid gap-x-6 gap-y-3 p-5 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center">
                 <div className="flex flex-wrap items-center gap-3">
-                  <span className={`inline-flex h-8 shrink-0 items-center justify-center rounded-full border px-3 text-xs font-black uppercase tracking-wide app-border ${booking.status === 'completed' ? 'bg-slate-200 text-slate-500 dark:bg-white/10 dark:text-slate-400' : 'bg-white text-slate-950'}`}>
+                  <span className={`${TABLE_PILL_CLASS} shrink-0 border app-border ${booking.status === 'completed' ? 'bg-slate-200 text-slate-500 dark:bg-white/10 dark:text-slate-400' : 'bg-white text-slate-950'}`}>
                     {bookingTimeRange(booking.time, booking.service?.duration)}
                   </span>
                   <StatusPill status={booking.status} t={t} />
                 </div>
                 <div className="min-w-0">
-                  <p className="font-black app-text">{booking.client_name}</p>
+                  <p className="font-semibold app-text">{booking.client_name}</p>
                   <p className="hidden">
-                    {[booking.service?.name || `Serviciu #${booking.service_id}`, booking.service?.type].filter(Boolean).join(' • ')}
+                    {[booking.service?.name || `Serviciu #${booking.service_id}`, booking.service?.type].filter(Boolean).join(' \u2022 ')}
                   </p>
-                  <p className="text-xs font-semibold app-text-muted">
+                  <p className="text-xs font-medium app-text-muted">
                     <span>{booking.service?.type || t('general')}</span>
-                    <span className="mx-1.5 app-text-muted" aria-hidden="true">•</span>
+                    <span className="mx-1.5 app-text-muted" aria-hidden="true">{'\u2022'}</span>
                     <span>{booking.service?.name || `Serviciu #${booking.service_id}`}</span>
                     {booking.service?.price && <>
-                      <span className="mx-1.5 app-text-muted" aria-hidden="true">•</span>
+                      <span className="mx-1.5 app-text-muted" aria-hidden="true">{'\u2022'}</span>
                       <span>{booking.service.price} RON</span>
                     </>}
-                    <span className="mx-1.5 app-text-muted" aria-hidden="true">•</span>
+                    <span className="mx-1.5 app-text-muted" aria-hidden="true">{'\u2022'}</span>
                     <span>{booking.location?.name || `Locatie #${booking.location_id}`}</span>
                   </p>
                   {bookingStaffLabel(booking) && (
@@ -3540,7 +3584,7 @@ function ServiceNotesPill({ notes }: { notes: string }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex h-5 items-center gap-1 rounded-full bg-slate-200 px-2 text-[10px] font-black uppercase tracking-wide text-slate-600 transition hover:bg-slate-300 dark:bg-white/10 dark:text-slate-300 dark:hover:bg-white/20"
+        className={`${TABLE_PILL_CLASS} gap-1 bg-slate-200 text-slate-600 transition hover:bg-slate-300 dark:bg-white/10 dark:text-slate-300 dark:hover:bg-white/20`}
       >
         <FileText className="h-2.5 w-2.5" />
         Note
@@ -3599,7 +3643,7 @@ function formatBookingDay(date: string) {
   }).format(new Date(`${date}T00:00:00`));
 }
 
-function BookingsCalendar({ bookings, t }: { bookings: Salon['bookings']; t: (key: string) => string }) {
+function BookingsCalendar({ bookings, t }: { bookings: Salon['bookings']; t: TranslateFn }) {
   const { locale } = usePage<{ locale?: string }>().props;
   const dateLocale = locale === 'en' ? 'en-GB' : 'ro-RO';
   const today = new Date();
@@ -3621,7 +3665,7 @@ function BookingsCalendar({ bookings, t }: { bookings: Salon['bookings']; t: (ke
   return (
     <div className="p-4">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-base font-black capitalize app-text">{monthLabel}</h3>
+        <h3 className="text-base font-bold capitalize app-text">{monthLabel}</h3>
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -3641,7 +3685,7 @@ function BookingsCalendar({ bookings, t }: { bookings: Salon['bookings']; t: (ke
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-7 border-l border-t app-border text-xs font-black uppercase app-text-muted">
+      <div className="grid grid-cols-7 border-l border-t app-border text-xs font-bold uppercase app-text-muted">
         {weekDays.map((day) => (
           <div key={day} className="border-b border-r p-2 app-border">{day}</div>
         ))}
@@ -3658,10 +3702,10 @@ function BookingsCalendar({ bookings, t }: { bookings: Salon['bookings']; t: (ke
               aria-disabled={isPast || undefined}
               className={`min-h-28 border-b border-r p-2 app-border ${isPast ? 'bg-slate-100/80 text-slate-400 dark:bg-white/5 dark:text-slate-500' : ''}`}
             >
-              {day && <p className={`mb-2 text-xs font-black ${isPast ? 'text-slate-400 dark:text-slate-500' : 'app-text'}`}>{day}</p>}
+              {day && <p className={`mb-2 text-xs font-bold ${isPast ? 'text-slate-400 dark:text-slate-500' : 'app-text'}`}>{day}</p>}
               <div className="space-y-1">
                 {dayBookings.slice(0, 3).map((booking) => (
-                  <div key={booking.id} className={`truncate rounded-md px-2 py-1 text-xs font-semibold ${isPast ? 'bg-slate-200 text-slate-500 dark:bg-white/10 dark:text-slate-400' : 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-200'}`}>
+                  <div key={booking.id} className={`truncate rounded-md px-2 py-1 text-xs font-medium ${isPast ? 'bg-slate-200 text-slate-500 dark:bg-white/10 dark:text-slate-400' : 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-200'}`}>
                     {booking.time} {booking.client_name}
                   </div>
                 ))}
@@ -3686,7 +3730,7 @@ function EditModal({ open, title, onClose, children }: { open: boolean; title: s
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
       <div className="max-h-[calc(100vh-2rem)] w-full max-w-5xl overflow-y-auto rounded-lg border p-5 shadow-xl app-panel">
         <div className="mb-5 flex items-center justify-between gap-4">
-          <h2 className="text-lg font-black app-text">{title}</h2>
+          <h2 className="text-lg font-bold app-text">{title}</h2>
           <button
             type="button"
             aria-label="Close"
@@ -3711,7 +3755,7 @@ function Toolbar({ title, subtitle, action, hideText = false }: { title: string;
     <div className="flex flex-wrap items-center justify-between gap-4">
       {!hideText && (
         <div>
-          <h2 className="text-2xl font-black tracking-tight app-text">{title}</h2>
+          <h2 className="text-2xl font-bold tracking-tight app-text">{title}</h2>
           <p className="text-sm app-text-muted">{subtitle}</p>
         </div>
       )}
@@ -3724,7 +3768,7 @@ function Table({ headers, children }: { headers: (string | React.ReactNode)[]; c
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[720px] text-left">
-        <thead className="text-xs font-black uppercase tracking-wide app-panel-soft app-text-muted">
+        <thead className="text-xs font-bold uppercase tracking-wide app-panel-soft app-text-muted">
           <tr>{headers.map((header, i) => <th key={i} className="px-5 py-3">{header}</th>)}</tr>
         </thead>
         <tbody>{children}</tbody>

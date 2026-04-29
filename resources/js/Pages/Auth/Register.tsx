@@ -18,7 +18,7 @@ export default function Register() {
 
   return (
     <AuthLayout title={t('createAccount')}>
-      <h1 className="text-2xl font-black app-text">{t('createAccount')}</h1>
+      <h1 className="text-2xl font-bold app-text">{t('createAccount')}</h1>
       <p className="mt-2 text-sm app-text-muted">{t('registerSubtitle')}</p>
 
       <form className="mt-8 space-y-5" onSubmit={(event) => { event.preventDefault(); form.post('/register'); }}>
@@ -37,7 +37,7 @@ export default function Register() {
 
         <div className="space-y-5 border-t pt-5 app-border">
           <div>
-            <h2 className="text-sm font-black app-text">Business setup</h2>
+            <h2 className="text-sm font-bold app-text">Business setup</h2>
             <p className="mt-1 text-sm app-text-muted">
               Reservation and lead-based businesses are coming soon. For now, YouGo supports appointment-based setup.
             </p>

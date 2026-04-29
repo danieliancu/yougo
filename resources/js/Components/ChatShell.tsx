@@ -35,7 +35,7 @@ export function ChatShell({
           <MessageCircle className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <h4 className="truncate text-sm font-black text-white">{title}</h4>
+          <h4 className="truncate text-sm font-bold text-white">{title}</h4>
           <div className="flex items-center gap-1.5 text-xs font-bold text-green-400">
             <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
             {statusLabel}

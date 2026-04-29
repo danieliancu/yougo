@@ -7,7 +7,7 @@ export function Button({ className, ...props }: ButtonHTMLAttributes<HTMLButtonE
     <button
       {...props}
       className={clsx(
-        'inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50',
+        'inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50',
         className,
       )}
     />
@@ -20,7 +20,7 @@ export function SecondaryButton({ className, ...props }: ButtonHTMLAttributes<HT
       type={props.type ?? 'button'}
       {...props}
       className={clsx(
-        'inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50',
+        'inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50',
         'app-panel app-text-soft hover:bg-[var(--app-panel-soft)]',
         className,
       )}
@@ -34,7 +34,7 @@ export function DangerButton({ className, ...props }: ButtonHTMLAttributes<HTMLB
       type={props.type ?? 'button'}
       {...props}
       className={clsx(
-        'inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-red-50 px-3 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-50',
+        'inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-red-50 px-3 text-sm font-medium text-red-600 transition hover:bg-red-100 disabled:opacity-50',
         className,
       )}
     />
@@ -86,7 +86,7 @@ export function AlertModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
       <div className="w-full max-w-sm rounded-lg border p-6 shadow-xl app-panel">
-        <h2 className="mb-2 text-base font-black app-text">{title}</h2>
+        <h2 className="mb-2 text-base font-bold app-text">{title}</h2>
         <p className="mb-6 text-sm app-text-soft">{message}</p>
         <div className="flex justify-end">
           <button
@@ -126,7 +126,7 @@ export function ConfirmationModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
       <div className="w-full max-w-sm rounded-lg border p-6 shadow-xl app-panel">
-        <h2 className="mb-2 text-base font-black app-text">{title}</h2>
+        <h2 className="mb-2 text-base font-bold app-text">{title}</h2>
         <p className="mb-6 text-sm app-text-soft">{message}</p>
         <div className="flex justify-end gap-3">
           <button
@@ -161,7 +161,7 @@ export function Badge({ children, tone = 'slate' }: { children: ReactNode; tone?
     indigo: 'bg-indigo-50 text-indigo-700',
   };
 
-  return <span className={clsx('rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wide', tones[tone])}>{children}</span>;
+  return <span className={clsx('rounded-md px-2.5 py-1 text-xs font-bold uppercase tracking-wide', tones[tone])}>{children}</span>;
 }
 
 export function ThemeToggle() {

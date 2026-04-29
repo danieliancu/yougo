@@ -23,13 +23,13 @@ export default function AssistantShow({ salon }: { salon: Salon }) {
             {salon.logo_path ? (
               <img src={`/storage/${salon.logo_path}`} className="h-9 w-9 shrink-0 rounded-lg object-cover" alt={salon.name} />
             ) : (
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-sm font-black text-white">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-sm font-bold text-white">
                 {salon.name.slice(0, 1).toUpperCase()}
               </span>
             )}
             <span className="min-w-0">
-              <span className="block truncate text-sm font-black app-text">{salon.name}</span>
-              <span className="block truncate text-xs font-semibold app-text-muted">{name} Assistant live</span>
+              <span className="block truncate text-sm font-bold app-text">{salon.name}</span>
+              <span className="block truncate text-xs font-medium app-text-muted">{name} Assistant live</span>
             </span>
           </Link>
           <ThemeToggle />

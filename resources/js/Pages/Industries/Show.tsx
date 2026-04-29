@@ -42,12 +42,12 @@ export default function IndustryShow() {
 
       <section className="mx-auto grid max-w-6xl gap-10 px-6 py-14 lg:grid-cols-[1fr_0.9fr] lg:items-center">
         <div>
-          <p className="mb-4 inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-indigo-700">{businessType.label}</p>
-          <h1 className="max-w-3xl text-5xl font-black tracking-tight app-text md:text-6xl">YouGo AI receptionist for {businessType.label.toLowerCase()}</h1>
+          <p className="mb-4 inline-flex rounded-md bg-indigo-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-indigo-700">{businessType.label}</p>
+          <h1 className="max-w-3xl text-5xl font-bold tracking-tight app-text md:text-6xl">YouGo AI receptionist for {businessType.label.toLowerCase()}</h1>
           <p className="mt-6 max-w-2xl text-lg leading-8 app-text-soft">{businessType.page_focus}</p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/register" className="rounded-lg bg-indigo-600 px-5 py-3 text-sm font-black text-white shadow-sm hover:bg-indigo-700">Get started</Link>
-            <Link href="/" className="rounded-lg border px-5 py-3 text-sm font-black hover:bg-[var(--soft)] app-border">View demo</Link>
+            <Link href="/register" className="rounded-lg bg-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-indigo-700">Get started</Link>
+            <Link href="/" className="rounded-lg border px-5 py-3 text-sm font-bold hover:bg-[var(--soft)] app-border">View demo</Link>
           </div>
         </div>
 
@@ -57,7 +57,7 @@ export default function IndustryShow() {
               <Bot className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-sm font-black app-text">Current mode</p>
+              <p className="text-sm font-bold app-text">Current mode</p>
               <p className="text-sm app-text-muted">Appointment and enquiry handling</p>
             </div>
           </div>
@@ -75,14 +75,14 @@ export default function IndustryShow() {
         <div className="grid gap-5 md:grid-cols-3">
           <InfoCard icon={HelpCircle} title="What clients ask">
             <ul className="space-y-3 text-sm app-text-soft">
-              {businessType.common_questions.map((question) => <li key={question}>• {question}</li>)}
+              {businessType.common_questions.map((question) => <li key={question}>{'\u2022'} {question}</li>)}
             </ul>
           </InfoCard>
           <InfoCard icon={Sparkles} title="How the AI helps">
             <p className="text-sm leading-6 app-text-soft">
               It answers configured questions, explains your services, collects complete request details and keeps the conversation aligned with your dashboard settings.
             </p>
-            {businessType.safety_copy && <p className="mt-4 rounded-lg bg-amber-500/10 p-3 text-sm font-semibold text-amber-700 dark:text-amber-300">{businessType.safety_copy}</p>}
+            {businessType.safety_copy && <p className="mt-4 rounded-lg bg-amber-500/10 p-3 text-sm font-medium text-amber-700 dark:text-amber-300">{businessType.safety_copy}</p>}
           </InfoCard>
           <InfoCard icon={ClipboardList} title="Current flow">
             <p className="text-sm font-bold app-text-soft">{businessType.current_flow}</p>
@@ -96,13 +96,13 @@ export default function IndustryShow() {
           <div className="flex items-start gap-4">
             <CalendarCheck className="mt-1 h-6 w-6 text-indigo-500" />
             <div>
-              <h2 className="text-2xl font-black app-text">Business type, AI context and mode</h2>
+              <h2 className="text-2xl font-bold app-text">Business type, AI context and mode</h2>
               <p className="mt-3 max-w-3xl text-sm leading-6 app-text-soft">
                 {businessType.label} is the main public category. Detailed categories are optional AI context inside AI Settings; they help the assistant understand focus areas, but services configured in the dashboard remain the source of truth.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {businessType.industries.map((category) => (
-                  <span key={category.slug} className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-black text-indigo-700">{category.label}</span>
+                  <span key={category.slug} className="rounded-md bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700">{category.label}</span>
                 ))}
               </div>
             </div>
@@ -117,7 +117,7 @@ function InfoCard({ icon: Icon, title, children }: { icon: any; title: string; c
   return (
     <div className="rounded-2xl border p-6 app-panel">
       <Icon className="mb-4 h-6 w-6 text-indigo-500" />
-      <h2 className="mb-4 text-xl font-black app-text">{title}</h2>
+      <h2 className="mb-4 text-xl font-bold app-text">{title}</h2>
       {children}
     </div>
   );
@@ -131,7 +131,7 @@ function IndustriesMenu() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-black app-text-soft hover:bg-[var(--soft)]"
+        className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-bold app-text-soft hover:bg-[var(--soft)]"
       >
         Industries
         <ChevronDown className="h-4 w-4" />

@@ -14,7 +14,7 @@ export default function Login() {
 
   return (
     <AuthLayout title={t('login')}>
-      <h1 className="text-2xl font-black app-text">{t('welcomeBack')}</h1>
+      <h1 className="text-2xl font-bold app-text">{t('welcomeBack')}</h1>
       <p className="mt-2 text-sm app-text-muted">{t('loginSubtitle')}</p>
 
       <form className="mt-8 space-y-5" onSubmit={(event) => { event.preventDefault(); form.post('/login'); }}>

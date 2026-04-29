@@ -251,7 +251,7 @@ export function AssistantWidget({
               onChange={(event) => setInput(event.target.value)}
               placeholder={loading ? assistantTypingLabel(salon, locale) : t('typeMessage')}
               disabled={loading}
-              className="min-w-0 flex-1 bg-transparent text-sm font-semibold app-text placeholder:text-[var(--app-text-muted)] focus:outline-none disabled:cursor-not-allowed"
+              className="min-w-0 flex-1 bg-transparent text-sm font-medium app-text placeholder:text-[var(--app-text-muted)] focus:outline-none disabled:cursor-not-allowed"
             />
             <button
               type="submit"
@@ -267,9 +267,9 @@ export function AssistantWidget({
     >
       {messages.map((message, index) => (
         <div key={index} className={`flex ${message.role === 'assistant' ? 'justify-start' : 'justify-end'}`}>
-          <div className={`max-w-[86%] rounded-xl px-3 py-2 text-sm font-semibold shadow-sm sm:max-w-[82%] ${message.role === 'assistant' ? 'rounded-tl-none app-panel-soft app-text' : 'rounded-tr-none chat-bubble-user'}`}>
+          <div className={`max-w-[86%] rounded-xl px-3 py-2 text-sm font-medium shadow-sm sm:max-w-[82%] ${message.role === 'assistant' ? 'rounded-tl-none app-panel-soft app-text' : 'rounded-tr-none chat-bubble-user'}`}>
             <p className="whitespace-pre-wrap leading-6"><InlineMarkdown text={message.content} /></p>
-            <div className="mt-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-wide opacity-60">
+            <div className="mt-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide opacity-60">
               {message.role === 'assistant' ? <Sparkles className="h-3 w-3" /> : <User className="h-3 w-3" />}
               {message.role === 'assistant' ? name : t('clientName')}
             </div>
@@ -278,7 +278,7 @@ export function AssistantWidget({
       ))}
       {loading && (
         <div className="flex justify-start">
-          <div className="max-w-[82%] rounded-xl rounded-tl-none px-3 py-2 text-sm font-semibold app-panel-soft app-text-soft">
+          <div className="max-w-[82%] rounded-xl rounded-tl-none px-3 py-2 text-sm font-medium app-panel-soft app-text-soft">
             {assistantTypingLabel(salon, locale)}
           </div>
         </div>

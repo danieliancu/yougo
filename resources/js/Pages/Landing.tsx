@@ -11,8 +11,8 @@ import { businessTaxonomy } from '@/data/businessTaxonomy';
 type Locale = 'ro' | 'en';
 
 const languages = [
-  { id: 'ro' as Locale, label: 'RO', flag: '🇷🇴' },
-  { id: 'en' as Locale, label: 'EN', flag: '🇬🇧' },
+  { id: 'ro' as Locale, label: 'RO', flag: '\u{1F1F7}\u{1F1F4}' },
+  { id: 'en' as Locale, label: 'EN', flag: '\u{1F1EC}\u{1F1E7}' },
 ];
 
 function LandingLanguageToggle({ locale, onChange }: { locale: Locale; onChange: (l: Locale) => void }) {
@@ -24,7 +24,7 @@ function LandingLanguageToggle({ locale, onChange }: { locale: Locale; onChange:
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex h-10 min-w-20 items-center justify-center gap-2 rounded-lg border px-3 text-xs font-black uppercase app-text-soft hover:bg-[var(--soft)]"
+        className="flex h-10 min-w-20 items-center justify-center gap-2 rounded-lg border px-3 text-xs font-bold uppercase app-text-soft hover:bg-[var(--soft)]"
       >
         <span aria-hidden="true">{active.flag}</span>
         {active.label}
@@ -89,14 +89,14 @@ export default function Landing() {
         <section>
           <div className="mx-auto grid max-w-6xl gap-10 px-6 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
             <div>
-              <p className="mb-4 inline-flex rounded-full bg-indigo-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-indigo-700">{t('landingTitle')}</p>
-              <h1 className="max-w-3xl text-5xl font-black tracking-tight app-text md:text-6xl">{t('landingHeadline')}</h1>
+              <p className="mb-4 inline-flex rounded-md bg-indigo-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-indigo-700">{t('landingTitle')}</p>
+              <h1 className="max-w-3xl text-5xl font-bold tracking-tight app-text md:text-6xl">{t('landingHeadline')}</h1>
               <p className="mt-6 max-w-2xl text-lg leading-8 app-text-soft">
                 {t('landingCopy')}
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <Link href={auth.user ? '/dashboard' : '/register'} className="rounded-lg bg-indigo-600 px-5 py-3 text-sm font-black text-white shadow-sm hover:bg-indigo-700">{t('openDashboard')}</Link>
-                <Link href="/login" className="rounded-lg border px-5 py-3 text-sm font-black hover:bg-[var(--soft)]">{t('login')}</Link>
+                <Link href={auth.user ? '/dashboard' : '/register'} className="rounded-lg bg-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-indigo-700">{t('openDashboard')}</Link>
+                <Link href="/login" className="rounded-lg border px-5 py-3 text-sm font-bold hover:bg-[var(--soft)]">{t('login')}</Link>
               </div>
             </div>
 
@@ -109,7 +109,7 @@ export default function Landing() {
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           <div className="flex flex-col items-center rounded-2xl p-8 text-center">
             <Phone className="mb-5 h-14 w-14 text-indigo-500" />
-            <p className="text-lg font-black app-text">{t('feature1Title')}</p>
+            <p className="text-lg font-bold app-text">{t('feature1Title')}</p>
             <p className="mt-2 text-sm app-text-soft">{t('feature1Desc')}</p>
           </div>
           <div className="flex flex-col items-center rounded-2xl p-8 text-center">
@@ -117,23 +117,23 @@ export default function Landing() {
               <MessageCircle className="h-14 w-14 text-indigo-500" />
               <Mic className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 text-indigo-500" />
             </div>
-            <p className="text-lg font-black app-text">{t('feature2Title')}</p>
+            <p className="text-lg font-bold app-text">{t('feature2Title')}</p>
             <p className="mt-2 text-sm app-text-soft">{t('feature2Desc')}</p>
           </div>
           <div className="flex flex-col items-center rounded-2xl p-8 text-center">
             <SiWhatsapp className="mb-5 h-14 w-14 text-[#25D366]" />
-            <p className="text-lg font-black app-text">{t('feature3Title')}</p>
+            <p className="text-lg font-bold app-text">{t('feature3Title')}</p>
             <p className="mt-2 text-sm app-text-soft">{t('feature3Desc')}</p>
           </div>
           <div className="flex flex-col items-center rounded-2xl p-8 text-center">
             <Plug className="mb-5 h-14 w-14 text-indigo-500" />
-            <p className="text-lg font-black app-text">{t('feature4Title')}</p>
+            <p className="text-lg font-bold app-text">{t('feature4Title')}</p>
             <p className="mt-2 text-sm app-text-soft">{t('feature4Desc')}</p>
           </div>
         </div>
         <p className="mt-10 text-center text-sm app-text-soft">
           {t('featuresHelpText')}{' '}
-          <a href="tel:08767657556" className="font-black text-indigo-600 hover:underline">{t('featuresHelpCta')}</a>
+          <a href="tel:08767657556" className="font-bold text-indigo-600 hover:underline">{t('featuresHelpCta')}</a>
         </p>
       </section>
     </main>
@@ -150,7 +150,7 @@ function IndustriesMenu({ label }: { label: string }) {
         type="button"
         onClick={() => setOpen((value) => !value)}
         onMouseEnter={() => setOpen(true)}
-        className="hidden h-10 items-center gap-2 rounded-lg px-3 text-sm font-black app-text-soft hover:bg-[var(--soft)] md:flex"
+        className="hidden h-10 items-center gap-2 rounded-lg px-3 text-sm font-bold app-text-soft hover:bg-[var(--soft)] md:flex"
       >
         {label}
         <ChevronDown className="h-4 w-4" />
@@ -162,7 +162,7 @@ function IndustriesMenu({ label }: { label: string }) {
               <Link
                 key={group.slug}
                 href={`/industries/${group.slug}`}
-                className="rounded-lg p-3 text-sm font-black app-text-soft hover:bg-[var(--soft)] hover:text-indigo-600"
+                className="rounded-lg p-3 text-sm font-bold app-text-soft hover:bg-[var(--soft)] hover:text-indigo-600"
               >
                 {group.label}
               </Link>
@@ -174,7 +174,7 @@ function IndustriesMenu({ label }: { label: string }) {
       <button
         type="button"
         onClick={() => setMobileOpen((value) => !value)}
-        className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-black app-text-soft hover:bg-[var(--soft)] md:hidden"
+        className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-bold app-text-soft hover:bg-[var(--soft)] md:hidden"
       >
         {label}
         <ChevronDown className="h-4 w-4" />
@@ -183,7 +183,7 @@ function IndustriesMenu({ label }: { label: string }) {
         <div className="absolute left-1/2 top-12 z-50 max-h-[70vh] w-[calc(100vw-2rem)] -translate-x-1/2 overflow-y-auto rounded-2xl border p-4 shadow-2xl app-panel md:hidden">
           <div className="grid gap-2">
             {businessTaxonomy.map((group) => (
-              <Link key={group.slug} href={`/industries/${group.slug}`} className="rounded-lg px-3 py-2 text-sm font-black app-text-soft hover:bg-[var(--soft)]">
+              <Link key={group.slug} href={`/industries/${group.slug}`} className="rounded-lg px-3 py-2 text-sm font-bold app-text-soft hover:bg-[var(--soft)]">
                 {group.label}
               </Link>
             ))}
@@ -261,10 +261,10 @@ function ReceptionistPreview({ t }: { t: (key: string) => string }) {
           <span />
           <span />
         </div>
-        <p className="text-center text-base font-black text-white">
+        <p className="text-center text-base font-bold text-white">
           {t(clientSpeaking ? 'carouselClientSpeaking' : 'carouselReceptionistSpeaking')}
         </p>
-        <p className="mt-2 text-sm font-semibold text-slate-300">00:42</p>
+        <p className="mt-2 text-sm font-medium text-slate-300">00:42</p>
       </div>
     </div>
   );
@@ -286,7 +286,7 @@ function ChatLivePreview({ t }: { t: (key: string) => string }) {
       }
       footer={
         <div className="flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2">
-          <input disabled placeholder={t('carouselWriteMessage')} className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-white placeholder:text-slate-400 focus:outline-none" />
+          <input disabled placeholder={t('carouselWriteMessage')} className="min-w-0 flex-1 bg-transparent text-sm font-medium text-white placeholder:text-slate-400 focus:outline-none" />
           <button type="button" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white">
             <Send className="h-4 w-4" />
           </button>
@@ -294,13 +294,13 @@ function ChatLivePreview({ t }: { t: (key: string) => string }) {
       }
     >
         <div className="landing-chat-script space-y-4">
-          <div className="landing-msg landing-msg-1 max-w-[80%] rounded-xl rounded-tl-none bg-white/10 px-3 py-2 text-sm font-semibold text-slate-100">{t('carouselChatAssistant1')}</div>
-          <div className="landing-msg landing-msg-2 ml-auto max-w-[80%] rounded-xl rounded-tr-none bg-blue-600/60 px-3 py-2 text-sm font-semibold text-white">{t('carouselChatClient1')}</div>
-          <div className="landing-msg landing-msg-3 max-w-[82%] rounded-xl rounded-tl-none bg-white/10 px-3 py-2 text-sm font-semibold text-slate-100">{t('carouselChatAssistant2')}</div>
-          <div className="landing-msg landing-msg-4 ml-auto max-w-[80%] rounded-xl rounded-tr-none bg-blue-600/60 px-3 py-2 text-sm font-semibold text-white">{t('carouselChatClient2')}</div>
-          <div className="landing-msg landing-msg-5 max-w-[82%] rounded-xl rounded-tl-none bg-white/10 px-3 py-2 text-sm font-semibold text-slate-100">{t('carouselChatAssistant3')}</div>
-          <div className="landing-msg landing-msg-6 ml-auto max-w-[80%] rounded-xl rounded-tr-none bg-blue-600/60 px-3 py-2 text-sm font-semibold text-white">{t('carouselChatClient3')}</div>
-          <div className="landing-msg landing-msg-7 max-w-[82%] rounded-xl rounded-tl-none bg-white/10 px-3 py-2 text-sm font-semibold text-slate-100">{t('carouselChatAssistant4')}</div>
+          <div className="landing-msg landing-msg-1 max-w-[80%] rounded-xl rounded-tl-none bg-white/10 px-3 py-2 text-sm font-medium text-slate-100">{t('carouselChatAssistant1')}</div>
+          <div className="landing-msg landing-msg-2 ml-auto max-w-[80%] rounded-xl rounded-tr-none bg-blue-600/60 px-3 py-2 text-sm font-medium text-white">{t('carouselChatClient1')}</div>
+          <div className="landing-msg landing-msg-3 max-w-[82%] rounded-xl rounded-tl-none bg-white/10 px-3 py-2 text-sm font-medium text-slate-100">{t('carouselChatAssistant2')}</div>
+          <div className="landing-msg landing-msg-4 ml-auto max-w-[80%] rounded-xl rounded-tr-none bg-blue-600/60 px-3 py-2 text-sm font-medium text-white">{t('carouselChatClient2')}</div>
+          <div className="landing-msg landing-msg-5 max-w-[82%] rounded-xl rounded-tl-none bg-white/10 px-3 py-2 text-sm font-medium text-slate-100">{t('carouselChatAssistant3')}</div>
+          <div className="landing-msg landing-msg-6 ml-auto max-w-[80%] rounded-xl rounded-tr-none bg-blue-600/60 px-3 py-2 text-sm font-medium text-white">{t('carouselChatClient3')}</div>
+          <div className="landing-msg landing-msg-7 max-w-[82%] rounded-xl rounded-tl-none bg-white/10 px-3 py-2 text-sm font-medium text-slate-100">{t('carouselChatAssistant4')}</div>
         </div>
     </ChatShell>
   );
@@ -314,28 +314,28 @@ function WhatsAppPreview({ t }: { t: (key: string) => string }) {
           <Send className="h-5 w-5" />
         </div>
         <div>
-          <h4 className="text-sm font-black text-white">{t('carouselYourBusiness')}</h4>
-          <span className="text-xs font-semibold text-slate-400">Online</span>
+          <h4 className="text-sm font-bold text-white">{t('carouselYourBusiness')}</h4>
+          <span className="text-xs font-medium text-slate-400">Online</span>
         </div>
       </div>
       <div className="flex min-h-0 flex-1 flex-col bg-[#f7efe5] bg-cover bg-center" style={{ backgroundImage: "url('/images/backgroundWhatsaap.JPG')" }}>
         <div className="min-h-0 flex-1 overflow-hidden p-4">
           <div className="landing-chat-script space-y-3">
-            <div className="landing-msg landing-msg-1 max-w-[80%] rounded-lg rounded-tl-none bg-white px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm">{t('carouselWhatsappClient1')}</div>
-            <div className="landing-msg landing-msg-2 ml-auto max-w-[82%] rounded-lg rounded-tr-none bg-[#005c4b] px-3 py-2 text-sm font-semibold text-white">{t('carouselWhatsappAssistant1')}</div>
-            <div className="landing-msg landing-msg-3 max-w-[80%] rounded-lg rounded-tl-none bg-white px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm">{t('carouselWhatsappClient2')}</div>
-            <div className="landing-msg landing-msg-4 ml-auto max-w-[82%] rounded-lg rounded-tr-none bg-[#005c4b] px-3 py-2 text-sm font-semibold text-white">{t('carouselWhatsappAssistant2')}</div>
-            <div className="landing-msg landing-msg-5 max-w-[80%] rounded-lg rounded-tl-none bg-white px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm">{t('carouselWhatsappClient3')}</div>
-            <div className="landing-msg landing-msg-6 ml-auto max-w-[82%] rounded-lg rounded-tr-none bg-[#005c4b] px-3 py-2 text-sm font-semibold text-white">{t('carouselWhatsappAssistant3')}</div>
-            <div className="landing-msg landing-msg-7 max-w-[80%] rounded-lg rounded-tl-none bg-white px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm">{t('carouselWhatsappClient4')}</div>
-            <div className="landing-msg landing-msg-8 ml-auto max-w-[82%] rounded-lg rounded-tr-none bg-[#005c4b] px-3 py-2 text-sm font-semibold text-white">{t('carouselWhatsappAssistant4')}</div>
+            <div className="landing-msg landing-msg-1 max-w-[80%] rounded-lg rounded-tl-none bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm">{t('carouselWhatsappClient1')}</div>
+            <div className="landing-msg landing-msg-2 ml-auto max-w-[82%] rounded-lg rounded-tr-none bg-[#005c4b] px-3 py-2 text-sm font-medium text-white">{t('carouselWhatsappAssistant1')}</div>
+            <div className="landing-msg landing-msg-3 max-w-[80%] rounded-lg rounded-tl-none bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm">{t('carouselWhatsappClient2')}</div>
+            <div className="landing-msg landing-msg-4 ml-auto max-w-[82%] rounded-lg rounded-tr-none bg-[#005c4b] px-3 py-2 text-sm font-medium text-white">{t('carouselWhatsappAssistant2')}</div>
+            <div className="landing-msg landing-msg-5 max-w-[80%] rounded-lg rounded-tl-none bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm">{t('carouselWhatsappClient3')}</div>
+            <div className="landing-msg landing-msg-6 ml-auto max-w-[82%] rounded-lg rounded-tr-none bg-[#005c4b] px-3 py-2 text-sm font-medium text-white">{t('carouselWhatsappAssistant3')}</div>
+            <div className="landing-msg landing-msg-7 max-w-[80%] rounded-lg rounded-tl-none bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm">{t('carouselWhatsappClient4')}</div>
+            <div className="landing-msg landing-msg-8 ml-auto max-w-[82%] rounded-lg rounded-tr-none bg-[#005c4b] px-3 py-2 text-sm font-medium text-white">{t('carouselWhatsappAssistant4')}</div>
           </div>
         </div>
         <div className="flex items-center gap-2 bg-[#202c33] p-3">
           <input
             disabled
             placeholder={t('carouselWhatsappInput')}
-            className="min-w-0 flex-1 rounded-full bg-[#2a3942] px-4 py-2 text-sm font-semibold text-white placeholder:text-slate-400 focus:outline-none"
+            className="min-w-0 flex-1 rounded-md bg-[#2a3942] px-4 py-2 text-sm font-medium text-white placeholder:text-slate-400 focus:outline-none"
           />
           <button type="button" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#00a884] text-white">
             <Send className="h-4 w-4" />
