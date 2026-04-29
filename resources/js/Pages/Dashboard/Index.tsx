@@ -1,17 +1,21 @@
 ﻿import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { AlertModal, Badge, Button, Card, ConfirmationModal, DangerButton, Field, Input, SecondaryButton, ThemeToggle } from '@/Components/Ui';
-import { Booking, Conversation, Location as SalonLocation, OnboardingChecklist, OnboardingStep, OverviewData, PageProps, Salon, Service, Staff, User as AuthUser } from '@/types';
-import { AlertTriangle, Bell, Bot, Building2, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, Download, ExternalLink, FileText, Globe2, LayoutDashboard, List, LogOut, MapPin, Menu, MessageCircle, MessageSquare, Pencil, Phone, Plus, QrCode, Save, Scissors, Search, Settings, Smartphone, Sparkles, Trash2, User, Users, Volume2, X, XCircle } from 'lucide-react';
+import { Booking, Conversation, Location as SalonLocation, OnboardingChecklist, OnboardingStep, OverviewData, PageProps, Plan, Salon, Service, Staff, UsageSummary, User as AuthUser } from '@/types';
+import { AlertTriangle, Bell, Bot, Building2, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, CreditCard, Download, ExternalLink, FileText, Globe2, LayoutDashboard, List, LogOut, MapPin, Menu, MessageCircle, MessageSquare, Pencil, Phone, Plus, QrCode, Save, Scissors, Search, Settings, Smartphone, Sparkles, Trash2, User, Users, Volume2, X, XCircle } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { businessTaxonomy, findBusinessType, normalizeBusinessTypeSlug } from '@/data/businessTaxonomy';
 
 type Props = PageProps<{
-  section: 'overview' | 'onboarding' | 'ai-settings' | 'conversations' | 'chat-audio' | 'voice-calls' | 'whatsapp' | 'locations' | 'staff' | 'services' | 'bookings' | 'widget' | 'settings';
+  section: 'overview' | 'onboarding' | 'ai-settings' | 'conversations' | 'chat-audio' | 'voice-calls' | 'whatsapp' | 'locations' | 'staff' | 'services' | 'bookings' | 'widget' | 'billing' | 'settings';
   salon: Salon;
   overview: OverviewData;
   onboarding: OnboardingChecklist;
+  billing: {
+    summary: UsageSummary;
+    plans: Plan[];
+  };
   appUrl: string;
 }>;
 
@@ -32,11 +36,12 @@ const nav = [
   { id: 'services', label: 'services', href: '/dashboard/services', icon: Scissors },
   { id: 'bookings', label: 'bookings', href: '/dashboard/bookings', icon: Calendar },
   { id: 'widget', label: 'widget', href: '/dashboard/widget', icon: QrCode },
+  { id: 'billing', label: 'billing', href: '/dashboard/billing', icon: CreditCard },
 ];
 
 export default function DashboardIndex() {
   const t = useT();
-  const { auth, salon, section, locale, overview, onboarding } = usePage<Props>().props;
+  const { auth, salon, section, locale, overview, onboarding, billing } = usePage<Props>().props;
   const titleKey = section === 'locations'
     ? 'salonLocations'
     : nav.find((item) => item.id === section)?.label ?? section;
@@ -54,6 +59,7 @@ export default function DashboardIndex() {
     services: t('servicesSubtitle'),
     bookings: t('bookingsSubtitle'),
     widget: t('widgetSubtitle'),
+    billing: t('billingSubtitle'),
     settings: t('settingsSubtitle'),
   };
   const headerSubtitle = headerSubtitles[section] ?? '';
@@ -174,6 +180,7 @@ export default function DashboardIndex() {
           {section === 'services' && <Services salon={salon} query={query} />}
           {section === 'bookings' && <Bookings salon={salon} query={query} />}
           {section === 'widget' && <WidgetSettings salon={salon} />}
+          {section === 'billing' && <BillingPage billing={billing} currentPlan={salon.plan ?? 'free'} />}
           {section === 'settings' && <SettingsPage salon={salon} />}
         </div>
       </main>
@@ -193,6 +200,8 @@ function DashboardSidebar({ salon, section, user, t }: { salon: Salon; section: 
 }
 
 function Brand({ salon, onClick }: { salon: Salon; onClick?: () => void }) {
+  const planName = planDisplayName(salon.plan);
+
   return (
     <Link href="/" className="flex w-fit flex-col gap-3" onClick={onClick}>
       <img src="/images/logo-dark.png" className="h-12 w-auto shrink-0" alt="YouGo" />
@@ -204,10 +213,23 @@ function Brand({ salon, onClick }: { salon: Salon; onClick?: () => void }) {
             {salon.name.slice(0, 1).toUpperCase()}
           </span>
         )}
-        <span className="truncate text-sm font-bold text-white">{salon.name}</span>
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-bold text-white">{salon.name}</span>
+          <span className="block truncate text-[11px] font-medium uppercase tracking-wide text-slate-400">{planName}</span>
+        </span>
       </div>
     </Link>
   );
+}
+
+function planDisplayName(plan?: string | null): string {
+  if (! plan) return 'Free';
+
+  return plan
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 function DashboardSidebarContent({ salon, section, user, t, onNavigate }: { salon: Salon; section: Props['section']; user: AuthUser | null; t: TranslateFn; onNavigate?: () => void }) {
@@ -1294,6 +1316,7 @@ function Overview({ salon, overview, onboarding }: { salon: Salon; overview: Ove
         <Stat label={t('bookingsThisWeek')} value={metrics.bookings_this_week} icon={Calendar} />
         <Stat label={t('completedBookings')} value={metrics.completed_bookings} icon={CheckCircle2} tone="slate" />
       </div>
+      <UsageOverviewCard summary={overview.usage} />
       <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
         <Card className="p-5">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -1377,6 +1400,123 @@ function Overview({ salon, overview, onboarding }: { salon: Salon; overview: Ove
       </Card>
     </div>
   );
+}
+
+function UsageOverviewCard({ summary }: { summary: UsageSummary }) {
+  const t = useT();
+
+  return (
+    <Card className="p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide app-text-muted">{t('usageThisMonth')}</p>
+          <h2 className="mt-1 text-lg font-semibold app-text">{summary.plan.name} {t('plan')}</h2>
+        </div>
+        <Link href="/dashboard/billing" className="inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-medium app-panel app-text-soft hover:bg-[var(--app-panel-soft)]">
+          {t('viewBilling')}
+        </Link>
+      </div>
+      <div className="mt-5 grid gap-4 md:grid-cols-3">
+        <UsageBar label={t('conversations')} used={summary.usage.conversations} limit={summary.limits.conversations} />
+        <UsageBar label={t('aiMessages')} used={summary.usage.ai_messages} limit={summary.limits.ai_messages} />
+        <UsageBar label={t('bookings')} used={summary.usage.bookings} limit={summary.limits.bookings} />
+      </div>
+    </Card>
+  );
+}
+
+function BillingPage({ billing, currentPlan }: { billing: { summary: UsageSummary; plans: Plan[] }; currentPlan: string }) {
+  const t = useT();
+  const [selectedPlan, setSelectedPlan] = useState(currentPlan);
+
+  function updatePlan(event: FormEvent) {
+    event.preventDefault();
+    router.put('/billing/plan', { plan: selectedPlan }, { preserveScroll: true });
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card className="p-6">
+        <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide app-text-muted">{t('currentPlan')}</p>
+            <h2 className="mt-2 text-3xl font-semibold app-text">{billing.summary.plan.name}</h2>
+            <p className="mt-1 text-sm app-text-soft">{billing.summary.plan.price_label}</p>
+            <p className="mt-4 max-w-3xl text-sm leading-6 app-text-muted">{t('billingNotConnected')}</p>
+          </div>
+          <form onSubmit={updatePlan} className="rounded-lg border p-4 app-border app-panel-soft">
+            <label className="block">
+              <span className="mb-2 block text-sm font-semibold app-text">{t('changePlan')}</span>
+              <select value={selectedPlan} onChange={(event) => setSelectedPlan(event.target.value)} className="h-10 w-full rounded-lg border px-3 text-sm app-panel app-text">
+                {billing.plans.map((plan) => <option key={plan.key} value={plan.key}>{plan.name}</option>)}
+              </select>
+            </label>
+            <p className="mt-3 text-xs app-text-muted">{t('paymentsComingSoon')}</p>
+            <Button className="mt-4 w-full" type="submit">{t('changePlan')}</Button>
+          </form>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <h2 className="text-lg font-semibold app-text">{t('usageThisMonth')}</h2>
+        <div className="mt-5 grid gap-4 md:grid-cols-3">
+          <UsageBar label={t('conversations')} used={billing.summary.usage.conversations} limit={billing.summary.limits.conversations} />
+          <UsageBar label={t('aiMessages')} used={billing.summary.usage.ai_messages} limit={billing.summary.limits.ai_messages} />
+          <UsageBar label={t('bookings')} used={billing.summary.usage.bookings} limit={billing.summary.limits.bookings} />
+        </div>
+      </Card>
+
+      <div className="grid gap-4 lg:grid-cols-4">
+        {billing.plans.map((plan) => (
+          <PlanCard key={plan.key} plan={plan} current={plan.key === currentPlan} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PlanCard({ plan, current }: { plan: Plan; current?: boolean }) {
+  const t = useT();
+
+  return (
+    <Card className={`p-5 ${plan.recommended ? 'ring-2 ring-indigo-500' : ''}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-semibold app-text">{plan.name}</h3>
+          <p className="mt-1 text-2xl font-semibold app-text">{plan.price_label}</p>
+        </div>
+        {plan.recommended && <span className="rounded-md bg-indigo-600 px-2 py-1 text-[10px] font-semibold uppercase text-white">{t('recommended')}</span>}
+      </div>
+      <p className="mt-4 min-h-12 text-sm leading-6 app-text-muted">{plan.description}</p>
+      <div className="mt-5 space-y-2 text-sm app-text-soft">
+        <p>{formatLimit(plan.monthly_conversations)} {t('conversationsPerMonth')}</p>
+        <p>{formatLimit(plan.monthly_ai_messages)} {t('aiMessagesPerMonth')}</p>
+        <p>{formatLimit(plan.monthly_bookings)} {t('bookingsPerMonth')}</p>
+        <p>{plan.widgets_enabled ? t('widgetIncluded') : t('widget')}</p>
+      </div>
+      {current && <p className="mt-5 rounded-md bg-green-500/10 px-3 py-2 text-sm font-medium text-green-700 dark:text-green-300">{t('currentPlan')}</p>}
+    </Card>
+  );
+}
+
+function UsageBar({ label, used, limit }: { label: string; used: number; limit: number }) {
+  const percentage = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="font-medium app-text">{label}</span>
+        <span className="app-text-muted">{used} / {formatLimit(limit)}</span>
+      </div>
+      <div className="mt-2 h-2 overflow-hidden rounded-md app-panel-soft">
+        <div className="h-full rounded-md bg-indigo-600 transition-all" style={{ width: `${percentage}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function formatLimit(value: number): string {
+  return new Intl.NumberFormat('en-GB').format(value);
 }
 
 function OverviewBookingRow({ booking, t }: { booking: Booking; t: TranslateFn }) {

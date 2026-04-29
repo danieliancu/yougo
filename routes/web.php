@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\BillingController;
 use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\AssistantController;
 use App\Http\Controllers\AiSettingsController;
@@ -17,7 +18,9 @@ use App\Http\Controllers\WidgetController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/', fn () => Inertia::render('Landing'))->name('home');
+Route::get('/', fn () => Inertia::render('Landing', [
+    'plans' => array_values(config('yougo_plans', [])),
+]))->name('home');
 Route::get('/industries/{businessTypeSlug}', [IndustryController::class, 'show'])->name('industries.show');
 Route::get('/industries/{businessTypeSlug}/{industrySlug}', [IndustryController::class, 'redirectLegacy'])->name('industries.legacy');
 
@@ -35,7 +38,7 @@ Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::get('/dashboard/{section}', DashboardController::class)
-        ->whereIn('section', ['overview', 'onboarding', 'ai-settings', 'conversations', 'chat-audio', 'voice-calls', 'whatsapp', 'locations', 'staff', 'services', 'bookings', 'widget', 'settings'])
+        ->whereIn('section', ['overview', 'onboarding', 'ai-settings', 'conversations', 'chat-audio', 'voice-calls', 'whatsapp', 'locations', 'staff', 'services', 'bookings', 'widget', 'billing', 'settings'])
         ->name('dashboard.section');
 
     Route::post('/onboarding/skip', [OnboardingController::class, 'skip'])->name('onboarding.skip');
@@ -63,6 +66,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/ai-settings', [AiSettingsController::class, 'update'])->name('ai-settings.update');
     Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
     Route::put('/widget-settings', [WidgetController::class, 'updateSettings'])->name('widget-settings.update');
+    Route::put('/billing/plan', [BillingController::class, 'updatePlan'])->name('billing.plan.update');
     Route::delete('/account', [SettingsController::class, 'destroy'])->name('account.destroy');
 });
 

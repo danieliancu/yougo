@@ -2,6 +2,7 @@
 
 namespace App\Services\Assistant;
 
+use App\Models\Conversation;
 use App\Models\Salon;
 use App\Services\Modes\Appointment\AppointmentPromptContextBuilder;
 use App\Services\Modes\Appointment\AppointmentToolDefinitions;
@@ -15,14 +16,15 @@ class GeminiPayloadBuilder
     ) {
     }
 
-    public function build(Salon $salon, array $messages): array
+    public function build(Salon $salon, array $messages, ?Conversation $conversation = null): array
     {
         $salon->loadMissing(['staff.location', 'staff.locations', 'services.staffMembers']);
+        $conversation?->loadMissing(['booking.location', 'booking.service', 'booking.staffMember']);
 
         $payload = [
             'systemInstruction' => [
                 'parts' => [[
-                    'text' => $this->buildSystemInstruction($salon),
+                    'text' => $this->buildSystemInstruction($salon, $conversation),
                 ]],
             ],
             'contents' => collect($messages)->map(fn ($message) => [
@@ -39,7 +41,7 @@ class GeminiPayloadBuilder
         return $payload;
     }
 
-    private function buildSystemInstruction(Salon $salon): string
+    private function buildSystemInstruction(Salon $salon, ?Conversation $conversation = null): string
     {
         $assistantName = $this->aiAssistantName($salon);
         $today = now()->format('Y-m-d');
@@ -52,8 +54,34 @@ class GeminiPayloadBuilder
             "Detalii business: ".($this->businessDetails($salon) ?: 'nu sunt configurate').'.',
             $this->aiBusinessContext($salon),
             "Context produs: modul curent este {$this->businessMode($salon)}. Pentru moment aplicatia activeaza doar fluxul appointment.",
+            $this->currentBookingContext($conversation),
             $this->modeInstructions($salon),
             $this->ownerInstructions($salon),
+        ])->filter()->implode(' ');
+    }
+
+    private function currentBookingContext(?Conversation $conversation): ?string
+    {
+        $booking = $conversation?->booking;
+        if (! $booking) {
+            return null;
+        }
+
+        return collect([
+            'Aceasta conversatie are deja o programare in baza de date.',
+            'Statusul curent din baza de date este sursa de adevar pentru raspunsurile despre aceasta programare.',
+            "status curent: {$booking->status}.",
+            "data: {$booking->date?->format('Y-m-d')}.",
+            "ora: {$booking->time}.",
+            "client: {$booking->client_name}.",
+            $booking->client_phone ? "telefon client: {$booking->client_phone}." : null,
+            $booking->location ? "locatie: {$booking->location->name}." : null,
+            $booking->service ? "serviciu: {$booking->service->name}." : null,
+            $booking->staffMember ? "staff: {$booking->staffMember->name}." : null,
+            'Daca utilizatorul intreaba daca este programat sau confirmat, foloseste statusul curent de mai sus, nu istoricul vechi al conversatiei.',
+            'Aceasta conversatie este dedicata acestei programari existente.',
+            'Nu apela checkAvailability sau bookBooking in aceasta conversatie pentru o programare noua.',
+            'Daca utilizatorul vrea o alta programare sau o discutie noua, spune-i sa apese pe + si sa inceapa o conversatie noua.',
         ])->filter()->implode(' ');
     }
 

@@ -297,6 +297,49 @@ class BookingAvailabilityTest extends TestCase
         $this->assertSame(['10:30', '11:00', '11:30'], $slots);
     }
 
+    public function test_availability_slot_finder_can_start_from_preferred_time(): void
+    {
+        [$salon, $location, $service] = $this->appointmentSetup(['duration' => 30]);
+        $location->update(['hours' => ['tue' => '10:00 - 20:00']]);
+
+        $slots = app(AvailabilitySlotFinder::class)->find(
+            $salon,
+            $location->id,
+            $service->id,
+            '2026-04-28',
+            preferredTime: '18:00',
+        );
+
+        $this->assertSame(['18:00', '18:30', '19:00', '19:30'], $slots);
+    }
+
+    public function test_availability_slot_finder_can_start_after_requested_time(): void
+    {
+        [$salon, $location, $service] = $this->appointmentSetup(['duration' => 30]);
+        $location->update(['hours' => ['tue' => '10:00 - 20:00']]);
+
+        $slots = app(AvailabilitySlotFinder::class)->find(
+            $salon,
+            $location->id,
+            $service->id,
+            '2026-04-28',
+            afterTime: '18:00',
+        );
+
+        $this->assertSame(['18:00', '18:30', '19:00', '19:30'], $slots);
+    }
+
+    public function test_availability_slot_finder_skips_past_times_today(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 4, 27, 11, 10));
+        [$salon, $location, $service] = $this->appointmentSetup(['duration' => 30]);
+        $location->update(['hours' => ['mon' => '10:00 - 13:00']]);
+
+        $slots = app(AvailabilitySlotFinder::class)->find($salon, $location->id, $service->id, '2026-04-27');
+
+        $this->assertSame(['11:30', '12:00', '12:30'], $slots);
+    }
+
     public function test_allows_valid_booking_slot(): void
     {
         [$salon, $location, $service] = $this->appointmentSetup(['duration' => 60]);
@@ -307,6 +350,17 @@ class BookingAvailabilityTest extends TestCase
         $this->assertSame($location->id, $result[0]->id);
         $this->assertSame($service->id, $result[1]->id);
         $this->assertSame('2026-04-28', $result[2]->format('Y-m-d'));
+    }
+
+    public function test_rejects_booking_slot_in_the_past_today(): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 4, 27, 11, 10));
+        [$salon, $location, $service] = $this->appointmentSetup(['duration' => 30]);
+        $location->update(['hours' => ['mon' => '10:00 - 13:00']]);
+
+        $this->expectBookingError('Nu se pot face programari la ore trecute.');
+
+        $this->checker()->check($salon, $location->id, $service->id, '2026-04-27', '10:30');
     }
 
     public function test_booking_can_store_staff_id_and_relationship_works(): void

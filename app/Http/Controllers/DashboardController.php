@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Salon;
 use App\Services\Dashboard\DashboardDataService;
 use App\Services\Onboarding\OnboardingChecklistService;
+use App\Services\Usage\UsageLimitService;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -12,9 +13,9 @@ use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function __invoke(Request $request, DashboardDataService $dashboardData, OnboardingChecklistService $onboardingChecklist, string $section = 'overview'): Response
+    public function __invoke(Request $request, DashboardDataService $dashboardData, OnboardingChecklistService $onboardingChecklist, UsageLimitService $usageLimitService, string $section = 'overview'): Response
     {
-        $allowed = ['overview', 'onboarding', 'ai-settings', 'conversations', 'chat-audio', 'voice-calls', 'whatsapp', 'locations', 'staff', 'services', 'bookings', 'widget', 'settings'];
+        $allowed = ['overview', 'onboarding', 'ai-settings', 'conversations', 'chat-audio', 'voice-calls', 'whatsapp', 'locations', 'staff', 'services', 'bookings', 'widget', 'billing', 'settings'];
         abort_unless(in_array($section, $allowed, true), 404);
 
         $salon = $request->user()->salon()->firstOrCreate([], [
@@ -69,6 +70,10 @@ class DashboardController extends Controller
             'salon' => $salon,
             'overview' => $dashboardData->overview($salon),
             'onboarding' => $onboardingChecklist->forSalon($salon),
+            'billing' => [
+                'summary' => $usageLimitService->usageSummary($salon),
+                'plans' => $usageLimitService->plans(),
+            ],
             'appUrl' => $request->getSchemeAndHttpHost(),
         ]);
     }

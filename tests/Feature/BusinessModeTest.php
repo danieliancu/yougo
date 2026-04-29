@@ -125,6 +125,8 @@ class BusinessModeTest extends TestCase
         $this->assertStringContainsString('capacitate maxima simultana: implicit 1', $instruction);
         $this->assertStringContainsString('Nu ghici capacitatea', $instruction);
         $this->assertStringContainsString('foloseste checkAvailability', $instruction);
+        $this->assertStringContainsString('preferred_time/after_time', $instruction);
+        $this->assertStringContainsString('urmeaza noua ora ceruta de utilizator', $instruction);
         $this->assertStringContainsString('Inainte sa folosesti bookBooking, recapituleaza datele si cere confirmarea clientului', $instruction);
         $this->assertStringContainsString('Programarile create de AI raman pending si trebuie confirmate de echipa.', $instruction);
     }
@@ -149,6 +151,8 @@ class BusinessModeTest extends TestCase
         $this->assertArrayHasKey('staff_id', $toolProperties);
         $this->assertNotContains('staff_id', $toolRequired);
         $this->assertSame('checkAvailability', $availabilityTool['name']);
+        $this->assertArrayHasKey('preferred_time', $availabilityTool['parameters']['properties']);
+        $this->assertArrayHasKey('after_time', $availabilityTool['parameters']['properties']);
         $this->assertSame(['location_id', 'service_id', 'date'], $availabilityTool['parameters']['required']);
     }
 

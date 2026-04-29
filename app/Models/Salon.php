@@ -19,6 +19,9 @@ class Salon extends Model
     protected $fillable = [
         'user_id',
         'name',
+        'plan',
+        'plan_started_at',
+        'trial_ends_at',
         'logo_path',
         'timezone',
         'industry',
@@ -67,6 +70,8 @@ class Salon extends Model
             'booking_confirmations' => 'boolean',
             'widget_enabled' => 'boolean',
             'widget_allowed_domains' => 'array',
+            'plan_started_at' => 'datetime',
+            'trial_ends_at' => 'datetime',
             'onboarding_completed' => 'boolean',
             'onboarding_skipped' => 'boolean',
             'onboarding_completed_at' => 'datetime',
@@ -93,6 +98,10 @@ class Salon extends Model
 
             if ($salon->widget_enabled === null) {
                 $salon->widget_enabled = true;
+            }
+
+            if (! $salon->plan) {
+                $salon->plan = 'free';
             }
         });
     }
@@ -172,5 +181,10 @@ class Salon extends Model
     public function conversations(): HasMany
     {
         return $this->hasMany(Conversation::class);
+    }
+
+    public function usageEvents(): HasMany
+    {
+        return $this->hasMany(UsageEvent::class);
     }
 }

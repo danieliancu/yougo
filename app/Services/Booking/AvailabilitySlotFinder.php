@@ -16,7 +16,16 @@ class AvailabilitySlotFinder
     {
     }
 
-    public function find(Salon $salon, int $locationId, int $serviceId, string $dateStr, ?int $staffId = null, int $limit = 5): array
+    public function find(
+        Salon $salon,
+        int $locationId,
+        int $serviceId,
+        string $dateStr,
+        ?int $staffId = null,
+        int $limit = 5,
+        ?string $preferredTime = null,
+        ?string $afterTime = null,
+    ): array
     {
         $location = $salon->locations()->whereKey($locationId)->first();
         $service = $salon->services()->whereKey($serviceId)->first();
@@ -43,8 +52,19 @@ class AvailabilitySlotFinder
         [$startTime, $endTime] = $window;
         $duration = $service->duration > 0 ? $service->duration : 30;
         $step = $duration <= 15 ? 15 : 30;
+        $requestedStart = $this->normalizedTime($preferredTime) ?? $this->normalizedTime($afterTime);
+        if ($requestedStart && $requestedStart > $startTime) {
+            $startTime = $requestedStart;
+        }
+
         $cursor = $date->copy()->setTimeFromTimeString($startTime);
         $end = $date->copy()->setTimeFromTimeString($endTime);
+        $now = Carbon::now($salon->timezone ?: config('app.timezone'));
+
+        if ($date->isSameDay($now) && $cursor->lt($now)) {
+            $cursor = $this->roundUpToStep($now->copy(), $step);
+        }
+
         $slots = [];
 
         while ($cursor->copy()->addMinutes($duration)->lte($end) && count($slots) < $limit) {
@@ -61,6 +81,42 @@ class AvailabilitySlotFinder
         }
 
         return $slots;
+    }
+
+    private function normalizedTime(?string $time): ?string
+    {
+        if ($time === null) {
+            return null;
+        }
+
+        $time = trim($time);
+
+        if (preg_match('/^(\d{1,2})(?::|\.)(\d{2})$/', $time, $matches)) {
+            $hour = (int) $matches[1];
+            $minute = (int) $matches[2];
+        } elseif (preg_match('/^\d{1,2}$/', $time)) {
+            $hour = (int) $time;
+            $minute = 0;
+        } else {
+            return null;
+        }
+
+        if ($hour < 0 || $hour > 23 || $minute < 0 || $minute > 59) {
+            return null;
+        }
+
+        return sprintf('%02d:%02d', $hour, $minute);
+    }
+
+    private function roundUpToStep(Carbon $time, int $step): Carbon
+    {
+        $minute = (int) ceil($time->minute / $step) * $step;
+
+        if ($minute >= 60) {
+            return $time->copy()->addHour()->minute(0)->second(0);
+        }
+
+        return $time->copy()->minute($minute)->second(0);
     }
 
     private function candidateWindow(array $hours, Carbon $date): ?array

@@ -3,9 +3,11 @@
 namespace App\Services\Assistant;
 
 use App\Models\Salon;
+use App\Models\Conversation;
 use App\Services\Conversation\ConversationService;
 use App\Services\Modes\Appointment\AppointmentToolHandler;
 use App\Services\Notifications\BookingNotificationService;
+use App\Services\Usage\UsageLimitService;
 use Illuminate\Support\Facades\Http;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -17,14 +19,40 @@ class AssistantChatService
         private readonly ConversationService $conversationService,
         private readonly AppointmentToolHandler $appointmentToolHandler,
         private readonly BookingNotificationService $bookingNotificationService,
+        private readonly UsageLimitService $usageLimitService,
     ) {
     }
 
     public function handle(Salon $salon, array $data, string $channel = 'chat'): array
     {
         $salon->load(['locations', 'services']);
+        $conversationId = $data['conversation_id'] ?? null;
+        $needsNewConversation = ! $this->conversationService->existsForSalon($salon, $conversationId ? (int) $conversationId : null);
+
+        if ($needsNewConversation && ! $this->usageLimitService->canStartConversation($salon)) {
+            return [
+                'body' => [
+                    'message' => $this->usageLimitService->limitMessage($salon),
+                    'conversation_id' => null,
+                ],
+                'status' => 200,
+            ];
+        }
+
         $conversation = $this->conversationService->resolve($salon, $data['conversation_id'] ?? null, $channel);
         $this->conversationService->saveLatestUserMessage($conversation, $data['messages']);
+
+        if (! $this->usageLimitService->canSendAiMessage($salon)) {
+            $this->conversationService->updateTiming($conversation);
+
+            return [
+                'body' => [
+                    'message' => $this->usageLimitService->limitMessage($salon),
+                    'conversation_id' => $conversation->id,
+                ],
+                'status' => 200,
+            ];
+        }
 
         if (! config('services.gemini.key')) {
             $this->conversationService->updateTiming($conversation);
@@ -38,7 +66,7 @@ class AssistantChatService
             ];
         }
 
-        $response = $this->sendToGemini($salon, $data['messages']);
+        $response = $this->sendToGemini($salon, $data['messages'], $conversation);
 
         if (! $response->successful()) {
             $this->conversationService->updateTiming($conversation);
@@ -58,6 +86,12 @@ class AssistantChatService
 
         foreach ($parsed['function_calls'] as $functionCall) {
             if (! $this->appointmentToolHandler->canHandle($salon, $functionCall)) {
+                continue;
+            }
+
+            if ($conversation->booking_id) {
+                $booking = $conversation->booking;
+                $text = $this->newConversationRequiredMessage();
                 continue;
             }
 
@@ -99,9 +133,14 @@ class AssistantChatService
         ];
     }
 
-    private function sendToGemini(Salon $salon, array $messages)
+    private function newConversationRequiredMessage(): string
     {
-        $payload = $this->payloadBuilder->build($salon, $messages);
+        return 'Pentru o programare noua, te rugam sa apesi pe + si sa incepi o conversatie noua.';
+    }
+
+    private function sendToGemini(Salon $salon, array $messages, ?Conversation $conversation = null)
+    {
+        $payload = $this->payloadBuilder->build($salon, $messages, $conversation);
         $model = config('services.gemini.model', 'gemini-3-flash-preview');
         $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent";
 

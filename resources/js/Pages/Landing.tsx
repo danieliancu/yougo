@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { ThemeToggle } from '@/Components/Ui';
 import { ChatShell } from '@/Components/ChatShell';
 import { translate } from '@/i18n';
-import { PageProps } from '@/types';
+import { PageProps, Plan } from '@/types';
 import { businessTaxonomy } from '@/data/businessTaxonomy';
 
 type Locale = 'ro' | 'en';
@@ -49,7 +49,7 @@ function LandingLanguageToggle({ locale, onChange }: { locale: Locale; onChange:
 }
 
 export default function Landing() {
-  const { auth } = usePage<PageProps>().props;
+  const { auth, plans = [] } = usePage<PageProps<{ plans: Plan[] }>>().props;
 
   const [locale, setLocale] = useState<Locale>(() => {
     if (typeof window === 'undefined') return 'ro';
@@ -136,8 +136,48 @@ export default function Landing() {
           <a href="tel:08767657556" className="font-bold text-indigo-600 hover:underline">{t('featuresHelpCta')}</a>
         </p>
       </section>
+      <PricingSection plans={plans} t={t} authUser={Boolean(auth.user)} />
     </main>
   );
+}
+
+function PricingSection({ plans, t, authUser }: { plans: Plan[]; t: (key: string, params?: Record<string, string | number>) => string; authUser: boolean }) {
+  return (
+    <section className="mx-auto max-w-6xl px-6 pb-24">
+      <div className="mb-8 max-w-2xl">
+        <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">{t('pricing')}</p>
+        <h2 className="mt-2 text-3xl font-bold app-text md:text-4xl">{t('choosePlan')}</h2>
+        <p className="mt-4 text-sm app-text-muted">{t('paymentsComingSoon')}</p>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-4">
+        {plans.map((plan) => (
+          <div key={plan.key} className={`rounded-lg border p-5 app-panel ${plan.recommended ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'app-border'}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-bold app-text">{plan.name}</h3>
+                <p className="mt-1 text-2xl font-bold app-text">{plan.price_label}</p>
+              </div>
+              {plan.recommended && <span className="rounded-md bg-indigo-600 px-2 py-1 text-[10px] font-semibold uppercase text-white">{t('recommended')}</span>}
+            </div>
+            <p className="mt-4 min-h-16 text-sm leading-6 app-text-muted">{plan.description}</p>
+            <div className="mt-5 space-y-2 text-sm app-text-soft">
+              <p>{formatLandingLimit(plan.monthly_conversations)} {t('conversationsPerMonth')}</p>
+              <p>{formatLandingLimit(plan.monthly_ai_messages)} {t('aiMessagesPerMonth')}</p>
+              <p>{formatLandingLimit(plan.monthly_bookings)} {t('bookingsPerMonth')}</p>
+              <p>{plan.widgets_enabled ? t('widgetIncluded') : t('widget')}</p>
+            </div>
+            <Link href={authUser ? '/dashboard/billing' : '/register'} className={`mt-6 inline-flex h-10 w-full items-center justify-center rounded-lg px-4 text-sm font-semibold ${plan.recommended ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'border app-text-soft hover:bg-[var(--soft)]'}`}>
+              {plan.key === 'free' ? t('startFree') : t('startWithPlan')}
+            </Link>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function formatLandingLimit(value: number): string {
+  return new Intl.NumberFormat('en-GB').format(value);
 }
 
 function IndustriesMenu({ label }: { label: string }) {

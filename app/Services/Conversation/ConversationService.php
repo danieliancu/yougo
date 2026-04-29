@@ -5,9 +5,21 @@ namespace App\Services\Conversation;
 use App\Models\Booking;
 use App\Models\Conversation;
 use App\Models\Salon;
+use App\Services\Usage\UsageTracker;
 
 class ConversationService
 {
+    public function __construct(private readonly UsageTracker $usageTracker)
+    {
+    }
+
+    public function existsForSalon(Salon $salon, ?int $conversationId): bool
+    {
+        return $conversationId
+            ? $salon->conversations()->whereKey($conversationId)->exists()
+            : false;
+    }
+
     public function resolve(Salon $salon, ?int $conversationId, string $channel = 'chat'): Conversation
     {
         if ($conversationId) {
@@ -31,7 +43,7 @@ class ConversationService
             $next = $n + 1;
         }
 
-        return $salon->conversations()->create([
+        $conversation = $salon->conversations()->create([
             'channel' => $channel,
             'status' => 'open',
             'intent' => 'inquiry',
@@ -41,6 +53,12 @@ class ConversationService
                 : 'Conversatie noua pornita din widgetul public.',
             'last_message_at' => now(),
         ]);
+
+        $this->usageTracker->record($salon, 'conversation_started', source: $channel, metadata: [
+            'conversation_id' => $conversation->id,
+        ]);
+
+        return $conversation;
     }
 
     public function saveLatestUserMessage(Conversation $conversation, array $messages): void
@@ -51,9 +69,14 @@ class ConversationService
             return;
         }
 
-        $conversation->messages()->create([
+        $message = $conversation->messages()->create([
             'role' => 'user',
             'content' => $latestUserMessage['content'],
+        ]);
+
+        $this->usageTracker->record($conversation->salon, 'user_message', source: $conversation->channel, metadata: [
+            'conversation_id' => $conversation->id,
+            'message_id' => $message->id,
         ]);
     }
 
@@ -70,9 +93,14 @@ class ConversationService
 
     public function saveAssistantMessageAndSummarize(Conversation $conversation, string $content): void
     {
-        $conversation->messages()->create([
+        $message = $conversation->messages()->create([
             'role' => 'assistant',
             'content' => $content,
+        ]);
+
+        $this->usageTracker->record($conversation->salon, 'ai_message', source: $conversation->channel, metadata: [
+            'conversation_id' => $conversation->id,
+            'message_id' => $message->id,
         ]);
 
         $conversation->update([

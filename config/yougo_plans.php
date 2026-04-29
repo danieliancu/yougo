@@ -1,0 +1,45 @@
+<?php
+
+return [
+    'free' => [
+        'key' => 'free',
+        'name' => 'Free',
+        'monthly_conversations' => 50,
+        'monthly_ai_messages' => 100,
+        'monthly_bookings' => 10,
+        'widgets_enabled' => true,
+        'price_label' => '£0',
+        'description' => 'Test your AI receptionist with basic usage.',
+    ],
+    'starter' => [
+        'key' => 'starter',
+        'name' => 'Starter',
+        'monthly_conversations' => 300,
+        'monthly_ai_messages' => 1000,
+        'monthly_bookings' => 100,
+        'widgets_enabled' => true,
+        'price_label' => '£29/mo',
+        'description' => 'For small businesses starting to automate enquiries and bookings.',
+    ],
+    'growth' => [
+        'key' => 'growth',
+        'name' => 'Growth',
+        'monthly_conversations' => 1000,
+        'monthly_ai_messages' => 5000,
+        'monthly_bookings' => 500,
+        'widgets_enabled' => true,
+        'price_label' => '£79/mo',
+        'description' => 'For growing businesses with regular customer conversations.',
+        'recommended' => true,
+    ],
+    'pro' => [
+        'key' => 'pro',
+        'name' => 'Pro',
+        'monthly_conversations' => 5000,
+        'monthly_ai_messages' => 25000,
+        'monthly_bookings' => 2500,
+        'widgets_enabled' => true,
+        'price_label' => '£149/mo',
+        'description' => 'For busy teams that need higher usage and more automation.',
+    ],
+];

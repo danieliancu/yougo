@@ -73,6 +73,13 @@ class WidgetController extends Controller
     frame.style.display = frame.style.display === 'none' ? 'block' : 'none';
   });
 
+  window.addEventListener('message', function (event) {
+    if (event.source !== frame.contentWindow) return;
+    if (!event.data || event.data.type !== 'yougo-widget:minimize') return;
+
+    frame.style.display = 'none';
+  });
+
   function mountYouGoWidget() {
     document.body.appendChild(frame);
     document.body.appendChild(button);

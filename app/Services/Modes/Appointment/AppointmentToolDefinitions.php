@@ -38,7 +38,7 @@ class AppointmentToolDefinitions
                 ],
                 [
                     'name' => 'checkAvailability',
-                    'description' => 'Verifica primele sloturi libere pentru o data, locatie si serviciu. Nu creeaza programare.',
+                    'description' => 'Verifica sloturi libere pentru o data, locatie si serviciu. Nu creeaza programare. Daca utilizatorul cere o ora anume, trimite preferred_time in format HH:MM. Daca utilizatorul cere mai tarziu sau dupa o ora, trimite after_time in format HH:MM.',
                     'parameters' => [
                         'type' => 'OBJECT',
                         'properties' => [
@@ -46,6 +46,8 @@ class AppointmentToolDefinitions
                             'service_id' => ['type' => 'STRING'],
                             'staff_id' => ['type' => 'STRING'],
                             'date' => ['type' => 'STRING'],
+                            'preferred_time' => ['type' => 'STRING'],
+                            'after_time' => ['type' => 'STRING'],
                         ],
                         'required' => ['location_id', 'service_id', 'date'],
                     ],

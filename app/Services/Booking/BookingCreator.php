@@ -4,16 +4,26 @@ namespace App\Services\Booking;
 
 use App\Models\Booking;
 use App\Models\Salon;
+use App\Services\Usage\UsageLimitService;
+use App\Services\Usage\UsageTracker;
 use Illuminate\Support\Arr;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class BookingCreator
 {
-    public function __construct(private readonly AvailabilityChecker $availabilityChecker)
-    {
+    public function __construct(
+        private readonly AvailabilityChecker $availabilityChecker,
+        private readonly UsageLimitService $usageLimitService,
+        private readonly UsageTracker $usageTracker,
+    ) {
     }
 
     public function createFromAiFunctionCall(Salon $salon, array $args, ?string $source = null): Booking
     {
+        if (! $this->usageLimitService->canCreateBooking($salon)) {
+            throw new HttpException(422, $this->usageLimitService->limitMessage($salon));
+        }
+
         $locationId = (int) Arr::get($args, 'location_id');
         $serviceId = (int) Arr::get($args, 'service_id');
         $dateStr = (string) Arr::get($args, 'date');
@@ -22,7 +32,7 @@ class BookingCreator
 
         [, , , $staff] = $this->availabilityChecker->check($salon, $locationId, $serviceId, $dateStr, $timeStr, $staffId);
 
-        return $salon->bookings()->create([
+        $booking = $salon->bookings()->create([
             'location_id' => $locationId,
             'service_id' => $serviceId,
             'staff_id' => $staff?->id,
@@ -34,6 +44,14 @@ class BookingCreator
             'status' => 'pending',
             'source' => $source,
         ]);
+
+        if ($source === 'ai_assistant') {
+            $this->usageTracker->record($salon, 'booking_created', source: $source, metadata: [
+                'booking_id' => $booking->id,
+            ]);
+        }
+
+        return $booking;
     }
 
     private function normalizeAiTime(string $time): string

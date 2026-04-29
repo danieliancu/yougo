@@ -28,6 +28,9 @@ class AvailabilityChecker
         $start = $this->parseTime($date, $timeStr);
         $duration = $this->serviceDuration($service);
         $end = $start->copy()->addMinutes($duration);
+        $now = Carbon::now($salon->timezone ?: config('app.timezone'));
+
+        abort_unless($start->gte($now), 422, 'Nu se pot face programari la ore trecute.');
 
         $this->checkLocationHours($location, $date, $start, $end);
         $this->checkLocationCapacity($salon, $location, $dateStr, $start, $end);

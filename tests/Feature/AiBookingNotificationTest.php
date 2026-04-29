@@ -131,7 +131,7 @@ class AiBookingNotificationTest extends TestCase
             'client_phone' => '0700000000',
             'location_id' => (string) $location->id,
             'service_id' => (string) $service->id,
-            'date' => '2026-04-28',
+            'date' => '2026-05-05',
             'time' => '10:00',
         ], $source);
 

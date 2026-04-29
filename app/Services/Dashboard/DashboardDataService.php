@@ -3,10 +3,15 @@
 namespace App\Services\Dashboard;
 
 use App\Models\Salon;
+use App\Services\Usage\UsageLimitService;
 use Illuminate\Support\Carbon;
 
 class DashboardDataService
 {
+    public function __construct(private readonly UsageLimitService $usageLimitService)
+    {
+    }
+
     public function overview(Salon $salon): array
     {
         $timezone = $salon->timezone ?: config('app.timezone');
@@ -43,6 +48,7 @@ class DashboardDataService
                 ->latest('time')
                 ->limit(5)
                 ->get(),
+            'usage' => $this->usageLimitService->usageSummary($salon),
         ];
     }
 }

@@ -95,6 +95,9 @@ export type Salon = {
   id: number;
   user_id: number;
   name: string;
+  plan?: string | null;
+  plan_started_at?: string | null;
+  trial_ends_at?: string | null;
   logo_path?: string | null;
   timezone?: string | null;
   industry?: string | null;
@@ -140,6 +143,32 @@ export type Salon = {
   conversations: Conversation[];
 };
 
+export type Plan = {
+  key: string;
+  name: string;
+  monthly_conversations: number;
+  monthly_ai_messages: number;
+  monthly_bookings: number;
+  widgets_enabled: boolean;
+  price_label: string;
+  description: string;
+  recommended?: boolean;
+};
+
+export type UsageSummary = {
+  plan: Plan;
+  usage: {
+    conversations: number;
+    ai_messages: number;
+    bookings: number;
+  };
+  limits: {
+    conversations: number;
+    ai_messages: number;
+    bookings: number;
+  };
+};
+
 export type OnboardingStep = {
   key: string;
   label_key: string;
@@ -178,6 +207,7 @@ export type OverviewData = {
   };
   latest_conversations: Conversation[];
   latest_bookings: Booking[];
+  usage: UsageSummary;
 };
 
 export type PageProps<T = Record<string, unknown>> = T & {

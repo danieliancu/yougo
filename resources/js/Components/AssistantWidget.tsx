@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { MessageSquarePlus, Mic, Send, Sparkles, User } from 'lucide-react';
+import { MessageSquarePlus, Mic, Minus, Send, Sparkles, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { ChatShell } from '@/Components/ChatShell';
 import { Salon } from '@/types';
@@ -79,6 +79,13 @@ function storedMessages(storageKey: string): Message[] | null {
   }
 }
 
+function shouldHighlightNewChat(messages: Message[]): boolean {
+  const lastAssistantMessage = [...messages].reverse().find((message) => message.role === 'assistant');
+  const content = lastAssistantMessage?.content.toLowerCase() ?? '';
+
+  return content.includes('apes') && content.includes('+') && content.includes('conversa');
+}
+
 export function AssistantWidget({
   salon,
   locale = 'ro',
@@ -109,6 +116,7 @@ export function AssistantWidget({
     const stored = window.sessionStorage.getItem(sessionKey(conversationStorageKey));
     return stored ? Number(stored) || null : null;
   });
+  const highlightNewChat = shouldHighlightNewChat(messages);
   const scrollRef = useRef<HTMLDivElement>(null);
   const conversationIdRef = useRef<number | null>(conversationId);
 
@@ -184,6 +192,12 @@ export function AssistantWidget({
     window.sessionStorage.setItem(messagesSessionKey(conversationStorageKey), JSON.stringify([greeting]));
   }
 
+  function minimizeWidget() {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'yougo-widget:minimize' }, '*');
+    }
+  }
+
   function startVoice() {
     if (loading) return;
 
@@ -228,10 +242,26 @@ export function AssistantWidget({
             title={t('newChat')}
             onClick={startNewChat}
             disabled={loading}
-            className="flex h-10 w-10 items-center justify-center rounded-lg border transition app-panel app-text-soft hover:bg-[var(--app-panel-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+            className={`flex h-10 w-10 items-center justify-center rounded-lg border transition disabled:cursor-not-allowed disabled:opacity-50 ${
+              highlightNewChat
+                ? 'border-blue-600 bg-blue-600 text-white shadow-sm hover:bg-blue-700'
+                : 'app-panel app-text-soft hover:bg-[var(--app-panel-soft)]'
+            }`}
           >
             <MessageSquarePlus className="h-5 w-5" />
           </button>
+          {compact && (
+            <button
+              type="button"
+              aria-label="Minimize"
+              title="Minimize"
+              onClick={minimizeWidget}
+              disabled={loading}
+              className="flex h-10 w-10 items-center justify-center rounded-lg border transition app-panel app-text-soft hover:bg-[var(--app-panel-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Minus className="h-5 w-5" />
+            </button>
+          )}
           <button
             type="button"
             aria-label={t('voiceAgent')}
