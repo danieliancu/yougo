@@ -30,12 +30,12 @@ const nav = [
   { id: 'conversations', label: 'conversations', href: '/dashboard/conversations', icon: MessageSquare },
   { id: 'chat-audio', label: 'chatAudio', href: '/dashboard/chat-audio', icon: Volume2 },
   { id: 'voice-calls', label: 'voiceCalls', href: '/dashboard/voice-calls', icon: Phone },
-  { id: 'whatsapp', label: 'whatsapp', href: '/dashboard/whatsapp', icon: MessageCircle, dividerAfter: true },
+  { id: 'whatsapp', label: 'whatsapp', href: '/dashboard/whatsapp', icon: MessageCircle },
+  { id: 'widget', label: 'widget', href: '/dashboard/widget', icon: QrCode, dividerAfter: true },
   { id: 'locations', label: 'locations', href: '/dashboard/locations', icon: MapPin },
   { id: 'staff', label: 'staff', href: '/dashboard/staff', icon: Users },
   { id: 'services', label: 'services', href: '/dashboard/services', icon: Scissors },
   { id: 'bookings', label: 'bookings', href: '/dashboard/bookings', icon: Calendar },
-  { id: 'widget', label: 'widget', href: '/dashboard/widget', icon: QrCode },
   { id: 'billing', label: 'billing', href: '/dashboard/billing', icon: CreditCard },
 ];
 
@@ -958,7 +958,7 @@ function IntentPill({ intent, compact = false, bookingStatus }: { intent: string
     confirmed: 'bg-green-700 text-white dark:bg-green-700 dark:text-white',
     programat: 'bg-green-700 text-white dark:bg-green-700 dark:text-white',
     cancelled: 'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300',
-    completed: 'bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300',
+    completed: 'bg-blue-600 text-white dark:bg-blue-600 dark:text-white',
   };
   const statusLabels: Record<string, string> = {
     pending: t('statusPending'),
@@ -976,6 +976,7 @@ function IntentPill({ intent, compact = false, bookingStatus }: { intent: string
       {intent === 'booking' && bookingStatus && (
         <span className={`inline-flex items-center gap-1.5 justify-center rounded-md font-bold uppercase tracking-wide ${compact ? 'min-w-20 px-2 py-1 text-[10px]' : 'min-w-24 px-3 py-1 text-xs'} ${statusTones[bookingStatus] ?? statusTones.completed}`}>
           {bookingStatus === 'pending' && <span className="railway-lights shrink-0" aria-hidden="true" />}
+          {bookingStatus === 'completed' && <Check className="h-3 w-3 shrink-0 stroke-[3]" />}
           {statusLabels[bookingStatus] ?? bookingStatus}
         </span>
       )}
@@ -989,7 +990,7 @@ function StatusPill({ status, t, className = '' }: { status: string; t: Translat
     confirmed: 'bg-green-700 text-white dark:bg-green-700 dark:text-white',
     programat: 'bg-green-700 text-white dark:bg-green-700 dark:text-white',
     cancelled: 'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300',
-    completed: 'bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300',
+    completed: 'bg-blue-600 text-white dark:bg-blue-600 dark:text-white',
     open: 'bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300',
   };
   const labels: Record<string, string> = {
@@ -1004,6 +1005,7 @@ function StatusPill({ status, t, className = '' }: { status: string; t: Translat
   return (
     <span className={`${TABLE_PILL_CLASS} gap-1.5 ${tones[status] ?? tones.completed} ${className}`}>
       {status === 'pending' && <span className="railway-lights shrink-0" aria-hidden="true" />}
+      {status === 'completed' && <Check className="h-3 w-3 shrink-0 stroke-[3]" />}
       {labels[status] ?? status}
     </span>
   );
@@ -3334,7 +3336,7 @@ function Bookings({ salon, query }: { salon: Salon; query: string }) {
   const stats = useMemo(() => {
     return {
       today: salon.bookings.filter((booking) => booking.date === todayKey).length,
-      upcoming: salon.bookings.filter((booking) => booking.date > todayKey && (booking.status === 'pending' || booking.status === 'confirmed')).length,
+      upcoming: salon.bookings.filter((booking) => booking.date >= todayKey && (booking.status === 'pending' || booking.status === 'confirmed')).length,
       pending: salon.bookings.filter((booking) => booking.status === 'pending').length,
       cancelled: salon.bookings.filter((booking) => booking.status === 'cancelled' && booking.date >= todayKey).length,
     };
@@ -3659,7 +3661,7 @@ function BookingsDayCards({
             {group.bookings.map((booking) => (
               <div key={booking.id} className="grid gap-x-6 gap-y-3 p-5 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center">
                 <div className="flex flex-wrap items-center gap-3">
-                  <span className={`${TABLE_PILL_CLASS} shrink-0 border app-border ${booking.status === 'completed' ? 'bg-slate-200 text-slate-500 dark:bg-white/10 dark:text-slate-400' : 'bg-white text-slate-950'}`}>
+                  <span className={`${TABLE_PILL_CLASS} shrink-0 border app-border ${isPastBookingTime(booking) ? 'bg-slate-200 text-slate-500 dark:bg-white/10 dark:text-slate-400' : 'bg-white text-slate-950'}`}>
                     {bookingTimeRange(booking.time, booking.service?.duration)}
                   </span>
                   <StatusPill status={booking.status} t={t} />
@@ -3751,6 +3753,10 @@ function bookingEndDate(booking: { date: string; time: string; service?: { durat
   const [y, mo, d] = datePart.split('-').map(Number);
   const date = new Date(y, mo - 1, d, 0, totalMinutes, 0, 0); // local time, no string parsing ambiguity
   return date;
+}
+
+function isPastBookingTime(booking: { date: string; time: string; service?: { duration?: number } | null }): boolean {
+  return bookingEndDate(booking).getTime() < Date.now();
 }
 
 function bookingTimeRange(time: string, durationMinutes?: number | null) {

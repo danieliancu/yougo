@@ -1,62 +1,21 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { ChevronDown, MessageCircle, Mic, Phone, Plug, Send } from 'lucide-react';
+import { MessageCircle, Mic, Minus, Phone, Plug, Plus, Send } from 'lucide-react';
 import { SiWhatsapp } from 'react-icons/si';
 import { useEffect, useState } from 'react';
-import { ThemeToggle } from '@/Components/Ui';
 import { ChatShell } from '@/Components/ChatShell';
+import { PublicFooter, PublicHeader, PublicLocale } from '@/Components/PublicChrome';
 import { translate } from '@/i18n';
 import { PageProps, Plan } from '@/types';
-import { businessTaxonomy } from '@/data/businessTaxonomy';
-
-type Locale = 'ro' | 'en';
-
-const languages = [
-  { id: 'ro' as Locale, label: 'RO', flag: '\u{1F1F7}\u{1F1F4}' },
-  { id: 'en' as Locale, label: 'EN', flag: '\u{1F1EC}\u{1F1E7}' },
-];
-
-function LandingLanguageToggle({ locale, onChange }: { locale: Locale; onChange: (l: Locale) => void }) {
-  const [open, setOpen] = useState(false);
-  const active = languages.find((l) => l.id === locale) ?? languages[0];
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex h-10 min-w-20 items-center justify-center gap-2 rounded-lg border px-3 text-xs font-bold uppercase app-text-soft hover:bg-[var(--soft)]"
-      >
-        <span aria-hidden="true">{active.flag}</span>
-        {active.label}
-      </button>
-      {open && (
-        <div className="absolute right-0 top-12 z-50 w-36 rounded-lg border p-1 shadow-lg">
-          {languages.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => { setOpen(false); onChange(item.id); }}
-              className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-bold transition ${locale === item.id ? 'bg-indigo-600 text-white' : 'app-text-soft hover:bg-[var(--soft)]'}`}
-            >
-              <span aria-hidden="true">{item.flag}</span>
-              {item.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function Landing() {
   const { auth, plans = [] } = usePage<PageProps<{ plans: Plan[] }>>().props;
 
-  const [locale, setLocale] = useState<Locale>(() => {
+  const [locale, setLocale] = useState<PublicLocale>(() => {
     if (typeof window === 'undefined') return 'ro';
-    return (localStorage.getItem('yougo-lang') as Locale) ?? 'ro';
+    return (localStorage.getItem('yougo-lang') as PublicLocale) ?? 'ro';
   });
 
-  function switchLang(lang: Locale) {
+  function switchLang(lang: PublicLocale) {
     setLocale(lang);
     localStorage.setItem('yougo-lang', lang);
   }
@@ -67,24 +26,14 @@ export default function Landing() {
     <main className="min-h-screen app-bg">
       <Head title={t('landingTitle')} />
       <div className="min-[1600px]:border-b min-[1600px]:border-slate-200 min-[1600px]:bg-[url('/images/hero.png')] min-[1600px]:bg-cover min-[1600px]:bg-left min-[1600px]:bg-no-repeat min-[1600px]:dark:border-white">
-        <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-          <Link href="/" className="flex items-center">
-            <img src="/images/logo-white.png" className="h-12 w-auto dark:hidden" alt="YouGo" />
-            <img src="/images/logo-dark.png" className="hidden h-12 w-auto dark:block" alt="YouGo" />
-          </Link>
-          <IndustriesMenu label={t('industriesNav')} />
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <LandingLanguageToggle locale={locale} onChange={switchLang} />
-            {auth.user ? (
-              <Link href="/dashboard" className="flex items-center gap-2 rounded-lg bg-slate-950 px-4 py-2 text-sm font-bold text-white dark:border dark:border-white">
-                {auth.user.name}
-              </Link>
-            ) : (
-              <Link href="/register" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white">{t('start')}</Link>
-            )}
-          </div>
-        </nav>
+        <PublicHeader
+          authUserName={auth.user?.name}
+          locale={locale}
+          onLanguageChange={switchLang}
+          startLabel={t('start')}
+          industriesLabel={t('industriesNav')}
+          pricingLabel={t('pricing')}
+        />
 
         <section>
           <div className="mx-auto grid max-w-6xl gap-10 px-6 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
@@ -136,8 +85,56 @@ export default function Landing() {
           <a href="tel:08767657556" className="font-bold text-indigo-600 hover:underline">{t('featuresHelpCta')}</a>
         </p>
       </section>
-      <PricingSection plans={plans} t={t} authUser={Boolean(auth.user)} />
+      <FaqSection t={t} />
+      <div id="pricing">
+        <PricingSection plans={plans} t={t} authUser={Boolean(auth.user)} />
+      </div>
+      <PublicFooter t={t} />
     </main>
+  );
+}
+
+function FaqSection({ t }: { t: (key: string, params?: Record<string, string | number>) => string }) {
+  const [openItem, setOpenItem] = useState<string | null>(null);
+  const items = [
+    ['faqQuestion1', 'faqAnswer1'],
+    ['faqQuestion2', 'faqAnswer2'],
+    ['faqQuestion3', 'faqAnswer3'],
+    ['faqQuestion4', 'faqAnswer4'],
+    ['faqQuestion5', 'faqAnswer5'],
+    ['faqQuestion6', 'faqAnswer6'],
+    ['faqQuestion7', 'faqAnswer7'],
+    ['faqQuestion8', 'faqAnswer8'],
+  ];
+
+  return (
+    <section className="mx-auto max-w-6xl px-6 pb-24">
+      <div className="mb-8 max-w-2xl">
+        <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">{t('faqEyebrow')}</p>
+        <h2 className="mt-2 text-3xl font-bold app-text md:text-4xl">{t('faqTitle')}</h2>
+        <p className="mt-4 text-sm app-text-muted">{t('faqSubtitle')}</p>
+      </div>
+      <div className="grid gap-x-10 gap-y-7 lg:grid-cols-2">
+        {items.map(([question, answer]) => (
+          <div key={question} className="border-t pt-5 app-border">
+            <button
+              type="button"
+              onClick={() => setOpenItem((current) => current === question ? null : question)}
+              className="flex w-full items-start justify-between gap-4 text-left"
+              aria-expanded={openItem === question}
+            >
+              <span className="text-base font-bold app-text">{t(question)}</span>
+              <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border app-panel app-text-soft">
+                {openItem === question ? <Minus className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              </span>
+            </button>
+            {openItem === question && (
+              <p className="mt-3 text-sm leading-6 app-text-soft">{t(answer)}</p>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -178,60 +175,6 @@ function PricingSection({ plans, t, authUser }: { plans: Plan[]; t: (key: string
 
 function formatLandingLimit(value: number): string {
   return new Intl.NumberFormat('en-GB').format(value);
-}
-
-function IndustriesMenu({ label }: { label: string }) {
-  const [open, setOpen] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        onMouseEnter={() => setOpen(true)}
-        className="hidden h-10 items-center gap-2 rounded-lg px-3 text-sm font-bold app-text-soft hover:bg-[var(--soft)] md:flex"
-      >
-        {label}
-        <ChevronDown className="h-4 w-4" />
-      </button>
-      {open && (
-        <div onMouseLeave={() => setOpen(false)} className="absolute left-1/2 top-12 z-50 hidden w-[780px] -translate-x-1/2 rounded-2xl border p-5 shadow-2xl app-panel md:block">
-          <div className="grid grid-cols-3 gap-3">
-            {businessTaxonomy.map((group) => (
-              <Link
-                key={group.slug}
-                href={`/industries/${group.slug}`}
-                className="rounded-lg p-3 text-sm font-bold app-text-soft hover:bg-[var(--soft)] hover:text-indigo-600"
-              >
-                {group.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <button
-        type="button"
-        onClick={() => setMobileOpen((value) => !value)}
-        className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-bold app-text-soft hover:bg-[var(--soft)] md:hidden"
-      >
-        {label}
-        <ChevronDown className="h-4 w-4" />
-      </button>
-      {mobileOpen && (
-        <div className="absolute left-1/2 top-12 z-50 max-h-[70vh] w-[calc(100vw-2rem)] -translate-x-1/2 overflow-y-auto rounded-2xl border p-4 shadow-2xl app-panel md:hidden">
-          <div className="grid gap-2">
-            {businessTaxonomy.map((group) => (
-              <Link key={group.slug} href={`/industries/${group.slug}`} className="rounded-lg px-3 py-2 text-sm font-bold app-text-soft hover:bg-[var(--soft)]">
-                {group.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
 }
 
 function HeroChannelCarousel({ t }: { t: (key: string, params?: Record<string, string | number>) => string }) {

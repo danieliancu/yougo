@@ -1,8 +1,9 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { Bot, CalendarCheck, ChevronDown, ClipboardList, HelpCircle, Sparkles } from 'lucide-react';
+import { Bot, CalendarCheck, ClipboardList, HelpCircle, Sparkles } from 'lucide-react';
 import { useState } from 'react';
-import { ThemeToggle } from '@/Components/Ui';
-import { businessTaxonomy, BusinessType } from '@/data/businessTaxonomy';
+import { PublicFooter, PublicHeader, PublicLocale } from '@/Components/PublicChrome';
+import { BusinessType } from '@/data/businessTaxonomy';
+import { translate } from '@/i18n';
 import { PageProps } from '@/types';
 
 type Props = PageProps<{
@@ -17,37 +18,41 @@ export default function IndustryShow() {
   const { auth, businessType, seo } = usePage<Props>().props;
   const hasFutureReservation = businessType.future_mode === 'reservation';
   const hasFutureLead = businessType.future_mode === 'lead';
+  const [locale, setLocale] = useState<PublicLocale>(() => {
+    if (typeof window === 'undefined') return 'ro';
+    return (localStorage.getItem('yougo-lang') as PublicLocale) ?? 'ro';
+  });
+  const t = (key: string) => translate(locale, key);
+  const content = industryCopy(businessType, locale);
+
+  function switchLang(lang: PublicLocale) {
+    setLocale(lang);
+    localStorage.setItem('yougo-lang', lang);
+  }
 
   return (
     <main className="min-h-screen app-bg">
-      <Head title={seo.title}>
-        <meta name="description" content={seo.description} />
+      <Head title={locale === 'ro' ? content.title : seo.title}>
+        <meta name="description" content={locale === 'ro' ? content.pageFocus : seo.description} />
       </Head>
 
-      <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-        <Link href="/" className="flex items-center">
-          <img src="/images/logo-white.png" className="h-12 w-auto dark:hidden" alt="YouGo" />
-          <img src="/images/logo-dark.png" className="hidden h-12 w-auto dark:block" alt="YouGo" />
-        </Link>
-        <IndustriesMenu />
-        <div className="flex items-center gap-3">
-          <ThemeToggle />
-          {auth.user ? (
-            <Link href="/dashboard" className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-bold text-white dark:border dark:border-white">{auth.user.name}</Link>
-          ) : (
-            <Link href="/register" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white">Get started</Link>
-          )}
-        </div>
-      </nav>
+      <PublicHeader
+        authUserName={auth.user?.name}
+        locale={locale}
+        onLanguageChange={switchLang}
+        startLabel={t('start')}
+        industriesLabel={t('industriesNav')}
+        pricingLabel={t('pricing')}
+      />
 
       <section className="mx-auto grid max-w-6xl gap-10 px-6 py-14 lg:grid-cols-[1fr_0.9fr] lg:items-center">
         <div>
           <p className="mb-4 inline-flex rounded-md bg-indigo-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-indigo-700">{businessType.label}</p>
-          <h1 className="max-w-3xl text-5xl font-bold tracking-tight app-text md:text-6xl">YouGo AI receptionist for {businessType.label.toLowerCase()}</h1>
-          <p className="mt-6 max-w-2xl text-lg leading-8 app-text-soft">{businessType.page_focus}</p>
+          <h1 className="max-w-3xl text-5xl font-bold tracking-tight app-text md:text-6xl">{content.title}</h1>
+          <p className="mt-6 max-w-2xl text-lg leading-8 app-text-soft">{content.pageFocus}</p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/register" className="rounded-lg bg-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-indigo-700">Get started</Link>
-            <Link href="/" className="rounded-lg border px-5 py-3 text-sm font-bold hover:bg-[var(--soft)] app-border">View demo</Link>
+            <Link href="/register" className="rounded-lg bg-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-indigo-700">{t('start')}</Link>
+            <Link href="/" className="rounded-lg border px-5 py-3 text-sm font-bold hover:bg-[var(--soft)] app-border">{t('industryViewDemo')}</Link>
           </div>
         </div>
 
@@ -57,37 +62,37 @@ export default function IndustryShow() {
               <Bot className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-sm font-bold app-text">Current mode</p>
-              <p className="text-sm app-text-muted">Appointment and enquiry handling</p>
+              <p className="text-sm font-bold app-text">{t('industryCurrentMode')}</p>
+              <p className="text-sm app-text-muted">{t('industryAppointmentHandling')}</p>
             </div>
           </div>
           <p className="mt-5 text-sm leading-6 app-text-soft">
             {hasFutureReservation
-              ? 'YouGo can currently handle enquiries and appointment-style requests. Full reservation availability and resource booking will be added later.'
+              ? t('industryReservationLater')
               : hasFutureLead
-                ? 'YouGo can currently collect enquiries and viewing or consultation requests. Full lead pipeline mode will be added later.'
-                : 'YouGo can help answer questions and collect appointment requests now.'}
+                ? t('industryLeadLater')
+                : t('industryAppointmentNow')}
           </p>
         </div>
       </section>
 
       <section className="mx-auto max-w-6xl px-6 pb-20">
         <div className="grid gap-5 md:grid-cols-3">
-          <InfoCard icon={HelpCircle} title="What clients ask">
+          <InfoCard icon={HelpCircle} title={t('industryWhatClientsAsk')}>
             <ul className="space-y-3 text-sm app-text-soft">
-              {businessType.common_questions.map((question) => <li key={question}>{'\u2022'} {question}</li>)}
+              {content.commonQuestions.map((question) => <li key={question}>{'\u2022'} {question}</li>)}
             </ul>
           </InfoCard>
-          <InfoCard icon={Sparkles} title="How the AI helps">
+          <InfoCard icon={Sparkles} title={t('industryHowAiHelps')}>
             <p className="text-sm leading-6 app-text-soft">
-              It answers configured questions, explains your services, collects complete request details and keeps the conversation aligned with your dashboard settings.
+              {t('industryHowAiHelpsCopy')}
             </p>
-            {businessType.safety_copy && <p className="mt-4 rounded-lg bg-amber-500/10 p-3 text-sm font-medium text-amber-700 dark:text-amber-300">{businessType.safety_copy}</p>}
+            {content.safetyCopy && <p className="mt-4 rounded-lg bg-amber-500/10 p-3 text-sm font-medium text-amber-700 dark:text-amber-300">{content.safetyCopy}</p>}
           </InfoCard>
-          <InfoCard icon={ClipboardList} title="Current flow">
-            <p className="text-sm font-bold app-text-soft">{businessType.current_flow}</p>
-            {businessType.future_flow && (
-              <p className="mt-4 text-sm app-text-muted">Coming later: {businessType.future_flow}</p>
+          <InfoCard icon={ClipboardList} title={t('industryCurrentFlow')}>
+            <p className="text-sm font-bold app-text-soft">{content.currentFlow}</p>
+            {content.futureFlow && (
+              <p className="mt-4 text-sm app-text-muted">{t('industryComingLater')}: {content.futureFlow}</p>
             )}
           </InfoCard>
         </div>
@@ -96,9 +101,9 @@ export default function IndustryShow() {
           <div className="flex items-start gap-4">
             <CalendarCheck className="mt-1 h-6 w-6 text-indigo-500" />
             <div>
-              <h2 className="text-2xl font-bold app-text">Business type, AI context and mode</h2>
+              <h2 className="text-2xl font-bold app-text">{t('industryContextTitle')}</h2>
               <p className="mt-3 max-w-3xl text-sm leading-6 app-text-soft">
-                {businessType.label} is the main public category. Detailed categories are optional AI context inside AI Settings; they help the assistant understand focus areas, but services configured in the dashboard remain the source of truth.
+                {t('industryContextCopy').replace(':label', businessType.label)}
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {businessType.industries.map((category) => (
@@ -109,6 +114,7 @@ export default function IndustryShow() {
           </div>
         </div>
       </section>
+      <PublicFooter t={t} />
     </main>
   );
 }
@@ -123,30 +129,85 @@ function InfoCard({ icon: Icon, title, children }: { icon: any; title: string; c
   );
 }
 
-function IndustriesMenu() {
-  const [open, setOpen] = useState(false);
+type LocalizedIndustryCopy = {
+  title: string;
+  pageFocus: string;
+  commonQuestions: string[];
+  currentFlow: string;
+  futureFlow?: string | null;
+  safetyCopy?: string | null;
+};
 
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-bold app-text-soft hover:bg-[var(--soft)]"
-      >
-        Industries
-        <ChevronDown className="h-4 w-4" />
-      </button>
-      {open && (
-        <div className="absolute left-1/2 top-12 z-50 max-h-[70vh] w-[calc(100vw-2rem)] -translate-x-1/2 overflow-y-auto rounded-2xl border p-5 shadow-2xl app-panel md:w-[780px]">
-          <div className="grid gap-3 md:grid-cols-3">
-            {businessTaxonomy.map((group) => (
-              <Link key={group.slug} href={`/industries/${group.slug}`} className="block rounded-lg px-3 py-2 text-sm font-bold app-text-soft hover:bg-[var(--soft)]">
-                {group.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+function industryCopy(businessType: BusinessType, locale: PublicLocale): LocalizedIndustryCopy {
+  if (locale !== 'ro') {
+    return {
+      title: `YouGo AI receptionist for ${businessType.label.toLowerCase()}`,
+      pageFocus: businessType.page_focus,
+      commonQuestions: businessType.common_questions,
+      currentFlow: businessType.current_flow,
+      futureFlow: businessType.future_flow,
+      safetyCopy: businessType.safety_copy,
+    };
+  }
+
+  const ro: Record<string, Omit<LocalizedIndustryCopy, 'title'>> = {
+    'salon-beauty': {
+      pageFocus: 'YouGo ajuta saloanele si businessurile de beauty sa raspunda la intrebari, sa explice serviciile si sa colecteze cereri de programare cand echipa este ocupata.',
+      commonQuestions: ['Aveti disponibilitate astazi?', 'Cat costa acest tratament?', 'Pot sa ma programez la un anumit stilist sau tehnician?', 'Unde sunteti localizati?'],
+      currentFlow: 'serviciu -> locatie -> preferinta staff -> data -> ora -> date client -> cerere de programare',
+    },
+    'clinic-healthcare': {
+      pageFocus: 'YouGo ajuta clinicile sa gestioneze cereri de programare, intrebari despre program, locatie si informatii generale non-urgente despre servicii.',
+      commonQuestions: ['Pot face o programare?', 'Ce servicii oferiti?', 'Care este programul?', 'Unde este clinica?'],
+      currentFlow: 'motiv programare -> serviciu -> data/ora preferata -> date pacient -> cerere de programare',
+      safetyCopy: 'AI-ul nu trebuie sa diagnosticheze, sa prescrie sau sa inlocuiasca sfatul medical de urgenta.',
+    },
+    'auto-service': {
+      pageFocus: 'YouGo ajuta service-urile auto sa colecteze detalii utile despre masina, sa explice serviciile si sa gestioneze cereri de programare.',
+      commonQuestions: ['Pot programa o inspectie?', 'Masina face un zgomot, o puteti verifica?', 'Montati anvelope?', 'Cat costa diagnoza?'],
+      currentFlow: 'problema/serviciu -> detalii masina -> data/ora preferata -> date client -> cerere de programare',
+    },
+    'professional-services': {
+      pageFocus: 'YouGo ajuta businessurile de servicii profesionale sa califice cereri, sa colecteze date de contact si sa programeze consultatii.',
+      commonQuestions: ['Pot programa o consultatie?', 'Ce servicii oferiti?', 'Ma poate suna cineva?', 'Ce informatii aveti nevoie de la mine?'],
+      currentFlow: 'tip cerere -> preferinta consultatie -> data/ora preferata -> date contact',
+      safetyCopy: 'Pentru servicii juridice, financiare sau reglementate, AI-ul trebuie sa colecteze detalii si sa aranjeze follow-up, nu sa ofere consultanta reglementata.',
+    },
+    restaurant: {
+      pageFocus: 'YouGo ajuta restaurantele, cafenelele si businessurile de catering sa raspunda la intrebari si sa colecteze cereri de tip rezervare.',
+      commonQuestions: ['Sunteti deschisi diseara?', 'Pot rezerva o masa?', 'Aveti optiuni vegetariene?', 'Organizati evenimente private?'],
+      currentFlow: 'cerere -> data/ora preferata -> numar persoane -> date contact',
+      futureFlow: 'data -> ora -> numar persoane -> disponibilitate masa -> rezervare',
+    },
+    'hotel-accommodation': {
+      pageFocus: 'YouGo ajuta businessurile de cazare sa raspunda la intrebarile oaspetilor si sa colecteze cereri de rezervare.',
+      commonQuestions: ['Aveti camere disponibile?', 'Care este pretul pe noapte?', 'Micul dejun este inclus?', 'La ce ora este check-in-ul?'],
+      currentFlow: 'data check-in -> numar nopti -> oaspeti -> preferinta camera -> date contact',
+      futureFlow: 'date -> oaspeti -> disponibilitate camera -> rezervare',
+    },
+    rental: {
+      pageFocus: 'YouGo ajuta businessurile de inchirieri sa colecteze cereri despre resurse, perioade de inchiriere si datele clientilor.',
+      commonQuestions: ['Aveti disponibil saptamana viitoare?', 'Cat costa pe zi?', 'Pot inchiria pentru doua zile?', 'Oferiti livrare?'],
+      currentFlow: 'obiect/resursa -> data start -> data final/durata -> date contact',
+      futureFlow: 'resursa -> data start -> data final -> disponibilitate -> rezervare',
+    },
+    'real-estate': {
+      pageFocus: 'YouGo ajuta agentiile imobiliare si businessurile de proprietati sa colecteze cereri, vizionari si date de contact.',
+      commonQuestions: ['Mai este disponibila proprietatea?', 'Pot programa o vizionare?', 'Care este pretul?', 'Ma poate contacta cineva?'],
+      currentFlow: 'proprietate/tip cerere -> vizionare sau preferinta contact -> date contact',
+      futureFlow: 'cumparare/vanzare/inchiriere -> buget/proprietate/locatie -> date contact -> lead',
+    },
+    other: {
+      pageFocus: 'YouGo poate fi configurat pentru alte businessuri bazate pe programari prin servicii, locatii, staff si instructiuni AI.',
+      commonQuestions: ['Ce servicii oferiti?', 'Pot rezerva o ora?', 'Unde sunteti localizati?'],
+      currentFlow: 'cerere -> serviciu -> data/ora -> date contact',
+    },
+  };
+
+  const content = ro[businessType.slug] ?? ro.other;
+
+  return {
+    title: `Receptionist AI YouGo pentru ${businessType.label.toLowerCase()}`,
+    ...content,
+  };
 }

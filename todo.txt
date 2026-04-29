@@ -12,14 +12,15 @@ staff = opțional, dar folosit dacă există
 3. Notificări când AI-ul creează programări
    Check availability - inform when busy
 5. Pregătire embed real pentru widget
-
-
-
-
-
-
 10. Billing / pay-as-you-go
+   Amendare si reglare chat
 
+
+
+
+
+
+11 Setare Stripe si implementare (vezi planurile de introdus in Stripe)
 6. WhatsApp
 7. Telefon
 8. Lead Mode
@@ -28,3 +29,46 @@ staff = opțional, dar folosit dacă există
 
 
 
+
+
+
+
+
+
+
+
+
+- grafica widget
+- grafica configurare
+
+
+
+
+3. Fallback 09:00–17:00 când locația nu are program
+
+AvailabilitySlotFinder folosește fallback 09:00–17:00 dacă locația nu are program.
+
+E practic pentru demo, dar într-un produs real poate propune ore nesigure dacă ownerul nu a configurat programul.
+
+Aș păstra pentru acum, dar în onboarding ar trebui să împingem userul să configureze programul locației.
+
+
+
+
+4. Mesajele de availability sunt românești
+
+Similar cu punctul 1, mesajele generate de AppointmentToolHandler sunt în română.
+
+Dacă vrei RO/EN complet, asta trebuie externalizat în traduceri sau adaptat după limbă.
+
+Nu blochează logica.
+
+1. Mesajul „apasă pe +” este hardcodat în română
+
+În AssistantChatService, mesajul pentru conversație nouă este în română.
+
+Dacă assistantul răspunde în engleză pentru un business setat pe EN, mesajul acesta tot în română va apărea.
+
+Nu e ruptură logică, dar e un mic debt de i18n.
+
+Ar trebui ulterior să fie tradus în funcție de ai_language_mode sau locale.
