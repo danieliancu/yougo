@@ -69,6 +69,19 @@ class AssistantWidgetTest extends TestCase
         $this->assertSame(2, $salon->conversations()->first()->messages()->where('role', 'user')->count());
     }
 
+    public function test_assistant_chat_marks_conversation_when_voice_input_is_used(): void
+    {
+        config(['services.gemini.key' => null]);
+        $salon = $this->createSalon();
+
+        $this->postJson("/assistant/{$salon->id}/chat", [
+            'messages' => [['role' => 'user', 'content' => 'Buna, vorbesc din microfon']],
+            'voice_input_used' => true,
+        ])->assertStatus(503);
+
+        $this->assertTrue($salon->conversations()->first()->voice_input_used);
+    }
+
     public function test_assistant_chat_accepts_known_contact_and_adds_it_to_prompt(): void
     {
         config(['services.gemini.key' => 'test-key']);

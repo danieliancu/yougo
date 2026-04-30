@@ -149,6 +149,13 @@ function PricingSection({ plans, t, authUser }: { plans: Plan[]; t: (key: string
       <div className="grid gap-4 lg:grid-cols-4">
         {plans.map((plan) => (
           <div key={plan.key} className={`flex h-full flex-col rounded-lg border p-5 app-panel ${plan.recommended ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'app-border'}`}>
+            <div className="mb-4 flex flex-wrap gap-1.5">
+              {(plan.channels ?? []).map((channel) => (
+                <span key={channel} className="rounded-md bg-indigo-500/10 px-2 py-1 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+                  {planItemLabel(channel, t)}
+                </span>
+              ))}
+            </div>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="text-lg font-bold app-text">{planDisplayLabel(plan, t)}</h3>
@@ -161,18 +168,15 @@ function PricingSection({ plans, t, authUser }: { plans: Plan[]; t: (key: string
               <p>{formatLandingLimit(plan.monthly_ai_messages, t)} {t('aiMessagesPerMonth')}</p>
               <p>{formatLandingLimit(plan.monthly_bookings, t)} {t('bookingsPerMonth')}</p>
             </div>
-            <div className="mt-5">
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {(plan.channels ?? []).map((channel) => (
-                  <span key={channel} className="rounded-md bg-indigo-500/10 px-2 py-1 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
-                    {planItemLabel(channel, t)}
-                  </span>
-                ))}
-              </div>
-            </div>
             <div className="mt-5 space-y-2 text-sm app-text-soft">
               {(plan.features ?? []).map((feature) => (
-                <p key={feature} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />{planItemLabel(feature, t)}</p>
+                <div key={feature} className="flex gap-2">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
+                  <span>
+                    <span>{planItemLabel(feature, t)}</span>
+                    {feature === 'Chat + Voice' && <span className="mt-0.5 block text-xs leading-5 app-text-muted">{t('chatVoiceClarification')}</span>}
+                  </span>
+                </div>
               ))}
               {plan.key === 'voice' && <p className="text-[10px] font-semibold leading-4 text-indigo-600 dark:text-indigo-300">* {t('aiPhoneBilledPerMinute')}</p>}
             </div>
@@ -193,6 +197,7 @@ function planDisplayLabel(plan: Plan, t: (key: string, params?: Record<string, s
 function planItemLabel(value: string, t: (key: string, params?: Record<string, string | number>) => string) {
   const labels: Record<string, string> = {
     'Website chat': t('websiteChat'),
+    'Chat + Voice': t('chatVoice'),
     'Phone AI': t('phoneAi'),
     'Custom integrations': t('customIntegrations'),
     'Dashboard access': t('dashboardAccess'),
@@ -218,9 +223,9 @@ function formatLandingLimit(value: number | null, t: (key: string, params?: Reco
 function HeroChannelCarousel({ t }: { t: (key: string, params?: Record<string, string | number>) => string }) {
   const [active, setActive] = useState(0);
   const slides = [
-    { id: 'receptionist', label: t('carouselReceptionist') },
-    { id: 'chat', label: t('carouselChatLive') },
+    { id: 'chat', label: t('chatVoice') },
     { id: 'whatsapp', label: t('carouselWhatsapp') },
+    { id: 'receptionist', label: t('phone') },
   ];
 
   useEffect(() => {
@@ -235,21 +240,27 @@ function HeroChannelCarousel({ t }: { t: (key: string, params?: Record<string, s
     <div className="relative">
       <div className="min-h-[540px] sm:p-4">
         <div className="flex min-h-[500px] items-center justify-center">
-          {active === 0 && <ReceptionistPreview t={t} />}
-          {active === 1 && <ChatLivePreview t={t} />}
-          {active === 2 && <WhatsAppPreview t={t} />}
+          {active === 0 && <ChatLivePreview t={t} />}
+          {active === 1 && <WhatsAppPreview t={t} />}
+          {active === 2 && <ReceptionistPreview t={t} />}
         </div>
 
-        <div className="mt-5 flex items-center justify-center gap-2">
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
           {slides.map((slide, index) => (
             <button
               key={slide.id}
               type="button"
               onClick={() => setActive(index)}
-              className={`h-2.5 w-2.5 rounded-full transition ${active === index ? 'bg-blue-500 ring-4 ring-blue-500/15' : 'bg-slate-400/80 hover:bg-slate-500 dark:bg-slate-500 dark:hover:bg-slate-400'}`}
+              className={`inline-flex h-9 items-center justify-center rounded-full px-4 text-sm font-semibold transition ${
+                active === index
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-white dark:text-slate-600'
+              }`}
               aria-label={slide.label}
               aria-pressed={active === index}
-            />
+            >
+              {slide.label}
+            </button>
           ))}
         </div>
       </div>

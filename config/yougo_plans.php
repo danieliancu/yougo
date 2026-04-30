@@ -13,10 +13,10 @@ return [
         'whatsapp_enabled' => false,
         'phone_enabled' => false,
         'channels' => [
-            'Website chat',
+            'Chat + Voice',
         ],
         'features' => [
-            'Website AI chat widget',
+            'Chat + Voice',
             'AI booking requests',
             'Availability checks',
             'Dashboard access',
@@ -41,11 +41,11 @@ return [
         'phone_enabled' => false,
         'recommended' => true,
         'channels' => [
-            'Website chat',
+            'Chat + Voice',
             'WhatsApp',
         ],
         'features' => [
-            'Website AI chat widget',
+            'Chat + Voice',
             'AI booking requests',
             'Availability checks',
             'Dashboard access',
@@ -60,7 +60,7 @@ return [
         'key' => 'voice',
         'name' => 'Voice',
         'price_label' => '799 RON/lună',
-        'description' => 'For businesses that want chat, WhatsApp and AI phone answering.',
+        'description' => 'For businesses that want website chat, WhatsApp and AI phone answering.',
         'monthly_conversations' => 1500,
         'monthly_ai_messages' => 7500,
         'monthly_bookings' => 750,
@@ -71,12 +71,12 @@ return [
         'widgets_enabled' => true,
         'whatsapp_enabled' => true,
         'channels' => [
-            'Website chat',
+            'Chat + Voice',
             'WhatsApp',
             'Phone AI',
         ],
         'features' => [
-            'Website AI chat widget',
+            'Chat + Voice',
             'AI booking requests',
             'Availability checks',
             'Dashboard access',
@@ -101,13 +101,13 @@ return [
         'phone_enabled' => true,
         'contact_sales' => true,
         'channels' => [
-            'Website chat',
+            'Chat + Voice',
             'WhatsApp',
             'Phone AI',
             'Custom integrations',
         ],
         'features' => [
-            'Website AI chat widget',
+            'Chat + Voice',
             'AI booking requests',
             'Availability checks',
             'Dashboard access',

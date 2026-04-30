@@ -109,6 +109,19 @@ class WidgetEmbedTest extends TestCase
         $this->assertSame(1, $salon->conversations()->count());
     }
 
+    public function test_widget_chat_marks_conversation_when_voice_input_is_used(): void
+    {
+        config(['services.gemini.key' => null]);
+        $salon = $this->createSalon();
+
+        $this->postJson("/widget/{$salon->widget_key}/chat", [
+            'messages' => [['role' => 'user', 'content' => 'Buna, folosesc microfonul']],
+            'voice_input_used' => true,
+        ])->assertStatus(503);
+
+        $this->assertTrue($salon->conversations()->first()->voice_input_used);
+    }
+
     public function test_widget_chat_accepts_known_contact(): void
     {
         config(['services.gemini.key' => 'test-key']);

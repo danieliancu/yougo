@@ -46,6 +46,7 @@ class AssistantController extends Controller
             'known_contact' => ['nullable', 'array'],
             'known_contact.name' => ['nullable', 'string', 'max:255'],
             'known_contact.phone' => ['nullable', 'string', 'max:50'],
+            'voice_input_used' => ['nullable', 'boolean'],
         ]);
 
         $result = $this->assistantChatService->handle($salon, $data);

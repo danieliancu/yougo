@@ -78,6 +78,7 @@ export type Conversation = {
   booking_id?: number | null;
   visitor_number?: number | null;
   channel: 'chat' | 'voice' | 'web_widget' | string;
+  voice_input_used?: boolean;
   contact_name?: string | null;
   contact_phone?: string | null;
   contact_email?: string | null;

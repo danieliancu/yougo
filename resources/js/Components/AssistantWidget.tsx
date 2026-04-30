@@ -15,6 +15,19 @@ type KnownContact = {
   phone: string;
 };
 
+type SpeechRecognitionInstance = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onstart: (() => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+  onresult: ((event: any) => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+};
+
 function assistantName(salon: Salon): string {
   return salon.ai_assistant_name?.trim() || 'Bella';
 }
@@ -167,6 +180,7 @@ export function AssistantWidget({
   const highlightNewChat = shouldHighlightNewChat(messages);
   const scrollRef = useRef<HTMLDivElement>(null);
   const conversationIdRef = useRef<number | null>(conversationId);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
 
   useEffect(() => { conversationIdRef.current = conversationId; }, [conversationId]);
 
@@ -183,7 +197,25 @@ export function AssistantWidget({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, loading]);
 
-  async function send(text: string) {
+  useEffect(() => () => {
+    stopVoiceInput();
+  }, []);
+
+  function speechLang() {
+    return locale === 'en' ? 'en-GB' : 'ro-RO';
+  }
+
+  function stopVoiceInput() {
+    if (recognitionRef.current) {
+      recognitionRef.current.onerror = null;
+      recognitionRef.current.onend = null;
+      recognitionRef.current.abort();
+    }
+    recognitionRef.current = null;
+    setListening(false);
+  }
+
+  async function send(text: string, options: { voiceInput?: boolean } = {}) {
     if (!text.trim() || loading) return;
 
     const nextMessages = [...messages, { role: 'user' as const, content: text.trim() }];
@@ -207,6 +239,7 @@ export function AssistantWidget({
           conversation_id: conversationIdRef.current,
           messages: nextMessages,
           ...(knownContact ? { known_contact: knownContact } : {}),
+          ...(options.voiceInput ? { voice_input_used: true } : {}),
         }),
       });
       const data = await response.json();
@@ -226,7 +259,8 @@ export function AssistantWidget({
         storeLastContact(conversationStorageKey, bookingContact);
       }
 
-      setMessages([...nextMessages, { role: 'assistant', content: data.message }]);
+      const assistantMessage = String(data.message ?? fallbackMessage);
+      setMessages([...nextMessages, { role: 'assistant', content: assistantMessage }]);
     } catch (error) {
       const message = error instanceof Error ? error.message : t('unknownError');
       toast.error(message);
@@ -242,6 +276,8 @@ export function AssistantWidget({
   }
 
   function startNewChat() {
+    stopVoiceInput();
+
     const lastContact = storedLastContact(conversationStorageKey);
     const greeting = {
       role: 'assistant' as const,
@@ -257,13 +293,17 @@ export function AssistantWidget({
   }
 
   function minimizeWidget() {
+    stopVoiceInput();
+
     if (window.parent && window.parent !== window) {
       window.parent.postMessage({ type: 'yougo-widget:minimize' }, '*');
     }
   }
 
   function startVoice() {
-    if (loading) return;
+    if (loading || listening) return;
+
+    stopVoiceInput();
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -271,19 +311,28 @@ export function AssistantWidget({
       return;
     }
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = locale === 'en' ? 'en-GB' : 'ro-RO';
+    const recognition = new SpeechRecognition() as SpeechRecognitionInstance;
+    recognitionRef.current = recognition;
+    recognition.lang = speechLang();
     recognition.continuous = false;
     recognition.interimResults = false;
     recognition.onstart = () => setListening(true);
-    recognition.onend = () => setListening(false);
+    recognition.onend = () => {
+      recognitionRef.current = null;
+      setListening(false);
+    };
     recognition.onerror = () => {
+      recognitionRef.current = null;
       setListening(false);
       toast.error(t('speechFailed'));
     };
     recognition.onresult = (event: any) => {
       const transcript = event.results?.[0]?.[0]?.transcript;
-      if (transcript) void send(transcript);
+      if (transcript) {
+        void send(transcript, { voiceInput: true });
+      } else {
+        toast.error(t('speechFailed'));
+      }
     };
     recognition.start();
   }
@@ -291,7 +340,7 @@ export function AssistantWidget({
   return (
     <ChatShell
       title={name}
-      statusLabel={loading ? assistantTypingLabel(salon, locale) : 'Online'}
+      statusLabel={loading ? assistantTypingLabel(salon, locale) : listening ? t('voiceListening') : 'Online'}
       bodyRef={scrollRef}
       heightClassName={compact ? 'h-screen min-h-screen rounded-none' : 'h-[min(680px,calc(100vh-8rem))] min-h-[520px]'}
       className="border-[var(--app-border)] bg-[var(--app-shell)]"
@@ -330,8 +379,8 @@ export function AssistantWidget({
             type="button"
             aria-label={t('voiceAgent')}
             onClick={startVoice}
-            disabled={loading}
-            className={`flex h-10 w-10 items-center justify-center rounded-lg border transition app-panel app-text-soft hover:bg-[var(--app-panel-soft)] disabled:cursor-not-allowed disabled:opacity-50 ${listening ? 'border-red-500 bg-red-600 text-white hover:bg-red-700' : ''}`}
+            disabled={loading || listening}
+            className={`flex h-10 w-10 items-center justify-center rounded-lg border transition app-panel app-text-soft hover:bg-[var(--app-panel-soft)] disabled:cursor-not-allowed disabled:opacity-50 ${listening ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700' : ''}`}
           >
             <Mic className="h-5 w-5" />
           </button>
@@ -339,6 +388,11 @@ export function AssistantWidget({
       }
       footer={
         <form onSubmit={submit}>
+          {listening && (
+            <p className="mb-2 text-xs font-semibold text-blue-600 dark:text-blue-300">
+              {t('voiceListening')}
+            </p>
+          )}
           <div className="flex items-center gap-2 rounded-xl border px-3 py-2 app-panel">
             <input
               value={input}

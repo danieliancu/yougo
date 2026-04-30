@@ -84,6 +84,15 @@ class ConversationService
         }
     }
 
+    public function markVoiceInputUsed(Conversation $conversation): void
+    {
+        if ($conversation->voice_input_used) {
+            return;
+        }
+
+        $conversation->update(['voice_input_used' => true]);
+    }
+
     public function attachBooking(Conversation $conversation, Booking $booking): void
     {
         $conversation->update([

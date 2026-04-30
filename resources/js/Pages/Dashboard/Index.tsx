@@ -1563,6 +1563,13 @@ function PlanCard({ plan, current }: { plan: Plan; current?: boolean }) {
 
   return (
     <Card className={`p-5 ${plan.recommended ? 'ring-2 ring-indigo-500' : ''}`}>
+      <div className="mb-4 flex flex-wrap gap-1.5">
+        {(plan.channels ?? []).map((channel) => (
+          <span key={channel} className="rounded-md bg-indigo-500/10 px-2 py-1 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+            {planItemLabel(channel, t)}
+          </span>
+        ))}
+      </div>
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-lg font-semibold app-text">{planDisplayLabel(plan, t)}</h3>
@@ -1575,18 +1582,15 @@ function PlanCard({ plan, current }: { plan: Plan; current?: boolean }) {
         <p>{formatLimit(plan.monthly_ai_messages, t)} {t('aiMessagesPerMonth')}</p>
         <p>{formatLimit(plan.monthly_bookings, t)} {t('bookingsPerMonth')}</p>
       </div>
-      <div className="mt-5">
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {(plan.channels ?? []).map((channel) => (
-            <span key={channel} className="rounded-md bg-indigo-500/10 px-2 py-1 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
-              {planItemLabel(channel, t)}
-            </span>
-          ))}
-        </div>
-      </div>
       <div className="mt-5 space-y-2 text-sm app-text-soft">
         {(plan.features ?? []).map((feature) => (
-          <p key={feature} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />{planItemLabel(feature, t)}</p>
+          <div key={feature} className="flex gap-2">
+            <Check className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
+            <span>
+              <span>{planItemLabel(feature, t)}</span>
+              {feature === 'Chat + Voice' && <span className="mt-0.5 block text-xs leading-5 app-text-muted">{t('chatVoiceClarification')}</span>}
+            </span>
+          </div>
         ))}
         {plan.key === 'voice' && <p className="text-[10px] font-semibold leading-4 text-indigo-600 dark:text-indigo-300">* {t('aiPhoneBilledPerMinute')}</p>}
       </div>
@@ -1605,6 +1609,7 @@ function planDisplayLabel(plan: Plan, t: TranslateFn) {
 function planItemLabel(value: string, t: TranslateFn) {
   const labels: Record<string, string> = {
     'Website chat': t('websiteChat'),
+    'Chat + Voice': t('chatVoice'),
     'Phone AI': t('phoneAi'),
     'Custom integrations': t('customIntegrations'),
     'Dashboard access': t('dashboardAccess'),
@@ -3306,7 +3311,7 @@ function ChatAudio({ salon, query }: { salon: Salon; query: string }) {
   });
   const stats = {
     total: salon.conversations.length,
-    audio: salon.conversations.filter((conversation) => conversation.channel === 'voice').length,
+    audio: salon.conversations.filter((conversation) => conversation.channel === 'voice' || conversation.voice_input_used).length,
     completed: salon.conversations.filter((conversation) => conversation.status === 'completed').length,
     abandoned: salon.conversations.filter((conversation) => conversation.intent === 'abandoned').length,
   };

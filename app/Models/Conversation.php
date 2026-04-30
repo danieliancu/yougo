@@ -15,6 +15,7 @@ class Conversation extends Model
         'salon_id',
         'booking_id',
         'channel',
+        'voice_input_used',
         'visitor_number',
         'contact_name',
         'contact_phone',
@@ -31,6 +32,7 @@ class Conversation extends Model
         return [
             'last_message_at' => 'datetime',
             'duration_seconds' => 'integer',
+            'voice_input_used' => 'boolean',
         ];
     }
 

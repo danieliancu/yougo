@@ -41,6 +41,9 @@ class AssistantChatService
         }
 
         $conversation = $this->conversationService->resolve($salon, $data['conversation_id'] ?? null, $channel);
+        if ($data['voice_input_used'] ?? false) {
+            $this->conversationService->markVoiceInputUsed($conversation);
+        }
         $this->conversationService->saveLatestUserMessage($conversation, $data['messages']);
 
         if ($channel === 'web_widget' && ! $this->usageLimitService->canSendAiMessage($salon)) {
