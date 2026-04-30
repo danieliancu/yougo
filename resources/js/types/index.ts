@@ -146,12 +146,21 @@ export type Salon = {
 export type Plan = {
   key: string;
   name: string;
-  monthly_conversations: number;
-  monthly_ai_messages: number;
-  monthly_bookings: number;
+  monthly_conversations: number | null;
+  monthly_ai_messages: number | null;
+  monthly_bookings: number | null;
+  monthly_whatsapp_messages?: number | null;
   widgets_enabled: boolean;
+  whatsapp_enabled?: boolean;
+  phone_enabled?: boolean;
+  phone_billing_label?: string | null;
+  phone_minute_price_label?: string | null;
+  contact_sales?: boolean;
   price_label: string;
   description: string;
+  channels?: string[];
+  features?: string[];
+  limitations?: string[];
   recommended?: boolean;
 };
 
@@ -163,9 +172,9 @@ export type UsageSummary = {
     bookings: number;
   };
   limits: {
-    conversations: number;
-    ai_messages: number;
-    bookings: number;
+    conversations: number | null;
+    ai_messages: number | null;
+    bookings: number | null;
   };
 };
 

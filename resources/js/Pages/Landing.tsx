@@ -1,5 +1,5 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { MessageCircle, Mic, Minus, Phone, Plug, Plus, Send } from 'lucide-react';
+import { Check, MessageCircle, Mic, Minus, Phone, Plug, Plus, Send } from 'lucide-react';
 import { SiWhatsapp } from 'react-icons/si';
 import { useEffect, useState } from 'react';
 import { ChatShell } from '@/Components/ChatShell';
@@ -148,23 +148,36 @@ function PricingSection({ plans, t, authUser }: { plans: Plan[]; t: (key: string
       </div>
       <div className="grid gap-4 lg:grid-cols-4">
         {plans.map((plan) => (
-          <div key={plan.key} className={`rounded-lg border p-5 app-panel ${plan.recommended ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'app-border'}`}>
+          <div key={plan.key} className={`flex h-full flex-col rounded-lg border p-5 app-panel ${plan.recommended ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'app-border'}`}>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-lg font-bold app-text">{plan.name}</h3>
-                <p className="mt-1 text-2xl font-bold app-text">{plan.price_label}</p>
+                <h3 className="text-lg font-bold app-text">{planDisplayLabel(plan, t)}</h3>
+                <p className="mt-1 whitespace-nowrap text-xl font-bold app-text">{plan.price_label}</p>
               </div>
               {plan.recommended && <span className="rounded-md bg-indigo-600 px-2 py-1 text-[10px] font-semibold uppercase text-white">{t('recommended')}</span>}
             </div>
-            <p className="mt-4 min-h-16 text-sm leading-6 app-text-muted">{t(`planDescription_${plan.key}`) || plan.description}</p>
             <div className="mt-5 space-y-2 text-sm app-text-soft">
-              <p>{formatLandingLimit(plan.monthly_conversations)} {t('conversationsPerMonth')}</p>
-              <p>{formatLandingLimit(plan.monthly_ai_messages)} {t('aiMessagesPerMonth')}</p>
-              <p>{formatLandingLimit(plan.monthly_bookings)} {t('bookingsPerMonth')}</p>
-              <p>{plan.widgets_enabled ? t('widgetIncluded') : t('widget')}</p>
+              <p>{formatLandingLimit(plan.monthly_conversations, t)} {t('conversationsPerMonth')}</p>
+              <p>{formatLandingLimit(plan.monthly_ai_messages, t)} {t('aiMessagesPerMonth')}</p>
+              <p>{formatLandingLimit(plan.monthly_bookings, t)} {t('bookingsPerMonth')}</p>
             </div>
-            <Link href={authUser ? '/dashboard/billing' : '/register'} className={`mt-6 inline-flex h-10 w-full items-center justify-center rounded-lg px-4 text-sm font-semibold ${plan.recommended ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'border app-text-soft hover:bg-[var(--soft)]'}`}>
-              {plan.key === 'free' ? t('startFree') : t('startWithPlan')}
+            <div className="mt-5">
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {(plan.channels ?? []).map((channel) => (
+                  <span key={channel} className="rounded-md bg-indigo-500/10 px-2 py-1 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+                    {planItemLabel(channel, t)}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="mt-5 space-y-2 text-sm app-text-soft">
+              {(plan.features ?? []).map((feature) => (
+                <p key={feature} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />{planItemLabel(feature, t)}</p>
+              ))}
+              {plan.key === 'voice' && <p className="text-[10px] font-semibold leading-4 text-indigo-600 dark:text-indigo-300">* {t('aiPhoneBilledPerMinute')}</p>}
+            </div>
+            <Link href={authUser ? '/dashboard/billing' : '/register'} className="mt-auto inline-flex h-10 w-full items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700">
+              {plan.key === 'free' ? t('startFree') : plan.key === 'connect' ? t('chooseConnect') : plan.key === 'voice' ? t('chooseVoice') : plan.contact_sales ? t('contactUs') : t('startWithPlan')}
             </Link>
           </div>
         ))}
@@ -173,7 +186,32 @@ function PricingSection({ plans, t, authUser }: { plans: Plan[]; t: (key: string
   );
 }
 
-function formatLandingLimit(value: number): string {
+function planDisplayLabel(plan: Plan, t: (key: string, params?: Record<string, string | number>) => string) {
+  return t(`planName_${plan.key}`) || plan.name;
+}
+
+function planItemLabel(value: string, t: (key: string, params?: Record<string, string | number>) => string) {
+  const labels: Record<string, string> = {
+    'Website chat': t('websiteChat'),
+    'Phone AI': t('phoneAi'),
+    'Custom integrations': t('customIntegrations'),
+    'Dashboard access': t('dashboardAccess'),
+    'AI booking requests': t('aiBookingRequests'),
+    'Availability checks': t('availabilityChecks'),
+    'Email booking notifications': t('emailBookingNotifications'),
+    'WhatsApp assistant': t('whatsappAssistant'),
+    'AI phone answering': t('aiPhoneAnswering'),
+    'Custom usage limits': t('customUsageLimits'),
+    'Multi-location support': t('multiLocationSupport'),
+    'Advanced setup': t('advancedSetup'),
+    'Limited monthly usage': t('limitedMonthlyUsage'),
+  };
+
+  return labels[value] ?? value;
+}
+
+function formatLandingLimit(value: number | null, t: (key: string, params?: Record<string, string | number>) => string): string {
+  if (value === null) return t('unlimited');
   return new Intl.NumberFormat('en-GB').format(value);
 }
 

@@ -1565,31 +1565,72 @@ function PlanCard({ plan, current }: { plan: Plan; current?: boolean }) {
     <Card className={`p-5 ${plan.recommended ? 'ring-2 ring-indigo-500' : ''}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-lg font-semibold app-text">{plan.name}</h3>
+          <h3 className="text-lg font-semibold app-text">{planDisplayLabel(plan, t)}</h3>
           <p className="mt-1 text-2xl font-semibold app-text">{plan.price_label}</p>
         </div>
         {plan.recommended && <span className="rounded-md bg-indigo-600 px-2 py-1 text-[10px] font-semibold uppercase text-white">{t('recommended')}</span>}
       </div>
-      <p className="mt-4 min-h-12 text-sm leading-6 app-text-muted">{t(`planDescription_${plan.key}`) || plan.description}</p>
       <div className="mt-5 space-y-2 text-sm app-text-soft">
-        <p>{formatLimit(plan.monthly_conversations)} {t('conversationsPerMonth')}</p>
-        <p>{formatLimit(plan.monthly_ai_messages)} {t('aiMessagesPerMonth')}</p>
-        <p>{formatLimit(plan.monthly_bookings)} {t('bookingsPerMonth')}</p>
-        <p>{plan.widgets_enabled ? t('widgetIncluded') : t('widget')}</p>
+        <p>{formatLimit(plan.monthly_conversations, t)} {t('conversationsPerMonth')}</p>
+        <p>{formatLimit(plan.monthly_ai_messages, t)} {t('aiMessagesPerMonth')}</p>
+        <p>{formatLimit(plan.monthly_bookings, t)} {t('bookingsPerMonth')}</p>
       </div>
+      <div className="mt-5">
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {(plan.channels ?? []).map((channel) => (
+            <span key={channel} className="rounded-md bg-indigo-500/10 px-2 py-1 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+              {planItemLabel(channel, t)}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="mt-5 space-y-2 text-sm app-text-soft">
+        {(plan.features ?? []).map((feature) => (
+          <p key={feature} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />{planItemLabel(feature, t)}</p>
+        ))}
+        {plan.key === 'voice' && <p className="text-[10px] font-semibold leading-4 text-indigo-600 dark:text-indigo-300">* {t('aiPhoneBilledPerMinute')}</p>}
+      </div>
+      {plan.contact_sales && (
+        <p className="mt-5 rounded-md bg-indigo-500/10 px-3 py-2 text-sm font-medium text-indigo-700 dark:text-indigo-300">{t('contactUs')}</p>
+      )}
       {current && <p className="mt-5 rounded-md bg-green-500/10 px-3 py-2 text-sm font-medium text-green-700 dark:text-green-300">{t('currentPlan')}</p>}
     </Card>
   );
 }
 
-function UsageBar({ label, used, limit }: { label: string; used: number; limit: number }) {
-  const percentage = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+function planDisplayLabel(plan: Plan, t: TranslateFn) {
+  return t(`planName_${plan.key}`) || plan.name;
+}
+
+function planItemLabel(value: string, t: TranslateFn) {
+  const labels: Record<string, string> = {
+    'Website chat': t('websiteChat'),
+    'Phone AI': t('phoneAi'),
+    'Custom integrations': t('customIntegrations'),
+    'Dashboard access': t('dashboardAccess'),
+    'AI booking requests': t('aiBookingRequests'),
+    'Availability checks': t('availabilityChecks'),
+    'Email booking notifications': t('emailBookingNotifications'),
+    'WhatsApp assistant': t('whatsappAssistant'),
+    'AI phone answering': t('aiPhoneAnswering'),
+    'Custom usage limits': t('customUsageLimits'),
+    'Multi-location support': t('multiLocationSupport'),
+    'Advanced setup': t('advancedSetup'),
+    'Limited monthly usage': t('limitedMonthlyUsage'),
+  };
+
+  return labels[value] ?? value;
+}
+
+function UsageBar({ label, used, limit }: { label: string; used: number; limit: number | null }) {
+  const t = useT();
+  const percentage = limit && limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 100;
 
   return (
     <div>
       <div className="flex items-center justify-between gap-3 text-sm">
         <span className="font-medium app-text">{label}</span>
-        <span className="app-text-muted">{used} / {formatLimit(limit)}</span>
+        <span className="app-text-muted">{used} / {formatLimit(limit, t)}</span>
       </div>
       <div className="mt-2 h-2 overflow-hidden rounded-md app-panel-soft">
         <div className="h-full rounded-md bg-indigo-600 transition-all" style={{ width: `${percentage}%` }} />
@@ -1598,7 +1639,8 @@ function UsageBar({ label, used, limit }: { label: string; used: number; limit: 
   );
 }
 
-function formatLimit(value: number): string {
+function formatLimit(value: number | null, t: TranslateFn): string {
+  if (value === null) return t('unlimited');
   return new Intl.NumberFormat('en-GB').format(value);
 }
 

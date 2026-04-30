@@ -52,7 +52,7 @@ class UsageLimitService
         $usage = $this->getCurrentMonthlyUsage($salon);
         $limits = $this->getPlanLimits($salon);
 
-        return $usage['conversations'] < $limits['monthly_conversations'];
+        return $this->isWithinLimit($usage['conversations'], $limits['monthly_conversations']);
     }
 
     public function canSendAiMessage(Salon $salon): bool
@@ -60,7 +60,7 @@ class UsageLimitService
         $usage = $this->getCurrentMonthlyUsage($salon);
         $limits = $this->getPlanLimits($salon);
 
-        return $usage['ai_messages'] < $limits['monthly_ai_messages'];
+        return $this->isWithinLimit($usage['ai_messages'], $limits['monthly_ai_messages']);
     }
 
     public function canCreateBooking(Salon $salon): bool
@@ -68,7 +68,7 @@ class UsageLimitService
         $usage = $this->getCurrentMonthlyUsage($salon);
         $limits = $this->getPlanLimits($salon);
 
-        return $usage['bookings'] < $limits['monthly_bookings'];
+        return $this->isWithinLimit($usage['bookings'], $limits['monthly_bookings']);
     }
 
     public function usageSummary(Salon $salon): array
@@ -90,5 +90,10 @@ class UsageLimitService
     public function limitMessage(Salon $salon): string
     {
         return $this->messageLocalizer->limitMessage($salon);
+    }
+
+    private function isWithinLimit(int $used, ?int $limit): bool
+    {
+        return $limit === null || $used < $limit;
     }
 }

@@ -36,8 +36,13 @@ class BillingUsageTest extends TestCase
         $salon = $this->createSalon();
 
         $this->assertSame('free', $salon->plan);
-        $this->assertArrayHasKey('growth', config('yougo_plans'));
-        $this->assertTrue(config('yougo_plans.growth.recommended'));
+        $this->assertSame(['free', 'connect', 'voice', 'enterprise'], array_keys(config('yougo_plans')));
+        $this->assertArrayNotHasKey('starter', config('yougo_plans'));
+        $this->assertArrayNotHasKey('growth', config('yougo_plans'));
+        $this->assertArrayNotHasKey('pro', config('yougo_plans'));
+        $this->assertTrue(config('yougo_plans.connect.recommended'));
+        $this->assertContains('AI booking requests', config('yougo_plans.free.features'));
+        $this->assertContains('Dashboard access', config('yougo_plans.free.features'));
     }
 
     public function test_temporary_plan_selector_validates_and_updates_plan(): void
@@ -46,12 +51,22 @@ class BillingUsageTest extends TestCase
 
         $this->actingAs($user)->put('/billing/plan', ['plan' => 'not-a-plan'])
             ->assertSessionHasErrors('plan');
-
         $this->actingAs($user)->put('/billing/plan', ['plan' => 'growth'])
+            ->assertSessionHasErrors('plan');
+
+        $this->actingAs($user)->put('/billing/plan', ['plan' => 'connect'])
             ->assertRedirect();
 
-        $this->assertSame('growth', $salon->refresh()->plan);
+        $this->assertSame('connect', $salon->refresh()->plan);
         $this->assertNotNull($salon->plan_started_at);
+
+        $this->actingAs($user)->put('/billing/plan', ['plan' => 'voice'])
+            ->assertRedirect();
+        $this->assertSame('voice', $salon->refresh()->plan);
+
+        $this->actingAs($user)->put('/billing/plan', ['plan' => 'enterprise'])
+            ->assertRedirect();
+        $this->assertSame('enterprise', $salon->refresh()->plan);
     }
 
     public function test_preview_chat_does_not_record_billable_messages_but_widget_does(): void
@@ -97,6 +112,27 @@ class BillingUsageTest extends TestCase
         $summary = app(UsageLimitService::class)->usageSummary($salon);
 
         $this->assertSame(1, $summary['usage']['conversations']);
+    }
+
+    public function test_enterprise_null_limits_are_unlimited_and_connect_voice_limits_are_used(): void
+    {
+        $enterprise = $this->createSalon(['plan' => 'enterprise']);
+        app(UsageTracker::class)->record($enterprise, 'conversation_started', 10000);
+        app(UsageTracker::class)->record($enterprise, 'ai_message', 10000);
+        app(UsageTracker::class)->record($enterprise, 'booking_created', 10000);
+
+        $limits = app(UsageLimitService::class);
+
+        $this->assertTrue($limits->canStartConversation($enterprise));
+        $this->assertTrue($limits->canSendAiMessage($enterprise));
+        $this->assertTrue($limits->canCreateBooking($enterprise));
+        $this->assertNull($limits->usageSummary($enterprise)['limits']['conversations']);
+
+        $connect = $this->createSalon(['plan' => 'connect']);
+        $voice = $this->createSalon(['plan' => 'voice']);
+
+        $this->assertSame(500, $limits->usageSummary($connect)['limits']['conversations']);
+        $this->assertSame(1500, $limits->usageSummary($voice)['limits']['conversations']);
     }
 
     public function test_ai_message_limit_applies_to_widget_not_preview_chat(): void
@@ -237,8 +273,12 @@ class BillingUsageTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('Landing')
-                ->where('plans.2.key', 'growth')
-                ->where('plans.2.recommended', true)
+                ->where('plans.0.key', 'free')
+                ->where('plans.1.key', 'connect')
+                ->where('plans.1.recommended', true)
+                ->where('plans.2.key', 'voice')
+                ->where('plans.2.phone_minute_price_label', '2.50 RON/minut')
+                ->where('plans.3.key', 'enterprise')
             );
     }
 
