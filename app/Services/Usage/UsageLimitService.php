@@ -3,12 +3,17 @@
 namespace App\Services\Usage;
 
 use App\Models\Salon;
+use App\Services\Assistant\AssistantMessageLocalizer;
 use Illuminate\Support\Carbon;
 
 class UsageLimitService
 {
     public const LIMIT_MESSAGE_EN = "You've reached your plan limit for this month. Please upgrade your plan or contact the business directly.";
     public const LIMIT_MESSAGE_RO = 'Ai atins limita planului pentru această lună. Te rugăm să faci upgrade sau să contactezi direct businessul.';
+
+    public function __construct(private readonly AssistantMessageLocalizer $messageLocalizer)
+    {
+    }
 
     public function getCurrentMonthlyUsage(Salon $salon): array
     {
@@ -84,8 +89,6 @@ class UsageLimitService
 
     public function limitMessage(Salon $salon): string
     {
-        return ($salon->display_language ?? config('app.locale')) === 'en'
-            ? self::LIMIT_MESSAGE_EN
-            : self::LIMIT_MESSAGE_RO;
+        return $this->messageLocalizer->limitMessage($salon);
     }
 }

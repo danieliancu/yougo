@@ -25,7 +25,8 @@ class ServiceController extends Controller
             'location_ids.*' => ['integer'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
-        $this->validateLocations($request, $data['location_ids'] ?? []);
+        $data['location_ids'] = $this->normalizeLocations($request, $data['location_ids'] ?? []);
+        $this->validateLocations($request, $data['location_ids']);
         if ($request->has('staff')) {
             $data['staff'] = $this->normalizeStaff($data['staff'] ?? []);
         }
@@ -51,7 +52,8 @@ class ServiceController extends Controller
             'location_ids.*' => ['integer'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
-        $this->validateLocations($request, $data['location_ids'] ?? []);
+        $data['location_ids'] = $this->normalizeLocations($request, $data['location_ids'] ?? []);
+        $this->validateLocations($request, $data['location_ids']);
         if ($request->has('staff')) {
             $data['staff'] = $this->normalizeStaff($data['staff'] ?? []);
         }
@@ -144,6 +146,18 @@ class ServiceController extends Controller
                 'location_ids' => 'Branch invalid.',
             ]);
         }
+    }
+
+    private function normalizeLocations(Request $request, array $locationIds): array
+    {
+        $salon = $request->user()->salon;
+        $uniqueLocationIds = array_values(array_unique($locationIds));
+
+        if (count($uniqueLocationIds) === 0 && $salon->locations()->count() === 1) {
+            return [$salon->locations()->value('id')];
+        }
+
+        return $uniqueLocationIds;
     }
 
     private function normalizeStaff(array $staff): array

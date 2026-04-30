@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { ChevronDown, Menu, X } from 'lucide-react';
+import { ChevronDown, Lock, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { ThemeToggle } from '@/Components/Ui';
 import { businessTaxonomy } from '@/data/businessTaxonomy';
@@ -48,7 +48,7 @@ export function PublicHeader({ authUserName, locale, onLanguageChange, startLabe
       <PublicCta
         authUserName={authUserName}
         startLabel={startLabel}
-        className="flex h-10 basis-full items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-bold text-white sm:basis-auto md:hidden"
+        className="flex h-10 basis-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-bold text-white sm:basis-auto md:hidden"
       />
     </nav>
   );
@@ -57,6 +57,7 @@ export function PublicHeader({ authUserName, locale, onLanguageChange, startLabe
 function PublicCta({ authUserName, startLabel, className = 'flex items-center gap-2 rounded-lg bg-slate-950 px-4 py-2 text-sm font-bold text-white dark:border dark:border-white' }: { authUserName?: string; startLabel: string; className?: string }) {
   return (
     <Link href={authUserName ? '/dashboard' : '/register'} className={className}>
+      {authUserName && <Lock className="h-4 w-4 shrink-0" />}
       {authUserName ?? startLabel}
     </Link>
   );
@@ -185,7 +186,7 @@ function MobileLandingMenu({
               </button>
             ))}
           </div>
-          <Link href="/#pricing" className="mb-4 flex h-10 items-center justify-center rounded-lg border text-sm font-bold app-text-soft hover:bg-[var(--soft)]">
+          <Link href="/#pricing" className="mb-4 block px-1 pb-2 text-xs font-bold uppercase tracking-wide text-indigo-600">
             {pricingLabel}
           </Link>
           <p className="px-1 pb-2 text-xs font-bold uppercase tracking-wide text-indigo-600">{industriesLabel}</p>
@@ -207,9 +208,11 @@ function MobileLandingMenu({
 }
 
 export function PublicFooter({ t }: { t: (key: string) => string }) {
+  const serviceLinks = businessTaxonomy.slice(0, 6);
+
   return (
     <footer className="border-t app-border">
-      <div className="mx-auto grid max-w-6xl gap-8 px-6 py-10 md:grid-cols-[1.2fr_0.8fr_0.8fr]">
+      <div className="mx-auto grid max-w-6xl gap-8 px-6 py-10 md:grid-cols-[1.2fr_0.7fr_0.8fr_0.8fr]">
         <div>
           <Link href="/" className="inline-flex items-center">
             <img src="/images/logo-white.png" className="h-11 w-auto dark:hidden" alt="YouGo" />
@@ -223,6 +226,16 @@ export function PublicFooter({ t }: { t: (key: string) => string }) {
             <Link href="/" className="hover:text-indigo-600">{t('footerHome')}</Link>
             <Link href="/#pricing" className="hover:text-indigo-600">{t('pricing')}</Link>
             <Link href="/register" className="hover:text-indigo-600">{t('start')}</Link>
+          </div>
+        </div>
+        <div>
+          <h3 className="text-sm font-bold app-text">{t('footerServices')}</h3>
+          <div className="mt-3 grid gap-2 text-sm font-medium app-text-soft">
+            {serviceLinks.map((service) => (
+              <Link key={service.slug} href={`/industries/${service.slug}`} className="hover:text-indigo-600">
+                {service.label}
+              </Link>
+            ))}
           </div>
         </div>
         <div>

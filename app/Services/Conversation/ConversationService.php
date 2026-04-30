@@ -54,9 +54,11 @@ class ConversationService
             'last_message_at' => now(),
         ]);
 
-        $this->usageTracker->record($salon, 'conversation_started', source: $channel, metadata: [
-            'conversation_id' => $conversation->id,
-        ]);
+        if ($channel === 'web_widget') {
+            $this->usageTracker->record($salon, 'conversation_started', source: $channel, metadata: [
+                'conversation_id' => $conversation->id,
+            ]);
+        }
 
         return $conversation;
     }
@@ -74,10 +76,12 @@ class ConversationService
             'content' => $latestUserMessage['content'],
         ]);
 
-        $this->usageTracker->record($conversation->salon, 'user_message', source: $conversation->channel, metadata: [
-            'conversation_id' => $conversation->id,
-            'message_id' => $message->id,
-        ]);
+        if ($conversation->channel === 'web_widget') {
+            $this->usageTracker->record($conversation->salon, 'user_message', source: $conversation->channel, metadata: [
+                'conversation_id' => $conversation->id,
+                'message_id' => $message->id,
+            ]);
+        }
     }
 
     public function attachBooking(Conversation $conversation, Booking $booking): void
@@ -98,10 +102,12 @@ class ConversationService
             'content' => $content,
         ]);
 
-        $this->usageTracker->record($conversation->salon, 'ai_message', source: $conversation->channel, metadata: [
-            'conversation_id' => $conversation->id,
-            'message_id' => $message->id,
-        ]);
+        if ($conversation->channel === 'web_widget') {
+            $this->usageTracker->record($conversation->salon, 'ai_message', source: $conversation->channel, metadata: [
+                'conversation_id' => $conversation->id,
+                'message_id' => $message->id,
+            ]);
+        }
 
         $conversation->update([
             'summary' => $this->summarize($conversation),

@@ -455,6 +455,27 @@ function WidgetSettings({ salon }: { salon: Salon }) {
         </div>
       </Card>
 
+      <Card className="p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h2 className="text-lg font-bold app-text">{t('widgetReadinessTitle')}</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 app-text-muted">{t('widgetReadinessIntro')}</p>
+          </div>
+          <span className="inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-bold app-panel app-text-soft">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            MVP
+          </span>
+        </div>
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          {['widgetReadinessPreview', 'widgetReadinessCopyCode', 'widgetReadinessDomains', 'widgetReadinessRules', 'widgetReadinessTestPage'].map((key) => (
+            <div key={key} className="flex gap-3 rounded-lg border p-3 app-border app-panel-soft">
+              <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+              <p className="text-sm font-medium app-text-soft">{t(key)}</p>
+            </div>
+          ))}
+        </div>
+      </Card>
+
       <form onSubmit={submit}>
         <Card className="p-6">
           <div className="flex flex-col gap-2">
@@ -708,14 +729,14 @@ function DarkSelect(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
 
 function ToggleRow({ title, subtitle, checked, onChange }: { title: string; subtitle: string; checked: boolean; onChange: (checked: boolean) => void }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-7">
+    <div className="flex items-center gap-5 py-7">
+      <button type="button" onClick={() => onChange(!checked)} className={`relative h-6 w-11 shrink-0 rounded-full transition ${checked ? 'bg-blue-600' : 'bg-slate-700'}`}>
+        <span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${checked ? 'left-6' : 'left-1'}`} />
+      </button>
       <div>
         <p className="font-bold app-text">{title}</p>
         <p className="mt-1 text-sm app-text-muted">{subtitle}</p>
       </div>
-      <button type="button" onClick={() => onChange(!checked)} className={`relative h-6 w-11 rounded-full transition ${checked ? 'bg-blue-600' : 'bg-slate-700'}`}>
-        <span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${checked ? 'left-6' : 'left-1'}`} />
-      </button>
     </div>
   );
 }
@@ -1453,7 +1474,7 @@ function BillingPage({ billing, currentPlan }: { billing: { summary: UsageSummar
                 {billing.plans.map((plan) => <option key={plan.key} value={plan.key}>{plan.name}</option>)}
               </select>
             </label>
-            <p className="mt-3 text-xs app-text-muted">{t('paymentsComingSoon')}</p>
+            <p className="mt-3 text-xs app-text-muted">{t('localTestingPlanSelector')}</p>
             <Button className="mt-4 w-full" type="submit">{t('changePlan')}</Button>
           </form>
         </div>
@@ -1489,7 +1510,7 @@ function PlanCard({ plan, current }: { plan: Plan; current?: boolean }) {
         </div>
         {plan.recommended && <span className="rounded-md bg-indigo-600 px-2 py-1 text-[10px] font-semibold uppercase text-white">{t('recommended')}</span>}
       </div>
-      <p className="mt-4 min-h-12 text-sm leading-6 app-text-muted">{plan.description}</p>
+      <p className="mt-4 min-h-12 text-sm leading-6 app-text-muted">{t(`planDescription_${plan.key}`) || plan.description}</p>
       <div className="mt-5 space-y-2 text-sm app-text-soft">
         <p>{formatLimit(plan.monthly_conversations)} {t('conversationsPerMonth')}</p>
         <p>{formatLimit(plan.monthly_ai_messages)} {t('aiMessagesPerMonth')}</p>
@@ -1927,7 +1948,14 @@ function Locations({ salon }: { salon: Salon }) {
         </Card>
       )}
       <div className="grid gap-4 lg:grid-cols-2">
-        {salon.locations.map((location) => (
+        {salon.locations.length === 0 ? (
+          <Card className="flex min-h-52 flex-col items-center justify-center p-8 text-center lg:col-span-2">
+            <MapPin className="mb-4 h-10 w-10 app-text-muted" />
+            <p className="text-lg font-bold app-text">{t('locationsEmptyTitle')}</p>
+            <p className="mt-2 max-w-xl text-sm app-text-muted">{t('locationsEmptyHelp')}</p>
+            <Button className="mt-5" onClick={() => setAdding(true)}><Plus className="h-4 w-4" /> {t('addLocation')}</Button>
+          </Card>
+        ) : salon.locations.map((location) => (
           <Card key={location.id} className="p-5">
             {editingId === location.id ? (
               <form className="space-y-4" onSubmit={submitEdit}>
@@ -2455,7 +2483,9 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
   const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
   const [branchFilter, setBranchFilter] = useState<number[]>([]);
   const [categoryDrafts, setCategoryDrafts] = useState<string[]>(salon.service_categories ?? []);
-  const form = useForm({ name: '', type: '', price: '', duration: 30, max_concurrent_bookings: '', location_ids: [] as number[], notes: '' });
+  const [serviceNameError, setServiceNameError] = useState('');
+  const defaultServiceLocationIds = salon.locations.length === 1 ? [salon.locations[0].id] : [];
+  const form = useForm({ name: '', type: '', price: '', duration: 30, max_concurrent_bookings: '', location_ids: defaultServiceLocationIds, notes: '' });
   const editForm = useForm({ name: '', type: '', price: '', duration: 30, max_concurrent_bookings: '', location_ids: [] as number[], notes: '' });
   const serviceStats = {
     services: salon.services.length,
@@ -2492,11 +2522,23 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
 
   function submit(event: FormEvent) {
     event.preventDefault();
+
+    if (!form.data.name.trim()) {
+      setServiceNameError(t('serviceNameRequired'));
+      return;
+    }
+
+    setServiceNameError('');
+    form.transform((data) => ({
+      ...data,
+      location_ids: salon.locations.length === 1 ? [salon.locations[0].id] : data.location_ids,
+    }));
     form.post('/services', {
       preserveScroll: true,
       onSuccess: () => {
         form.reset();
-        form.setData('location_ids', []);
+        form.setData('location_ids', defaultServiceLocationIds);
+        setServiceNameError('');
         setAdding(false);
       },
     });
@@ -2678,14 +2720,16 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
               />
             </ServiceConfiguratorField>
           </div>
-          <div className="grid gap-4 lg:grid-cols-3">
-            <Field label={t('service')} error={form.errors.name}><Input value={form.data.name} onChange={(event) => form.setData('name', event.target.value)} /></Field>
-            <Field label={t('priceRon')} error={form.errors.price}><Input value={form.data.price} onChange={(event) => form.setData('price', event.target.value)} placeholder={t('pricePlaceholder')} /></Field>
-            <Field label={t('durationMin')} error={form.errors.duration}><Input type="number" value={form.data.duration} onChange={(event) => form.setData('duration', Number(event.target.value))} /></Field>
-            <Field label={t('maxSimultaneousBookingsForService')} error={form.errors.max_concurrent_bookings}>
-              <Input type="number" min={1} max={100} value={form.data.max_concurrent_bookings} onChange={(event) => form.setData('max_concurrent_bookings', event.target.value)} />
-              <span className="block text-xs app-text-muted">{t('serviceCapacityHelp')}</span>
-            </Field>
+          <div className="grid gap-4">
+            <Field label={t('service')} error={serviceNameError || form.errors.name}><Input value={form.data.name} onChange={(event) => { form.setData('name', event.target.value); if (serviceNameError) setServiceNameError(''); }} /></Field>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Field label={t('priceRon')} error={form.errors.price}><Input value={form.data.price} onChange={(event) => form.setData('price', event.target.value)} placeholder={t('pricePlaceholder')} /></Field>
+              <Field label={t('durationMin')} error={form.errors.duration}><Input type="number" value={form.data.duration} onChange={(event) => form.setData('duration', Number(event.target.value))} /></Field>
+              <Field label={t('maxSimultaneousBookingsForService')} error={form.errors.max_concurrent_bookings}>
+                <Input type="number" min={1} max={100} value={form.data.max_concurrent_bookings} onChange={(event) => form.setData('max_concurrent_bookings', event.target.value)} />
+                <span className="block text-xs app-text-muted">{t('serviceCapacityHelp')}</span>
+              </Field>
+            </div>
           </div>
           <Field label={t('serviceNotes')} error={form.errors.notes}>
             <textarea rows={3} value={form.data.notes} onChange={(event) => form.setData('notes', event.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none app-panel app-text" placeholder={t('serviceNotesPlaceholder')} />
@@ -2716,6 +2760,14 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
         <ChannelStat label={t('locations')} value={serviceStats.locations} icon={MapPin} tone="green" />
         <ChannelStat label={t('staff')} value={serviceStats.staff} icon={Users} tone="slate" />
       </div>
+      {filteredServices.length === 0 ? (
+        <Card className="flex min-h-52 flex-col items-center justify-center p-8 text-center">
+          <Scissors className="mb-4 h-10 w-10 app-text-muted" />
+          <p className="text-lg font-bold app-text">{t('servicesEmptyTitle')}</p>
+          <p className="mt-2 max-w-xl text-sm app-text-muted">{normalizedQuery || categoryFilter.length > 0 || branchFilter.length > 0 ? t('servicesEmptyFilteredHelp') : t('servicesEmptyHelp')}</p>
+          <Button className="mt-5" onClick={() => setAdding(true)}><Plus className="h-4 w-4" /> {t('addService')}</Button>
+        </Card>
+      ) : (
       <Card className="overflow-hidden">
         <Table headers={[
           t('service'),
@@ -2801,6 +2853,7 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
           ))}
         </Table>
       </Card>
+      )}
     </div>
   );
 }
@@ -2963,29 +3016,30 @@ function BranchPicker({ locations, selectedIds, onChange, label, emptyLabel, com
     return <p className="text-sm app-text-muted">{emptyLabel}</p>;
   }
 
+  if (locations.length === 1) {
+    const singleLocation = locations[0];
+
+    return (
+      <div>
+        {label && <p className="mb-2 text-xs font-bold uppercase tracking-wide app-text-muted">{label}</p>}
+        <div className={`inline-flex items-center gap-2 text-sm app-text-soft ${compact ? '' : 'rounded-lg border px-3 py-2 app-border app-panel-soft'}`} title={singleLocation.address}>
+          <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-slate-300 bg-white dark:border-slate-600 dark:bg-white/5" aria-hidden="true">
+            <Check className="h-3 w-3 text-blue-600" strokeWidth={4} />
+          </span>
+          <span>{singleLocation.name}</span>
+        </div>
+      </div>
+    );
+  }
+
   if (compact) {
     const normalizedSelectedIds = selectedIds ?? [];
-    const singleLocation = locations.length === 1 ? locations[0] : null;
 
     function toggle(locationId: number) {
       const nextIds = normalizedSelectedIds.includes(locationId)
         ? normalizedSelectedIds.filter((id) => id !== locationId)
         : [...normalizedSelectedIds, locationId];
       onChange(nextIds);
-    }
-
-    if (singleLocation) {
-      return (
-        <div>
-          {label && <p className="mb-2 text-xs font-bold uppercase tracking-wide app-text-muted">{label}</p>}
-          <div className="flex items-center gap-2 text-sm app-text-soft" title={singleLocation.address}>
-            <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-slate-300 bg-white dark:border-slate-600 dark:bg-white/5" aria-hidden="true">
-              <Check className="h-3 w-3 text-blue-600" strokeWidth={4} />
-            </span>
-            <span>{singleLocation.name}</span>
-          </div>
-        </div>
-      );
     }
 
     return (
@@ -3486,7 +3540,7 @@ function Bookings({ salon, query }: { salon: Salon; query: string }) {
             {salon.locations.length > 1 && (
               <Field label={t('branch')} error={editForm.errors.location_id}>
                 <select className="h-10 w-full rounded-lg border px-3 text-sm outline-none app-panel app-text" value={editForm.data.location_id ?? ''} onChange={(event) => editForm.setData('location_id', event.target.value ? Number(event.target.value) : null)}>
-                  <option value="">{t('branch')}</option>
+                  <option value="">{t('noLocation')}</option>
                   {salon.locations.map((location) => (
                     <option key={location.id} value={location.id}>{location.name}</option>
                   ))}
@@ -3680,7 +3734,7 @@ function BookingsDayCards({
                       <span>{booking.service.price} RON</span>
                     </>}
                     <span className="mx-1.5 app-text-muted" aria-hidden="true">{'\u2022'}</span>
-                    <span>{booking.location?.name || `Locatie #${booking.location_id}`}</span>
+                    <span>{booking.location?.name || t('noLocation')}</span>
                   </p>
                   {bookingStaffLabel(booking) && (
                     <p className="text-xs app-text-muted">{t('assignedStaff')}: {bookingStaffLabel(booking)}</p>
@@ -3721,11 +3775,29 @@ function BookingsDayCards({
 
 function ServiceNotesPill({ notes }: { notes: string }) {
   const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState({ left: 0, top: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  function toggleOpen() {
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (rect) {
+      const tooltipWidth = 256;
+      const left = Math.min(rect.left, window.innerWidth - tooltipWidth - 16);
+      setPosition({
+        left: Math.max(16, left),
+        top: rect.bottom + 8,
+      });
+    }
+
+    setOpen((value) => !value);
+  }
+
   return (
-    <span className="relative inline-flex">
+    <span className="inline-flex">
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggleOpen}
         className={`${TABLE_PILL_CLASS} gap-1 bg-slate-200 text-slate-600 transition hover:bg-slate-300 dark:bg-white/10 dark:text-slate-300 dark:hover:bg-white/20`}
       >
         <FileText className="h-2.5 w-2.5" />
@@ -3734,7 +3806,10 @@ function ServiceNotesPill({ notes }: { notes: string }) {
       {open && (
         <>
           <span className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <span className="absolute left-0 top-6 z-50 w-64 rounded-lg border p-3 text-sm shadow-xl app-border app-panel app-text">
+          <span
+            className="fixed z-50 w-64 rounded-lg border p-3 text-sm shadow-xl app-border app-panel app-text"
+            style={{ left: position.left, top: position.top }}
+          >
             {notes}
           </span>
         </>

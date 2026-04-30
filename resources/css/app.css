@@ -67,6 +67,41 @@ body {
   color: var(--app-text);
 }
 
+* {
+  scrollbar-color: var(--app-border-strong) transparent;
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+  background-color: var(--app-border-strong);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--app-text-muted);
+}
+
+*::-webkit-scrollbar-button {
+  width: 7px;
+  height: 4px;
+}
+
+*::-webkit-scrollbar-button:horizontal {
+  width: 4px;
+  height: 7px;
+}
+
 .app-bg {
   background: var(--app-bg);
   color: var(--app-text);

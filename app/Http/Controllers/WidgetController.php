@@ -122,6 +122,9 @@ JS;
             'messages' => ['required', 'array', 'min:1'],
             'messages.*.role' => ['required', Rule::in(['user', 'assistant'])],
             'messages.*.content' => ['required', 'string', 'max:3000'],
+            'known_contact' => ['nullable', 'array'],
+            'known_contact.name' => ['nullable', 'string', 'max:255'],
+            'known_contact.phone' => ['nullable', 'string', 'max:50'],
         ]);
 
         $result = $this->assistantChatService->handle($salon, $data, 'web_widget');
@@ -172,7 +175,11 @@ JS;
         }
 
         $host = $this->requestHost($request);
-        abort_unless($host && in_array($host, $allowed, true), 403, 'Widget domain is not allowed.');
+        $message = ($salon->display_language ?? config('app.locale')) === 'en'
+            ? 'This widget is not enabled for this domain.'
+            : 'Widgetul nu este activ pentru acest domeniu.';
+
+        abort_unless($host && in_array($host, $allowed, true), 403, $message);
     }
 
     private function requestHost(Request $request): ?string

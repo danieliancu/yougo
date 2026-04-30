@@ -156,7 +156,7 @@ function PricingSection({ plans, t, authUser }: { plans: Plan[]; t: (key: string
               </div>
               {plan.recommended && <span className="rounded-md bg-indigo-600 px-2 py-1 text-[10px] font-semibold uppercase text-white">{t('recommended')}</span>}
             </div>
-            <p className="mt-4 min-h-16 text-sm leading-6 app-text-muted">{plan.description}</p>
+            <p className="mt-4 min-h-16 text-sm leading-6 app-text-muted">{t(`planDescription_${plan.key}`) || plan.description}</p>
             <div className="mt-5 space-y-2 text-sm app-text-soft">
               <p>{formatLandingLimit(plan.monthly_conversations)} {t('conversationsPerMonth')}</p>
               <p>{formatLandingLimit(plan.monthly_ai_messages)} {t('aiMessagesPerMonth')}</p>

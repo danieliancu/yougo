@@ -43,6 +43,9 @@ class AssistantController extends Controller
             'messages' => ['required', 'array', 'min:1'],
             'messages.*.role' => ['required', Rule::in(['user', 'assistant'])],
             'messages.*.content' => ['required', 'string', 'max:3000'],
+            'known_contact' => ['nullable', 'array'],
+            'known_contact.name' => ['nullable', 'string', 'max:255'],
+            'known_contact.phone' => ['nullable', 'string', 'max:50'],
         ]);
 
         $result = $this->assistantChatService->handle($salon, $data);

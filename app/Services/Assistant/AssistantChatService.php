@@ -20,6 +20,7 @@ class AssistantChatService
         private readonly AppointmentToolHandler $appointmentToolHandler,
         private readonly BookingNotificationService $bookingNotificationService,
         private readonly UsageLimitService $usageLimitService,
+        private readonly AssistantMessageLocalizer $messageLocalizer,
     ) {
     }
 
@@ -29,7 +30,7 @@ class AssistantChatService
         $conversationId = $data['conversation_id'] ?? null;
         $needsNewConversation = ! $this->conversationService->existsForSalon($salon, $conversationId ? (int) $conversationId : null);
 
-        if ($needsNewConversation && ! $this->usageLimitService->canStartConversation($salon)) {
+        if ($channel === 'web_widget' && $needsNewConversation && ! $this->usageLimitService->canStartConversation($salon)) {
             return [
                 'body' => [
                     'message' => $this->usageLimitService->limitMessage($salon),
@@ -42,7 +43,7 @@ class AssistantChatService
         $conversation = $this->conversationService->resolve($salon, $data['conversation_id'] ?? null, $channel);
         $this->conversationService->saveLatestUserMessage($conversation, $data['messages']);
 
-        if (! $this->usageLimitService->canSendAiMessage($salon)) {
+        if ($channel === 'web_widget' && ! $this->usageLimitService->canSendAiMessage($salon)) {
             $this->conversationService->updateTiming($conversation);
 
             return [
@@ -59,22 +60,22 @@ class AssistantChatService
 
             return [
                 'body' => [
-                    'message' => 'Gemini nu este configurat inca. Adauga GEMINI_API_KEY in .env si reporneste serverul.',
+                    'message' => $this->messageLocalizer->geminiMissing($salon),
                     'conversation_id' => $conversation->id,
                 ],
                 'status' => 503,
             ];
         }
 
-        $response = $this->sendToGemini($salon, $data['messages'], $conversation);
+        $response = $this->sendToGemini($salon, $data['messages'], $conversation, $data['known_contact'] ?? null);
 
         if (! $response->successful()) {
             $this->conversationService->updateTiming($conversation);
 
             return [
                 'body' => [
-                    'message' => 'Asistentul AI nu este disponibil momentan.',
-                    'details' => $response->json('error.message'),
+                    'message' => $this->messageLocalizer->assistantUnavailable($salon),
+                    'details' => app()->isLocal() ? $response->json('error.message') : null,
                 ],
                 'status' => 502,
             ];
@@ -91,7 +92,7 @@ class AssistantChatService
 
             if ($conversation->booking_id) {
                 $booking = $conversation->booking;
-                $text = $this->newConversationRequiredMessage();
+                $text = $this->messageLocalizer->existingBookingRequiresNewConversation($salon);
                 continue;
             }
 
@@ -105,14 +106,10 @@ class AssistantChatService
             }
 
             try {
-                $booking = $this->appointmentToolHandler->handle($salon, $functionCall);
+                $booking = $this->appointmentToolHandler->handle($salon, $functionCall, $channel === 'web_widget');
                 $this->conversationService->attachBooking($conversation, $booking);
                 $this->bookingNotificationService->sendAiBookingNotification($booking, $conversation);
-                $text = sprintf(
-                    'Am inregistrat programarea pentru %s la ora %s. Te vom contacta pentru confirmare.',
-                    $booking->date->locale('ro')->translatedFormat('j F'),
-                    $booking->time
-                );
+                $text = $this->messageLocalizer->bookingConfirmation($salon, $booking);
             } catch (HttpException $e) {
                 $text = $e->getMessage();
                 $booking = null;
@@ -133,14 +130,9 @@ class AssistantChatService
         ];
     }
 
-    private function newConversationRequiredMessage(): string
+    private function sendToGemini(Salon $salon, array $messages, ?Conversation $conversation = null, ?array $knownContact = null)
     {
-        return 'Pentru o programare noua, te rugam sa apesi pe + si sa incepi o conversatie noua.';
-    }
-
-    private function sendToGemini(Salon $salon, array $messages, ?Conversation $conversation = null)
-    {
-        $payload = $this->payloadBuilder->build($salon, $messages, $conversation);
+        $payload = $this->payloadBuilder->build($salon, $messages, $conversation, $knownContact);
         $model = config('services.gemini.model', 'gemini-3-flash-preview');
         $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent";
 

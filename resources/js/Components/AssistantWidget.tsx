@@ -10,6 +10,11 @@ type Message = {
   content: string;
 };
 
+type KnownContact = {
+  name: string;
+  phone: string;
+};
+
 function assistantName(salon: Salon): string {
   return salon.ai_assistant_name?.trim() || 'Bella';
 }
@@ -55,6 +60,44 @@ function messagesSessionKey(storageKey: string) {
   return `yougo-assistant:${storageKey}:messages`;
 }
 
+function lastContactKey(storageKey: string) {
+  return `yougo-assistant:${storageKey}:last-contact`;
+}
+
+function storedLastContact(storageKey: string): KnownContact | null {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const raw = window.localStorage.getItem(lastContactKey(storageKey));
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    const name = typeof parsed?.name === 'string' ? parsed.name.trim() : '';
+    const phone = typeof parsed?.phone === 'string' ? parsed.phone.trim() : '';
+
+    return name && phone ? { name, phone } : null;
+  } catch {
+    window.localStorage.removeItem(lastContactKey(storageKey));
+    return null;
+  }
+}
+
+function storeLastContact(storageKey: string, contact: KnownContact) {
+  if (typeof window === 'undefined') return;
+
+  window.localStorage.setItem(lastContactKey(storageKey), JSON.stringify({
+    name: contact.name,
+    phone: contact.phone,
+    updated_at: new Date().toISOString(),
+  }));
+}
+
+function reuseContactMessage(contact: KnownContact, locale: string): string {
+  return locale === 'en'
+    ? `Would you like to use the previously used contact details for this booking as well: ${contact.name}, ${contact.phone}?`
+    : `Vrei să folosim și pentru această programare datele folosite anterior: ${contact.name}, ${contact.phone}?`;
+}
+
 function storedMessages(storageKey: string): Message[] | null {
   if (typeof window === 'undefined') return null;
 
@@ -83,7 +126,12 @@ function shouldHighlightNewChat(messages: Message[]): boolean {
   const lastAssistantMessage = [...messages].reverse().find((message) => message.role === 'assistant');
   const content = lastAssistantMessage?.content.toLowerCase() ?? '';
 
-  return content.includes('apes') && content.includes('+') && content.includes('conversa');
+  return content.includes('+') && (
+    content.includes('conversa')
+    || content.includes('conversation')
+    || content.includes('new booking')
+    || content.includes('programare nou')
+  );
 }
 
 export function AssistantWidget({
@@ -145,6 +193,7 @@ export function AssistantWidget({
 
     try {
       const tokens = csrfTokens();
+      const knownContact = storedLastContact(conversationStorageKey);
       const response = await fetch(endpoint, {
         method: 'POST',
         credentials: 'same-origin',
@@ -154,7 +203,11 @@ export function AssistantWidget({
           ...(tokens.csrf ? { 'X-CSRF-TOKEN': tokens.csrf } : {}),
           ...(tokens.xsrf ? { 'X-XSRF-TOKEN': tokens.xsrf } : {}),
         },
-        body: JSON.stringify({ conversation_id: conversationIdRef.current, messages: nextMessages }),
+        body: JSON.stringify({
+          conversation_id: conversationIdRef.current,
+          messages: nextMessages,
+          ...(knownContact ? { known_contact: knownContact } : {}),
+        }),
       });
       const data = await response.json();
 
@@ -164,6 +217,13 @@ export function AssistantWidget({
 
       if (data.conversation_id) {
         setConversationId(data.conversation_id);
+      }
+
+      const bookingContact = data.booking?.client_name && data.booking?.client_phone
+        ? { name: String(data.booking.client_name), phone: String(data.booking.client_phone) }
+        : null;
+      if (bookingContact) {
+        storeLastContact(conversationStorageKey, bookingContact);
       }
 
       setMessages([...nextMessages, { role: 'assistant', content: data.message }]);
@@ -182,7 +242,11 @@ export function AssistantWidget({
   }
 
   function startNewChat() {
-    const greeting = { role: 'assistant' as const, content: initialGreeting };
+    const lastContact = storedLastContact(conversationStorageKey);
+    const greeting = {
+      role: 'assistant' as const,
+      content: lastContact ? reuseContactMessage(lastContact, locale) : initialGreeting,
+    };
 
     setMessages([greeting]);
     setInput('');

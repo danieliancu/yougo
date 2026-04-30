@@ -3,6 +3,7 @@ import { ArrowLeft } from 'lucide-react';
 import { ThemeToggle } from '@/Components/Ui';
 import { AssistantWidget } from '@/Components/AssistantWidget';
 import { Salon } from '@/types';
+import { useT } from '@/i18n';
 
 function assistantName(salon: Salon): string {
   return salon.ai_assistant_name?.trim() || 'Bella';
@@ -10,6 +11,7 @@ function assistantName(salon: Salon): string {
 
 export default function AssistantShow({ salon }: { salon: Salon }) {
   const { locale = 'ro' } = usePage<{ locale?: string }>().props;
+  const t = useT();
   const name = assistantName(salon);
 
   return (
@@ -29,7 +31,7 @@ export default function AssistantShow({ salon }: { salon: Salon }) {
             )}
             <span className="min-w-0">
               <span className="block truncate text-sm font-bold app-text">{salon.name}</span>
-              <span className="block truncate text-xs font-medium app-text-muted">{name} Assistant live</span>
+              <span className="block truncate text-xs font-medium app-text-muted">{t('bellaOnline', { name })}</span>
             </span>
           </Link>
           <ThemeToggle />

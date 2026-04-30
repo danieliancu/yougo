@@ -102,6 +102,27 @@ class AssistantPromptTest extends TestCase
         $this->assertStringContainsString('sa apese pe + si sa inceapa o conversatie noua', $instruction);
     }
 
+    public function test_payload_includes_known_contact_reuse_rules(): void
+    {
+        $salon = $this->createSalon();
+
+        $payload = app(GeminiPayloadBuilder::class)->build($salon, [
+            ['role' => 'assistant', 'content' => 'Vrei să folosim și pentru această programare datele folosite anterior: Daniel, 07123 456789?'],
+            ['role' => 'user', 'content' => 'Da'],
+        ], knownContact: [
+            'name' => 'Daniel',
+            'phone' => '07123 456789',
+        ]);
+        $instruction = $payload['systemInstruction']['parts'][0]['text'];
+
+        $this->assertStringContainsString('Există date de contact folosite anterior pentru acest vizitator: Daniel, 07123 456789.', $instruction);
+        $this->assertStringContainsString('Nu le folosi automat.', $instruction);
+        $this->assertStringContainsString('Do not use them silently.', $instruction);
+        $this->assertStringContainsString('If they confirm, you may use them as client_name and client_phone for bookBooking.', $instruction);
+        $this->assertStringContainsString('Daca utilizatorul confirma ca vrea sa le refoloseasca, nu mai cere nume sau telefon', $instruction);
+        $this->assertStringContainsString('Daca utilizatorul refuza sau ignora intrebarea, cere date de contact noi', $instruction);
+    }
+
     private function createSalon(array $attributes = []): Salon
     {
         $user = User::factory()->create();

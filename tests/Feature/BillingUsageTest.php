@@ -54,7 +54,7 @@ class BillingUsageTest extends TestCase
         $this->assertNotNull($salon->plan_started_at);
     }
 
-    public function test_usage_events_are_recorded_for_conversation_user_ai_and_booking(): void
+    public function test_preview_chat_does_not_record_billable_messages_but_widget_does(): void
     {
         config(['services.gemini.key' => 'test-key']);
         Http::fake(['*' => Http::response([
@@ -69,21 +69,17 @@ class BillingUsageTest extends TestCase
             'messages' => [['role' => 'user', 'content' => 'Buna']],
         ])->assertOk();
 
+        $this->assertSame(0, $salon->usageEvents()->where('event_type', 'conversation_started')->count());
+        $this->assertSame(0, $salon->usageEvents()->where('event_type', 'user_message')->count());
+        $this->assertSame(0, $salon->usageEvents()->where('event_type', 'ai_message')->count());
+
+        $this->postJson("/widget/{$salon->widget_key}/chat", [
+            'messages' => [['role' => 'user', 'content' => 'Buna']],
+        ])->assertOk();
+
         $this->assertSame(1, $salon->usageEvents()->where('event_type', 'conversation_started')->count());
         $this->assertSame(1, $salon->usageEvents()->where('event_type', 'user_message')->count());
         $this->assertSame(1, $salon->usageEvents()->where('event_type', 'ai_message')->count());
-
-        $this->createBookableSetup($salon);
-        app(BookingCreator::class)->createFromAiFunctionCall($salon, [
-            'client_name' => 'Ana Pop',
-            'client_phone' => '0700000000',
-            'location_id' => $salon->locations()->first()->id,
-            'service_id' => $salon->services()->first()->id,
-            'date' => '2026-04-30',
-            'time' => '10:00',
-        ], 'ai_assistant');
-
-        $this->assertSame(1, $salon->usageEvents()->where('event_type', 'booking_created')->count());
     }
 
     public function test_usage_summary_counts_current_month_only(): void
@@ -103,27 +99,28 @@ class BillingUsageTest extends TestCase
         $this->assertSame(1, $summary['usage']['conversations']);
     }
 
-    public function test_limits_block_new_conversation_and_ai_response_with_friendly_message(): void
+    public function test_ai_message_limit_applies_to_widget_not_preview_chat(): void
     {
         config(['services.gemini.key' => 'test-key']);
-        config(['yougo_plans.free.monthly_conversations' => 1]);
+        config(['yougo_plans.free.monthly_conversations' => 10]);
         config(['yougo_plans.free.monthly_ai_messages' => 0]);
-        Http::fake(['*' => Http::response(['candidates' => []], 200)]);
+        Http::fake(['*' => Http::response([
+            'candidates' => [[
+                'content' => ['parts' => [['text' => 'Salut, te pot ajuta.']]],
+            ]],
+        ], 200)]);
 
         $salon = $this->createSalon(['display_language' => 'en']);
-        app(UsageTracker::class)->record($salon, 'conversation_started');
 
-        $this->postJson("/assistant/{$salon->id}/chat", [
-            'messages' => [['role' => 'user', 'content' => 'Buna']],
-        ])->assertOk()
-            ->assertJsonPath('message', UsageLimitService::LIMIT_MESSAGE_EN)
-            ->assertJsonPath('conversation_id', null);
-
-        config(['yougo_plans.free.monthly_conversations' => 10]);
-        $this->postJson("/assistant/{$salon->id}/chat", [
+        $this->postJson("/widget/{$salon->widget_key}/chat", [
             'messages' => [['role' => 'user', 'content' => 'Buna']],
         ])->assertOk()
             ->assertJsonPath('message', UsageLimitService::LIMIT_MESSAGE_EN);
+
+        $this->postJson("/assistant/{$salon->id}/chat", [
+            'messages' => [['role' => 'user', 'content' => 'Buna']],
+        ])->assertOk()
+            ->assertJsonPath('message', 'Salut, te pot ajuta.');
     }
 
     public function test_booking_limit_blocks_ai_booking_without_crashing(): void
@@ -147,14 +144,68 @@ class BillingUsageTest extends TestCase
         ], 'ai_assistant');
     }
 
-    public function test_widget_and_preview_share_usage_limits(): void
+    public function test_booking_usage_and_limit_apply_to_widget_not_preview_chat(): void
     {
+        config(['services.gemini.key' => 'test-key']);
+        config(['yougo_plans.free.monthly_bookings' => 0]);
+
+        $salon = $this->createSalon(['display_language' => 'en']);
+        $this->createBookableSetup($salon);
+        $location = $salon->locations()->first();
+        $service = $salon->services()->first();
+
+        Http::fake(['*' => Http::response([
+            'candidates' => [[
+                'content' => ['parts' => [[
+                    'functionCall' => [
+                        'name' => 'bookBooking',
+                        'args' => [
+                            'client_name' => 'Ana Pop',
+                            'client_phone' => '0700000000',
+                            'location_id' => (string) $location->id,
+                            'service_id' => (string) $service->id,
+                            'date' => '2026-04-30',
+                            'time' => '10:00',
+                        ],
+                    ],
+                ]]],
+            ]],
+        ], 200)]);
+
+        $this->postJson("/assistant/{$salon->id}/chat", [
+            'messages' => [['role' => 'user', 'content' => 'Book me']],
+        ])->assertOk()
+            ->assertJsonStructure(['booking']);
+
+        $this->assertSame(1, $salon->bookings()->count());
+        $this->assertSame(0, $salon->usageEvents()->where('event_type', 'booking_created')->count());
+
+        $this->postJson("/widget/{$salon->widget_key}/chat", [
+            'messages' => [['role' => 'user', 'content' => 'Book me']],
+        ])->assertOk()
+            ->assertJsonPath('message', UsageLimitService::LIMIT_MESSAGE_EN);
+
+        $this->assertSame(1, $salon->bookings()->count());
+        $this->assertSame(0, $salon->usageEvents()->where('event_type', 'booking_created')->count());
+    }
+
+    public function test_conversation_limit_applies_to_widget_not_preview_chat(): void
+    {
+        config(['services.gemini.key' => 'test-key']);
         config(['yougo_plans.free.monthly_conversations' => 0]);
+        Http::fake(['*' => Http::response([
+            'candidates' => [[
+                'content' => ['parts' => [['text' => 'Salut, te pot ajuta.']]],
+            ]],
+        ], 200)]);
         $salon = $this->createSalon(['display_language' => 'en']);
 
         $this->postJson("/assistant/{$salon->id}/chat", [
             'messages' => [['role' => 'user', 'content' => 'Buna']],
-        ])->assertOk()->assertJsonPath('message', UsageLimitService::LIMIT_MESSAGE_EN);
+        ])->assertOk()
+            ->assertJsonPath('message', 'Salut, te pot ajuta.');
+
+        $this->assertSame(0, $salon->usageEvents()->where('event_type', 'conversation_started')->count());
 
         $this->postJson("/widget/{$salon->widget_key}/chat", [
             'messages' => [['role' => 'user', 'content' => 'Buna']],

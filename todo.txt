@@ -16,20 +16,26 @@ staff = opțional, dar folosit dacă există
    Amendare si reglare chat
 
 
-
-
-
-
-11 Setare Stripe si implementare (vezi planurile de introdus in Stripe)
-6. WhatsApp
-7. Telefon
-8. Lead Mode
-9. Reservation Mode
+1. Polish MVP / stabilizare
+- toate scrollurile sa fie subtiri
 
 
 
 
 
+2. Deploy pe server
+3. Test widget pe domeniu real
+4. WhatsApp
+5. Telefon / voice
+6. Lead Mode
+7. Reservation Mode
+8. Stripe / plăți reale
+
+
+
+
+php artisan serve
+npm run dev
 
 
 

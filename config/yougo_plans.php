@@ -9,7 +9,7 @@ return [
         'monthly_bookings' => 10,
         'widgets_enabled' => true,
         'price_label' => '£0',
-        'description' => 'Test your AI receptionist with basic usage.',
+        'description' => 'For testing your AI receptionist with essential chat, widget and booking usage.',
     ],
     'starter' => [
         'key' => 'starter',

@@ -109,6 +109,36 @@ class WidgetEmbedTest extends TestCase
         $this->assertSame(1, $salon->conversations()->count());
     }
 
+    public function test_widget_chat_accepts_known_contact(): void
+    {
+        config(['services.gemini.key' => 'test-key']);
+        Http::fake(['*' => Http::response([
+            'candidates' => [[
+                'content' => ['parts' => [['text' => 'Sure, I can use those details.']]],
+            ]],
+        ], 200)]);
+        $salon = $this->createSalon();
+
+        $this->postJson("/widget/{$salon->widget_key}/chat", [
+            'messages' => [
+                ['role' => 'assistant', 'content' => 'Would you like to use the previously used contact details for this booking as well: Daniel, 07123 456789?'],
+                ['role' => 'user', 'content' => 'Yes'],
+            ],
+            'known_contact' => [
+                'name' => 'Daniel',
+                'phone' => '07123 456789',
+            ],
+        ])->assertOk()
+            ->assertJsonPath('message', 'Sure, I can use those details.');
+
+        Http::assertSent(function ($request) {
+            $instruction = $request->data()['systemInstruction']['parts'][0]['text'] ?? '';
+
+            return str_contains($instruction, 'Previous contact details for this browser visitor are available: Daniel, 07123 456789.')
+                && str_contains($instruction, 'If they confirm, you may use them as client_name and client_phone for bookBooking.');
+        });
+    }
+
     public function test_allowed_domains_empty_allows_chat_and_configured_domains_are_enforced(): void
     {
         config(['services.gemini.key' => null]);
@@ -239,7 +269,9 @@ class WidgetEmbedTest extends TestCase
             'messages' => [['role' => 'user', 'content' => 'Vreau o programare']],
         ]);
 
-        $response->assertOk()->assertJsonStructure(['message', 'conversation_id', 'booking']);
+        $response->assertOk()
+            ->assertJsonPath('message', 'Am înregistrat cererea de programare pentru miercuri, 29 aprilie, la ora 10:00. Echipa te va contacta pentru confirmare.')
+            ->assertJsonStructure(['message', 'conversation_id', 'booking']);
         $booking = $salon->bookings()->firstOrFail();
         $this->assertSame('ai_assistant', $booking->source);
         $this->assertNotNull($booking->notification_sent_at);

@@ -18,9 +18,9 @@ class BookingCreator
     ) {
     }
 
-    public function createFromAiFunctionCall(Salon $salon, array $args, ?string $source = null): Booking
+    public function createFromAiFunctionCall(Salon $salon, array $args, ?string $source = null, bool $billUsage = true): Booking
     {
-        if (! $this->usageLimitService->canCreateBooking($salon)) {
+        if ($billUsage && ! $this->usageLimitService->canCreateBooking($salon)) {
             throw new HttpException(422, $this->usageLimitService->limitMessage($salon));
         }
 
@@ -45,7 +45,7 @@ class BookingCreator
             'source' => $source,
         ]);
 
-        if ($source === 'ai_assistant') {
+        if ($billUsage && $source === 'ai_assistant') {
             $this->usageTracker->record($salon, 'booking_created', source: $source, metadata: [
                 'booking_id' => $booking->id,
             ]);

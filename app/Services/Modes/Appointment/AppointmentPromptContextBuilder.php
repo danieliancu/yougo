@@ -22,6 +22,7 @@ class AppointmentPromptContextBuilder
             'Staff disponibil: '.($this->staffDetails($salon) ?: 'nu exista staff configurat').'.',
             'Campuri obligatorii pentru programare: '.implode(', ', $this->requiredFieldsResolver->resolve($salon)).'.',
             $this->bookingPolicy($salon),
+            'Daca exista date de contact anterioare in prompt, nu le folosi automat. Daca utilizatorul confirma ca vrea sa le refoloseasca, nu mai cere nume sau telefon si continua doar cu detaliile lipsa ale programarii: serviciu, locatie, data, ora si staff daca este relevant. Daca utilizatorul refuza sau ignora intrebarea, cere date de contact noi inainte de bookBooking.',
             'Daca clientul cere un anumit membru al echipei, foloseste staff_id doar daca acel ID este listat la serviciul selectat. Nu inventa niciodata staff_id si nu transforma numele legacy de staff in ID.',
             'Nu ghici capacitatea. Sistemul valideaza automat capacitatea locatiei si serviciului inainte de crearea programarii.',
             'Daca o ora ceruta nu este disponibila sau clientul intreaba ce ore sunt libere, foloseste checkAvailability cu service_id, location_id, date, optional staff_id si optional preferred_time/after_time cand clientul cere o ora anume, mai tarziu sau dupa o ora. Propune doar sloturile returnate de sistem si nu inventa disponibilitate.',

@@ -16,7 +16,7 @@ class GeminiPayloadBuilder
     ) {
     }
 
-    public function build(Salon $salon, array $messages, ?Conversation $conversation = null): array
+    public function build(Salon $salon, array $messages, ?Conversation $conversation = null, ?array $knownContact = null): array
     {
         $salon->loadMissing(['staff.location', 'staff.locations', 'services.staffMembers']);
         $conversation?->loadMissing(['booking.location', 'booking.service', 'booking.staffMember']);
@@ -24,7 +24,7 @@ class GeminiPayloadBuilder
         $payload = [
             'systemInstruction' => [
                 'parts' => [[
-                    'text' => $this->buildSystemInstruction($salon, $conversation),
+                    'text' => $this->buildSystemInstruction($salon, $conversation, $knownContact),
                 ]],
             ],
             'contents' => collect($messages)->map(fn ($message) => [
@@ -41,7 +41,7 @@ class GeminiPayloadBuilder
         return $payload;
     }
 
-    private function buildSystemInstruction(Salon $salon, ?Conversation $conversation = null): string
+    private function buildSystemInstruction(Salon $salon, ?Conversation $conversation = null, ?array $knownContact = null): string
     {
         $assistantName = $this->aiAssistantName($salon);
         $today = now()->format('Y-m-d');
@@ -55,9 +55,22 @@ class GeminiPayloadBuilder
             $this->aiBusinessContext($salon),
             "Context produs: modul curent este {$this->businessMode($salon)}. Pentru moment aplicatia activeaza doar fluxul appointment.",
             $this->currentBookingContext($conversation),
+            $this->knownContactContext($knownContact),
             $this->modeInstructions($salon),
             $this->ownerInstructions($salon),
         ])->filter()->implode(' ');
+    }
+
+    private function knownContactContext(?array $knownContact): ?string
+    {
+        $name = trim((string) ($knownContact['name'] ?? ''));
+        $phone = trim((string) ($knownContact['phone'] ?? ''));
+
+        if ($name === '' || $phone === '') {
+            return null;
+        }
+
+        return "Există date de contact folosite anterior pentru acest vizitator: {$name}, {$phone}. Nu le folosi automat. Întreabă vizitatorul dacă vrea să le refolosească. Dacă confirmă, le poți folosi ca client_name și client_phone pentru bookBooking. Previous contact details for this browser visitor are available: {$name}, {$phone}. Do not use them silently. Ask the visitor whether they want to reuse these details. If they confirm, you may use them as client_name and client_phone for bookBooking.";
     }
 
     private function currentBookingContext(?Conversation $conversation): ?string
