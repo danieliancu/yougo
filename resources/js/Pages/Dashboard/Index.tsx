@@ -118,7 +118,7 @@ export default function DashboardIndex() {
   return (
     <div className="flex min-h-screen overflow-x-hidden app-bg">
       <Head title={title} />
-      <DashboardSidebar salon={salon} section={section} user={auth.user} t={t} />
+      <DashboardSidebar salon={salon} section={section} user={auth.user} t={t} onboarding={onboarding} />
 
       {mobileNavOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
@@ -140,7 +140,7 @@ export default function DashboardIndex() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <DashboardSidebarContent salon={salon} section={section} user={auth.user} t={t} onNavigate={() => setMobileNavOpen(false)} />
+            <DashboardSidebarContent salon={salon} section={section} user={auth.user} t={t} onboarding={onboarding} onNavigate={() => setMobileNavOpen(false)} />
           </div>
         </div>
       )}
@@ -188,13 +188,13 @@ export default function DashboardIndex() {
   );
 }
 
-function DashboardSidebar({ salon, section, user, t }: { salon: Salon; section: Props['section']; user: AuthUser | null; t: TranslateFn }) {
+function DashboardSidebar({ salon, section, user, t, onboarding }: { salon: Salon; section: Props['section']; user: AuthUser | null; t: TranslateFn; onboarding: OnboardingChecklist }) {
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden h-screen w-72 shrink-0 flex-col overflow-hidden app-sidebar lg:flex">
       <div className="shrink-0 border-b border-white/10 p-6">
         <Brand salon={salon} />
       </div>
-      <DashboardSidebarContent salon={salon} section={section} user={user} t={t} />
+      <DashboardSidebarContent salon={salon} section={section} user={user} t={t} onboarding={onboarding} />
     </aside>
   );
 }
@@ -203,8 +203,8 @@ function Brand({ salon, onClick }: { salon: Salon; onClick?: () => void }) {
   const planName = planDisplayName(salon.plan);
 
   return (
-    <Link href="/" className="flex w-fit flex-col gap-3" onClick={onClick}>
-      <img src="/images/logo-dark.png" className="h-12 w-auto shrink-0" alt="YouGo" />
+    <Link href="/" className="flex w-fit flex-col gap-3" onClick={onClick} style={{ alignItems:"flex-start" }}>
+      <img src="/images/logo-dark.png" className="h-12 w-auto shrink-0" alt="YouGo" style={{ objectFit:"contain" }} />
       <div className="flex items-center gap-2.5">
         {salon.logo_path ? (
           <img src={`/storage/${salon.logo_path}`} className="h-7 w-7 shrink-0 rounded-md object-cover" alt={salon.name} />
@@ -232,9 +232,18 @@ function planDisplayName(plan?: string | null): string {
     .join(' ');
 }
 
-function DashboardSidebarContent({ salon, section, user, t, onNavigate }: { salon: Salon; section: Props['section']; user: AuthUser | null; t: TranslateFn; onNavigate?: () => void }) {
+function NavCountBadge({ count }: { count: number }) {
+  return (
+    <span className="ml-auto inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-bold leading-none text-white">
+      {count}
+    </span>
+  );
+}
+
+function DashboardSidebarContent({ salon, section, user, t, onboarding, onNavigate }: { salon: Salon; section: Props['section']; user: AuthUser | null; t: TranslateFn; onboarding: OnboardingChecklist; onNavigate?: () => void }) {
   const [accountOpen, setAccountOpen] = useState(false);
-  const hasPendingBookings = salon.bookings.some((booking) => booking.status === 'pending');
+  const pendingBookingsCount = salon.bookings.filter((booking) => booking.status === 'pending').length;
+  const remainingSetupCount = onboarding.steps.filter((step) => !step.completed && !step.coming_soon).length;
 
   return (
     <>
@@ -251,7 +260,9 @@ function DashboardSidebarContent({ salon, section, user, t, onNavigate }: { salo
               >
                 <Icon className="h-4 w-4" />
                 <span className="min-w-0 flex-1 truncate">{t(item.label)}</span>
-                {item.id === 'bookings' && hasPendingBookings && <span className="railway-lights shrink-0" aria-hidden="true" />}
+                {item.id === 'bookings' && pendingBookingsCount > 0 && <span className="railway-lights shrink-0" aria-hidden="true" />}
+                {item.id === 'onboarding' && remainingSetupCount > 0 && <NavCountBadge count={remainingSetupCount} />}
+                {item.id === 'bookings' && pendingBookingsCount > 0 && <NavCountBadge count={pendingBookingsCount} />}
               </Link>
               {item.dividerAfter && <div className="mx-3 my-3 h-0.5 rounded-full bg-white/25" />}
             </div>
@@ -1076,6 +1087,63 @@ function formatDuration(seconds?: number | null) {
   return `${minutes}:${String(rest).padStart(2, '0')}`;
 }
 
+function csvCell(value: unknown) {
+  const text = value === null || value === undefined ? '' : String(value);
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function conversationTranscript(conversation: Conversation) {
+  return conversation.messages
+    .map((message) => {
+      const role = message.role === 'assistant' ? 'Assistant' : 'Client';
+      const time = message.created_at ? ` [${formatDate(message.created_at)}]` : '';
+      return `${role}${time}: ${message.content}`;
+    })
+    .join('\n\n');
+}
+
+function exportConversationsCsv(conversations: Conversation[], filename: string, timezone?: string | null) {
+  const headers = [
+    'ID',
+    'Channel',
+    'Status',
+    'Intent',
+    'Contact name',
+    'Phone',
+    'Email',
+    'Last message at',
+    'Duration',
+    'Summary',
+    'Booking status',
+    'Transcript',
+  ];
+  const rows = conversations.map((conversation) => [
+    conversation.id,
+    conversation.channel,
+    conversation.status,
+    conversation.intent,
+    conversation.contact_name ?? '',
+    conversation.contact_phone ?? '',
+    conversation.contact_email ?? '',
+    formatDate(conversation.last_message_at || conversation.created_at, timezone),
+    formatDuration(conversation.duration_seconds),
+    conversation.summary ?? '',
+    conversation.booking?.status ?? '',
+    conversationTranscript(conversation),
+  ]);
+  const csv = [headers, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n');
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+
+  link.href = url;
+  link.download = `${filename}-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function DarkPanel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return <div className={`rounded-lg border p-5 shadow-sm app-panel ${className}`}>{children}</div>;
 }
@@ -1194,10 +1262,6 @@ function OnboardingSetup({ onboarding }: { onboarding: OnboardingChecklist }) {
   const t = useT();
   const nextStep = onboarding.next_step;
 
-  function skip() {
-    router.post('/onboarding/skip', {}, { preserveScroll: true });
-  }
-
   function complete() {
     router.post('/onboarding/complete', {}, { preserveScroll: true });
   }
@@ -1206,12 +1270,11 @@ function OnboardingSetup({ onboarding }: { onboarding: OnboardingChecklist }) {
     <div className="space-y-6">
       <Card className="p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-          <div className="max-w-3xl">
+          <div className="min-w-0 flex-1">
             <h2 className="text-2xl font-bold app-text">{t('onboardingHeading')}</h2>
-            <p className="mt-2 text-sm leading-6 app-text-muted">{t('onboardingPageHelper')}</p>
+            <p className="mt-2 text-sm leading-6 app-text-muted xl:whitespace-nowrap">{t('onboardingPageHelper')}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <SecondaryButton onClick={skip}>{t('skipForNow')}</SecondaryButton>
             <Button onClick={complete} disabled={!onboarding.can_complete}>{t('markSetupComplete')}</Button>
           </div>
         </div>
@@ -1223,7 +1286,7 @@ function OnboardingSetup({ onboarding }: { onboarding: OnboardingChecklist }) {
               <p className="mt-1 font-bold app-text">{t(nextStep.label_key)}</p>
             </div>
             <Link href={nextStep.href} className="inline-flex h-10 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700">
-              {t('continueSetup')}
+              {t('openThisStep')}
             </Link>
           </div>
         )}
@@ -1239,14 +1302,19 @@ function OnboardingSetup({ onboarding }: { onboarding: OnboardingChecklist }) {
 }
 
 function OnboardingProgress({ onboarding }: { onboarding: OnboardingChecklist }) {
+  const countableSteps = onboarding.steps.filter((step) => !step.coming_soon);
+  const completedCount = countableSteps.filter((step) => step.completed).length;
+  const totalCount = countableSteps.length;
+  const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 100;
+
   return (
     <div className="mt-6">
       <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-        <span className="font-bold app-text">{onboarding.completed_count}/{onboarding.total_required}</span>
-        <span className="font-bold text-indigo-600">{onboarding.progress}%</span>
+        <span className="font-bold app-text">{completedCount}/{totalCount}</span>
+        <span className="font-bold text-indigo-600">{progress}%</span>
       </div>
       <div className="h-2 overflow-hidden rounded-full app-panel-soft">
-        <div className="h-full rounded-full bg-indigo-600 transition-all" style={{ width: `${onboarding.progress}%` }} />
+        <div className="h-full rounded-full bg-indigo-600 transition-all" style={{ width: `${progress}%` }} />
       </div>
     </div>
   );
@@ -1280,7 +1348,7 @@ function OnboardingStepRow({ step }: { step: OnboardingStep }) {
         </div>
         {!step.coming_soon && (
           <Link href={step.href} className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg border px-3 text-sm font-bold app-panel app-text-soft hover:bg-[var(--app-panel-soft)]">
-            {t('continueSetup')}
+            {t('openThisStep')}
           </Link>
         )}
       </div>
@@ -1292,31 +1360,23 @@ function OnboardingReminder({ onboarding }: { onboarding: OnboardingChecklist })
   const t = useT();
   if (onboarding.completed) return null;
 
-  const nextStep = onboarding.next_step;
-
   return (
     <Card className="border-indigo-500/30 p-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0">
-          <p className="text-lg font-bold app-text">{t('onboardingHeading')}</p>
-          <p className="mt-1 text-sm app-text-muted">
-            {onboarding.skipped ? t('setupSkippedReminder') : t('onboardingPageHelper')}
-          </p>
-          {nextStep && (
-            <p className="mt-2 text-sm font-bold app-text">
-              {t('nextStep')}: {t(nextStep.label_key)}
+      <div className="space-y-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 flex-1">
+            <p className="text-lg font-bold app-text">{t('onboardingHeading')}</p>
+            <p className="mt-2 text-sm app-text-muted">
+              {t('onboardingPageHelper')}
             </p>
-          )}
-          <OnboardingProgress onboarding={onboarding} />
+          </div>
+          <div className="flex shrink-0">
+            <Link href="/dashboard/onboarding" className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700 lg:w-auto">
+              {t('goToSetup')}
+            </Link>
+          </div>
         </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
-          <Link href="/dashboard/onboarding" className="inline-flex h-10 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700">
-            {t('continueSetup')}
-          </Link>
-          {!onboarding.skipped && (
-            <SecondaryButton onClick={() => router.post('/onboarding/skip', {}, { preserveScroll: true })}>{t('skipForNow')}</SecondaryButton>
-          )}
-        </div>
+        <OnboardingProgress onboarding={onboarding} />
       </div>
     </Card>
   );
@@ -1641,11 +1701,18 @@ function AiSettings({ salon }: { salon: Salon }) {
   return (
     <form onSubmit={submit} className="space-y-6">
       <Card className="p-6">
-        <div className="mb-6 flex items-start gap-3">
-          <Sparkles className="mt-1 h-5 w-5 text-indigo-500" />
-          <div>
-            <h2 className="text-xl font-bold app-text">{t('aiIdentityBehavior')}</h2>
-            <p className="mt-1 text-sm app-text-muted">{t('aiIdentityBehaviorHelp')}</p>
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <Sparkles className="mt-1 h-5 w-5 shrink-0 text-indigo-500" />
+            <div>
+              <h2 className="text-xl font-bold app-text">{t('aiIdentityBehavior')}</h2>
+              <p className="mt-1 text-sm app-text-muted">{t('aiIdentityBehaviorHelp')}</p>
+            </div>
+          </div>
+          <div className="flex shrink-0">
+            <a href={`/assistant/${salon.id}`} target="_blank" rel="noreferrer" className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700 lg:w-auto">
+              {t('testAssistant')}
+            </a>
           </div>
         </div>
         <div className="grid gap-4 lg:grid-cols-4">
@@ -3205,7 +3272,11 @@ function ChatAudio({ salon, query }: { salon: Salon; query: string }) {
   return (
     <div className="space-y-6">
       <div className="flex justify-end">
-        <SecondaryButton type="button">
+        <SecondaryButton
+          type="button"
+          disabled={conversations.length === 0}
+          onClick={() => exportConversationsCsv(conversations, 'chat-audio-conversations', salon.timezone)}
+        >
           <Download className="h-4 w-4" />
           {t('exportCsv')}
         </SecondaryButton>

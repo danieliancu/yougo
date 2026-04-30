@@ -20,7 +20,7 @@ export default function AssistantShow({ salon }: { salon: Salon }) {
 
       <header className="shrink-0 border-b px-4 py-3 app-border app-shell sm:px-6">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
-          <Link href="/" className="flex min-w-0 items-center gap-3">
+          <Link href="/dashboard" className="flex min-w-0 items-center gap-3">
             <ArrowLeft className="h-4 w-4 shrink-0 app-text-muted" />
             {salon.logo_path ? (
               <img src={`/storage/${salon.logo_path}`} className="h-9 w-9 shrink-0 rounded-lg object-cover" alt={salon.name} />

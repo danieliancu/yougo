@@ -13,9 +13,9 @@ staff = opțional, dar folosit dacă există
    Check availability - inform when busy
 5. Pregătire embed real pentru widget
 10. Billing / pay-as-you-go
-   Amendare si reglare chat
-
-
+    Amendare si reglare chat
+    Updatare buton CSV
+    Configurare - setari
 1. Polish MVP / stabilizare
 - toate scrollurile sa fie subtiri
 
