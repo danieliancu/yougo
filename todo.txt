@@ -18,8 +18,11 @@ staff = opțional, dar folosit dacă există
     Configurare - setari
 1. Polish MVP / stabilizare
 - toate scrollurile sa fie subtiri
+   Refacere planuri de plata
+   Regandire Layer telefonie (Telnyx)
 
 
+   https://impeccable.style
 
 
 

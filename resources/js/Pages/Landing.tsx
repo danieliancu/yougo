@@ -1,7 +1,7 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { Check, MessageCircle, Mic, Minus, Phone, Plug, Plus, Send } from 'lucide-react';
+import { CalendarCheck, Check, MessageCircle, Mic, Minus, Phone, Plug, Plus, Send } from 'lucide-react';
 import { SiWhatsapp } from 'react-icons/si';
-import { useEffect, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { ChatShell } from '@/Components/ChatShell';
 import { PublicFooter, PublicHeader, PublicLocale } from '@/Components/PublicChrome';
 import { translate } from '@/i18n';
@@ -87,7 +87,7 @@ export default function Landing() {
       </section>
       <FaqSection t={t} />
       <div id="pricing">
-        <PricingSection plans={plans} t={t} authUser={Boolean(auth.user)} />
+        <PricingSection plans={plans} t={t} authUser={Boolean(auth.user)} locale={locale} />
       </div>
       <PublicFooter t={t} />
     </main>
@@ -138,56 +138,121 @@ function FaqSection({ t }: { t: (key: string, params?: Record<string, string | n
   );
 }
 
-function PricingSection({ plans, t, authUser }: { plans: Plan[]; t: (key: string, params?: Record<string, string | number>) => string; authUser: boolean }) {
+function PricingSection({ plans, t, authUser, locale }: { plans: Plan[]; t: (key: string, params?: Record<string, string | number>) => string; authUser: boolean; locale: PublicLocale }) {
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
+
   return (
     <section className="mx-auto max-w-6xl px-6 pb-24">
       <div className="mb-8 max-w-2xl">
         <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">{t('pricing')}</p>
         <h2 className="mt-2 text-3xl font-bold app-text md:text-4xl">{t('choosePlan')}</h2>
         <p className="mt-4 text-sm app-text-muted">{t('paymentsComingSoon')}</p>
+        <div className="mt-5 inline-flex rounded-lg border p-1 app-border app-panel">
+          <button
+            type="button"
+            onClick={() => setBillingCycle('monthly')}
+            className={`h-9 rounded-md px-4 text-sm font-semibold transition ${billingCycle === 'monthly' ? 'bg-indigo-600 text-white' : 'app-text-soft hover:bg-[var(--soft)]'}`}
+          >
+            {t('monthly')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setBillingCycle('annual')}
+            className={`h-9 rounded-md px-4 text-sm font-semibold transition ${billingCycle === 'annual' ? 'bg-indigo-600 text-white' : 'app-text-soft hover:bg-[var(--soft)]'}`}
+          >
+            {t('annual')}
+          </button>
+        </div>
       </div>
-      <div className="grid gap-4 lg:grid-cols-4">
-        {plans.map((plan) => (
-          <div key={plan.key} className={`flex h-full flex-col rounded-lg border p-5 app-panel ${plan.recommended ? 'border-indigo-500 ring-2 ring-indigo-500/20' : 'app-border'}`}>
-            <div className="mb-4 flex flex-wrap gap-1.5">
-              {(plan.channels ?? []).map((channel) => (
-                <span key={channel} className="rounded-md bg-indigo-500/10 px-2 py-1 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
-                  {planItemLabel(channel, t)}
-                </span>
-              ))}
-            </div>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-lg font-bold app-text">{planDisplayLabel(plan, t)}</h3>
-                <p className="mt-1 whitespace-nowrap text-xl font-bold app-text">{plan.price_label}</p>
-              </div>
-              {plan.recommended && <span className="rounded-md bg-indigo-600 px-2 py-1 text-[10px] font-semibold uppercase text-white">{t('recommended')}</span>}
-            </div>
-            <div className="mt-5 space-y-2 text-sm app-text-soft">
-              <p>{formatLandingLimit(plan.monthly_conversations, t)} {t('conversationsPerMonth')}</p>
-              <p>{formatLandingLimit(plan.monthly_ai_messages, t)} {t('aiMessagesPerMonth')}</p>
-              <p>{formatLandingLimit(plan.monthly_bookings, t)} {t('bookingsPerMonth')}</p>
-            </div>
-            <div className="mt-5 space-y-2 text-sm app-text-soft">
-              {(plan.features ?? []).map((feature) => (
-                <div key={feature} className="flex gap-2">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
-                  <span>
-                    <span>{planItemLabel(feature, t)}</span>
-                    {feature === 'Chat + Voice' && <span className="mt-0.5 block text-xs leading-5 app-text-muted">{t('chatVoiceClarification')}</span>}
-                  </span>
-                </div>
-              ))}
-              {plan.key === 'voice' && <p className="text-[10px] font-semibold leading-4 text-indigo-600 dark:text-indigo-300">* {t('aiPhoneBilledPerMinute')}</p>}
-            </div>
-            <Link href={authUser ? '/dashboard/billing' : '/register'} className="mt-auto inline-flex h-10 w-full items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700">
-              {plan.key === 'free' ? t('startFree') : plan.key === 'connect' ? t('chooseConnect') : plan.key === 'voice' ? t('chooseVoice') : plan.contact_sales ? t('contactUs') : t('startWithPlan')}
-            </Link>
-          </div>
-        ))}
+      <div className="overflow-x-auto rounded-lg border app-border app-panel">
+        <table className="min-w-[920px] w-full border-collapse text-left text-sm">
+          <thead className="app-panel-soft">
+            <tr className="border-b app-border">
+              <PricingHeader>{t('plan')}</PricingHeader>
+              <PricingHeader centered><CalendarCheck className="h-4 w-4 text-indigo-500" /> {t('aiBookings')}</PricingHeader>
+              <PricingHeader centered><MessageCircle className="h-4 w-4 text-indigo-500" /> {t('websiteChat')}</PricingHeader>
+              <PricingHeader centered><SiWhatsapp className="h-4 w-4 text-[#25D366]" /> {t('whatsapp')}</PricingHeader>
+              <PricingHeader centered><Phone className="h-4 w-4 text-indigo-500" /> {t('phoneAi')}</PricingHeader>
+              <PricingHeader>{t('price')}</PricingHeader>
+            </tr>
+          </thead>
+          <tbody>
+            {plans.map((plan) => (
+              <tr key={plan.key} className={`border-b last:border-b-0 app-border ${plan.recommended ? 'bg-indigo-500/5' : ''}`}>
+                <td className="min-w-64 px-4 py-4 align-top">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link href={authUser ? '/dashboard/billing' : '/register'} className="inline-flex h-10 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700">
+                      {planDisplayLabel(plan, t)}{plan.recommended ? ` (${t('recommended').toLowerCase()})` : ''}
+                    </Link>
+                  </div>
+                  <p className="mt-3 max-w-xs text-xs leading-5 app-text-muted">{planDescription(plan, t)}</p>
+                </td>
+                <PricingCapability included={planHasAiBookings(plan)} detail={`${formatLandingLimit(plan.monthly_bookings, t)} ${t('bookings').toLowerCase()}`} />
+                <PricingCapability included={Boolean(plan.widgets_enabled)} detail={`${formatLandingLimit(plan.monthly_conversations, t)} ${t('conversations').toLowerCase()}`} />
+                <PricingCapability included={Boolean(plan.whatsapp_enabled)} detail={plan.whatsapp_enabled ? whatsappDetail(plan, t, locale) : undefined} />
+                <PricingCapability included={Boolean(plan.phone_enabled)} detail={plan.phone_enabled ? plan.phone_minutes_label || undefined : undefined} />
+                <td className="whitespace-nowrap px-4 pb-4 pt-16 align-top font-semibold app-text">
+                  {priceLabel(plan, billingCycle, t)}
+                  {billingCycle === 'annual' && monthlyPrice(plan) !== null && (
+                    <span className="mt-1 block text-xs font-bold text-red-600">-{annualDiscountPercent()}%</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </section>
   );
+}
+
+function priceLabel(plan: Plan, billingCycle: 'monthly' | 'annual', t: (key: string, params?: Record<string, string | number>) => string) {
+  const monthly = monthlyPrice(plan);
+
+  if (monthly === null) {
+    return plan.price_label.replace('/lună', '');
+  }
+
+  const value = billingCycle === 'annual' ? monthly * 10 : monthly;
+  const amount = new Intl.NumberFormat('ro-RO').format(value);
+
+  return `${amount} RON`;
+}
+
+function monthlyPrice(plan: Plan) {
+  const match = plan.price_label.match(/^([\d.]+)\s+RON/);
+  if (! match) return null;
+
+  return Number(match[1].replaceAll('.', ''));
+}
+
+function annualDiscountPercent() {
+  return Math.round(((12 - 10) / 12) * 100);
+}
+
+function PricingHeader({ children, centered = false }: { children: ReactNode; centered?: boolean }) {
+  return <th className={`whitespace-nowrap px-4 py-3 text-xs font-bold uppercase tracking-wide app-text-muted ${centered ? 'text-center' : ''}`}><span className={`inline-flex items-center gap-2 ${centered ? 'justify-center' : ''}`}>{children}</span></th>;
+}
+
+function PricingCapability({ included, detail }: { included: boolean; detail?: string }) {
+  return (
+    <td className="px-4 pb-4 pt-12 text-center align-top">
+      {included ? <Check className="mx-auto h-5 w-5 text-green-600" /> : <span className="text-lg app-text-muted">—</span>}
+      {detail && <span className="mt-1 block whitespace-nowrap text-[11px] leading-4 app-text-muted">{detail}</span>}
+    </td>
+  );
+}
+
+function planDescription(plan: Plan, t: (key: string, params?: Record<string, string | number>) => string) {
+  return t(`planDescription_${plan.key}`) || plan.short_description_ro || plan.short_description_en || plan.description || '';
+}
+
+function planHasAiBookings(plan: Plan) {
+  return Boolean(plan.ai_bookings_enabled || plan.features?.some((feature) => ['AI booking requests', 'Programări AI'].includes(feature)));
+}
+
+function whatsappDetail(plan: Plan, t: (key: string, params?: Record<string, string | number>) => string, locale: PublicLocale) {
+  return `${formatLandingLimit(plan.monthly_whatsapp_messages ?? null, t)} ${t('messages')}`;
 }
 
 function planDisplayLabel(plan: Plan, t: (key: string, params?: Record<string, string | number>) => string) {
@@ -199,10 +264,14 @@ function planItemLabel(value: string, t: (key: string, params?: Record<string, s
     'Website chat': t('websiteChat'),
     'Chat + Voice': t('chatVoice'),
     'Phone AI': t('phoneAi'),
+    'Telefon AI': t('phoneAi'),
     'Custom integrations': t('customIntegrations'),
+    'Dashboard': t('dashboardAccess'),
     'Dashboard access': t('dashboardAccess'),
+    'Programări AI': t('aiBookingRequests'),
     'AI booking requests': t('aiBookingRequests'),
     'Availability checks': t('availabilityChecks'),
+    'Notificări email pentru programări': t('emailBookingNotifications'),
     'Email booking notifications': t('emailBookingNotifications'),
     'WhatsApp assistant': t('whatsappAssistant'),
     'AI phone answering': t('aiPhoneAnswering'),

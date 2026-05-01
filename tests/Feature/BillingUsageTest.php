@@ -36,13 +36,39 @@ class BillingUsageTest extends TestCase
         $salon = $this->createSalon();
 
         $this->assertSame('free', $salon->plan);
-        $this->assertSame(['free', 'connect', 'voice', 'enterprise'], array_keys(config('yougo_plans')));
-        $this->assertArrayNotHasKey('starter', config('yougo_plans'));
-        $this->assertArrayNotHasKey('growth', config('yougo_plans'));
-        $this->assertArrayNotHasKey('pro', config('yougo_plans'));
-        $this->assertTrue(config('yougo_plans.connect.recommended'));
+        $this->assertSame(['free', 'website_chat', 'chat_whatsapp', 'voice_starter', 'voice_growth', 'voice_pro'], array_keys(config('yougo_plans')));
+        $this->assertArrayNotHasKey('connect', config('yougo_plans'));
+        $this->assertArrayNotHasKey('voice', config('yougo_plans'));
+        $this->assertArrayNotHasKey('enterprise', config('yougo_plans'));
         $this->assertContains('AI booking requests', config('yougo_plans.free.features'));
         $this->assertContains('Dashboard access', config('yougo_plans.free.features'));
+        $this->assertSame('0 RON', config('yougo_plans.free.price_label'));
+        $this->assertSame(50, config('yougo_plans.free.monthly_conversations'));
+        $this->assertSame(100, config('yougo_plans.free.monthly_ai_messages'));
+        $this->assertSame(10, config('yougo_plans.free.monthly_bookings'));
+
+        $this->assertSame('149 RON/lună', config('yougo_plans.website_chat.price_label'));
+        $this->assertSame('299 RON/lună', config('yougo_plans.chat_whatsapp.price_label'));
+        $this->assertSame('599 RON/lună', config('yougo_plans.voice_starter.price_label'));
+        $this->assertSame('999 RON/lună', config('yougo_plans.voice_growth.price_label'));
+        $this->assertSame('2.499 RON/lună', config('yougo_plans.voice_pro.price_label'));
+        $this->assertSame('—', config('yougo_plans.website_chat.phone_minutes_label'));
+        $this->assertSame('—', config('yougo_plans.chat_whatsapp.phone_minutes_label'));
+        $this->assertSame('300 min', config('yougo_plans.voice_starter.phone_minutes_label'));
+        $this->assertSame('1000 min', config('yougo_plans.voice_growth.phone_minutes_label'));
+        $this->assertSame('3000 min', config('yougo_plans.voice_pro.phone_minutes_label'));
+        $this->assertTrue(config('yougo_plans.voice_starter.recommended'));
+
+        foreach (['website_chat', 'chat_whatsapp', 'voice_starter', 'voice_growth', 'voice_pro'] as $key) {
+            $this->assertTrue(config("yougo_plans.{$key}.ai_bookings_enabled"));
+            $this->assertContains('Programări AI', config("yougo_plans.{$key}.features"));
+        }
+
+        $this->assertFalse(config('yougo_plans.website_chat.phone_enabled'));
+        $this->assertFalse(config('yougo_plans.chat_whatsapp.phone_enabled'));
+        $this->assertTrue(config('yougo_plans.voice_starter.phone_enabled'));
+        $this->assertTrue(config('yougo_plans.voice_growth.phone_enabled'));
+        $this->assertTrue(config('yougo_plans.voice_pro.phone_enabled'));
     }
 
     public function test_temporary_plan_selector_validates_and_updates_plan(): void
@@ -53,20 +79,34 @@ class BillingUsageTest extends TestCase
             ->assertSessionHasErrors('plan');
         $this->actingAs($user)->put('/billing/plan', ['plan' => 'growth'])
             ->assertSessionHasErrors('plan');
-
         $this->actingAs($user)->put('/billing/plan', ['plan' => 'connect'])
+            ->assertSessionHasErrors('plan');
+
+        $this->actingAs($user)->put('/billing/plan', ['plan' => 'website_chat'])
             ->assertRedirect();
 
-        $this->assertSame('connect', $salon->refresh()->plan);
+        $this->assertSame('website_chat', $salon->refresh()->plan);
         $this->assertNotNull($salon->plan_started_at);
 
-        $this->actingAs($user)->put('/billing/plan', ['plan' => 'voice'])
+        $this->actingAs($user)->put('/billing/plan', ['plan' => 'chat_whatsapp'])
             ->assertRedirect();
-        $this->assertSame('voice', $salon->refresh()->plan);
+        $this->assertSame('chat_whatsapp', $salon->refresh()->plan);
 
-        $this->actingAs($user)->put('/billing/plan', ['plan' => 'enterprise'])
+        $this->actingAs($user)->put('/billing/plan', ['plan' => 'voice_starter'])
             ->assertRedirect();
-        $this->assertSame('enterprise', $salon->refresh()->plan);
+        $this->assertSame('voice_starter', $salon->refresh()->plan);
+
+        $this->actingAs($user)->put('/billing/plan', ['plan' => 'voice_growth'])
+            ->assertRedirect();
+        $this->assertSame('voice_growth', $salon->refresh()->plan);
+
+        $this->actingAs($user)->put('/billing/plan', ['plan' => 'voice_pro'])
+            ->assertRedirect();
+        $this->assertSame('voice_pro', $salon->refresh()->plan);
+
+        $this->actingAs($user)->put('/billing/plan', ['plan' => 'free'])
+            ->assertRedirect();
+        $this->assertSame('free', $salon->refresh()->plan);
     }
 
     public function test_preview_chat_does_not_record_billable_messages_but_widget_does(): void
@@ -114,25 +154,32 @@ class BillingUsageTest extends TestCase
         $this->assertSame(1, $summary['usage']['conversations']);
     }
 
-    public function test_enterprise_null_limits_are_unlimited_and_connect_voice_limits_are_used(): void
+    public function test_old_plan_keys_alias_to_new_limits_and_new_limits_are_used(): void
     {
         $enterprise = $this->createSalon(['plan' => 'enterprise']);
-        app(UsageTracker::class)->record($enterprise, 'conversation_started', 10000);
-        app(UsageTracker::class)->record($enterprise, 'ai_message', 10000);
-        app(UsageTracker::class)->record($enterprise, 'booking_created', 10000);
+        app(UsageTracker::class)->record($enterprise, 'conversation_started', 50000);
+        app(UsageTracker::class)->record($enterprise, 'ai_message', 50000);
+        app(UsageTracker::class)->record($enterprise, 'booking_created', 50000);
 
         $limits = app(UsageLimitService::class);
 
-        $this->assertTrue($limits->canStartConversation($enterprise));
-        $this->assertTrue($limits->canSendAiMessage($enterprise));
-        $this->assertTrue($limits->canCreateBooking($enterprise));
-        $this->assertNull($limits->usageSummary($enterprise)['limits']['conversations']);
+        $this->assertFalse($limits->canStartConversation($enterprise));
+        $this->assertFalse($limits->canSendAiMessage($enterprise));
+        $this->assertFalse($limits->canCreateBooking($enterprise));
+        $this->assertSame('voice_pro', $limits->usageSummary($enterprise)['plan']['key']);
+        $this->assertSame(8000, $limits->usageSummary($enterprise)['limits']['conversations']);
 
         $connect = $this->createSalon(['plan' => 'connect']);
         $voice = $this->createSalon(['plan' => 'voice']);
+        $websiteChat = $this->createSalon(['plan' => 'website_chat']);
+        $growth = $this->createSalon(['plan' => 'voice_growth']);
 
-        $this->assertSame(500, $limits->usageSummary($connect)['limits']['conversations']);
+        $this->assertSame('chat_whatsapp', $limits->usageSummary($connect)['plan']['key']);
+        $this->assertSame('voice_starter', $limits->usageSummary($voice)['plan']['key']);
+        $this->assertSame(1000, $limits->usageSummary($connect)['limits']['conversations']);
         $this->assertSame(1500, $limits->usageSummary($voice)['limits']['conversations']);
+        $this->assertSame(500, $limits->usageSummary($websiteChat)['limits']['conversations']);
+        $this->assertSame(3000, $limits->usageSummary($growth)['limits']['conversations']);
     }
 
     public function test_ai_message_limit_applies_to_widget_not_preview_chat(): void
@@ -260,6 +307,12 @@ class BillingUsageTest extends TestCase
                 ->where('section', 'billing')
                 ->where('billing.summary.usage.conversations', 1)
                 ->where('billing.summary.plan.key', 'free')
+                ->where('billing.plans.0.key', 'free')
+                ->where('billing.plans.1.key', 'website_chat')
+                ->where('billing.plans.2.key', 'chat_whatsapp')
+                ->where('billing.plans.3.key', 'voice_starter')
+                ->where('billing.plans.4.key', 'voice_growth')
+                ->where('billing.plans.5.key', 'voice_pro')
             );
 
         $this->actingAs($user)->get('/dashboard')
@@ -274,12 +327,44 @@ class BillingUsageTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->component('Landing')
                 ->where('plans.0.key', 'free')
-                ->where('plans.1.key', 'connect')
-                ->where('plans.1.recommended', true)
-                ->where('plans.2.key', 'voice')
-                ->where('plans.2.phone_minute_price_label', '2.50 RON/minut')
-                ->where('plans.3.key', 'enterprise')
+                ->where('plans.1.key', 'website_chat')
+                ->where('plans.1.price_label', '149 RON/lună')
+                ->where('plans.2.key', 'chat_whatsapp')
+                ->where('plans.3.key', 'voice_starter')
+                ->where('plans.3.recommended', true)
+                ->where('plans.3.phone_minutes_label', '300 min')
+                ->where('plans.4.key', 'voice_growth')
+                ->where('plans.5.key', 'voice_pro')
             );
+    }
+
+    public function test_pricing_source_and_translations_cover_comparison_table(): void
+    {
+        $landing = file_get_contents(resource_path('js/Pages/Landing.tsx'));
+        $dashboard = file_get_contents(resource_path('js/Pages/Dashboard/Index.tsx'));
+        $translations = file_get_contents(resource_path('js/i18n.ts'));
+
+        foreach (['price', 'websiteChat', 'whatsapp', 'phoneAi', 'aiBookings'] as $key) {
+            $this->assertStringContainsString($key, $landing);
+            $this->assertStringContainsString($key, $dashboard);
+            $this->assertStringContainsString($key, $translations);
+        }
+
+        $this->assertStringNotContainsString("t('phoneMinutes')", $landing);
+        $this->assertStringNotContainsString("t('phoneMinutes')", $dashboard);
+
+        foreach (['planDescription_website_chat', 'planDescription_chat_whatsapp', 'planDescription_voice_starter', 'planDescription_voice_growth', 'planDescription_voice_pro'] as $key) {
+            $this->assertStringContainsString($key, $translations);
+        }
+
+        $this->assertStringContainsString('Trimite notificări email pentru cererile noi', $translations);
+        $this->assertStringContainsString('Sends email notifications for new requests', $translations);
+        $this->assertStringContainsString('—', $landing);
+        $this->assertStringContainsString('text-green-600', $landing);
+        $this->assertStringNotContainsString('>Da<', $landing);
+        $this->assertStringNotContainsString('>Nu<', $landing);
+        $this->assertStringNotContainsString('>Yes<', $landing);
+        $this->assertStringNotContainsString('>No<', $landing);
     }
 
     private function createSalon(array $attributes = []): Salon

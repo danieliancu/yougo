@@ -3,7 +3,8 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { AlertModal, Badge, Button, Card, ConfirmationModal, DangerButton, Field, Input, SecondaryButton, ThemeToggle } from '@/Components/Ui';
 import { Booking, Conversation, Location as SalonLocation, OnboardingChecklist, OnboardingStep, OverviewData, PageProps, Plan, Salon, Service, Staff, UsageSummary, User as AuthUser } from '@/types';
 import { AlertTriangle, Bell, Bot, Building2, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, CreditCard, Download, ExternalLink, FileText, Globe2, LayoutDashboard, List, LogOut, MapPin, Menu, MessageCircle, MessageSquare, Pencil, Phone, Plus, QrCode, Save, Scissors, Search, Settings, Smartphone, Sparkles, Trash2, User, Users, Volume2, X, XCircle } from 'lucide-react';
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { SiWhatsapp } from 'react-icons/si';
+import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { businessTaxonomy, findBusinessType, normalizeBusinessTypeSlug } from '@/data/businessTaxonomy';
 
@@ -224,6 +225,21 @@ function Brand({ salon, onClick }: { salon: Salon; onClick?: () => void }) {
 
 function planDisplayName(plan?: string | null): string {
   if (! plan) return 'Free';
+
+  const labels: Record<string, string> = {
+    connect: 'Chat + WhatsApp',
+    voice: 'Voice Starter',
+    enterprise: 'Voice Pro',
+    website_chat: 'Website Chat',
+    chat_whatsapp: 'Chat + WhatsApp',
+    voice_starter: 'Voice Starter',
+    voice_growth: 'Voice Growth',
+    voice_pro: 'Voice Pro',
+  };
+
+  if (labels[plan]) {
+    return labels[plan];
+  }
 
   return plan
     .split(/[-_\s]+/)
@@ -1168,14 +1184,14 @@ function InlineMarkdown({ text }: { text: string }) {
   return <>{text.replaceAll('**', '')}</>;
 }
 
-function buildActivityChart(conversations: Conversation[], range: 'week' | 'month') {
+function buildActivityChart(conversations: Conversation[], range: 'week' | 'month', baseDate = new Date()) {
   const today = new Date();
   const start = range === 'week'
     ? startOfWeek(today)
-    : new Date(today.getFullYear(), today.getMonth(), 1);
+    : new Date(baseDate.getFullYear(), baseDate.getMonth(), 1);
   const days = range === 'week'
     ? 7
-    : new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    : new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 0).getDate();
   const labels = range === 'week'
     ? ['Lun', 'Mar', 'Mie', 'Joi', 'Vin', 'Sam', 'Dum']
     : Array.from({ length: days }, (_, index) => String(index + 1));
@@ -1384,11 +1400,22 @@ function OnboardingReminder({ onboarding }: { onboarding: OnboardingChecklist })
 
 function Overview({ salon, overview, onboarding }: { salon: Salon; overview: OverviewData; onboarding: OnboardingChecklist }) {
   const t = useT();
+  const { locale } = usePage<Props>().props;
   const assistantName = salon.ai_assistant_name?.trim() || 'Bella';
   const [activityRange, setActivityRange] = useState<'week' | 'month'>('week');
+  const [activityMonth, setActivityMonth] = useState(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), 1);
+  });
   const metrics = overview.metrics;
+  const dateLocale = locale === 'en' ? 'en-GB' : 'ro-RO';
+  const activityMonthLabel = new Intl.DateTimeFormat(dateLocale, { month: 'long', year: 'numeric' }).format(activityMonth);
 
-  const chart = useMemo(() => buildActivityChart(salon.conversations, activityRange), [salon.conversations, activityRange]);
+  const chart = useMemo(() => buildActivityChart(salon.conversations, activityRange, activityMonth), [salon.conversations, activityRange, activityMonth]);
+
+  function changeActivityMonth(offset: number) {
+    setActivityMonth((month) => new Date(month.getFullYear(), month.getMonth() + offset, 1));
+  }
 
   return (
     <div className="space-y-6">
@@ -1404,21 +1431,34 @@ function Overview({ salon, overview, onboarding }: { salon: Salon; overview: Ove
         <Card className="p-5">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-xs font-bold uppercase tracking-wide app-text-muted">{t('activityReport')}</h2>
-            <div className="inline-flex rounded-lg border p-1 app-panel">
-              <button
-                type="button"
-                onClick={() => setActivityRange('week')}
-                className={`h-8 rounded-md px-3 text-xs font-bold transition ${activityRange === 'week' ? 'bg-indigo-600 text-white' : 'app-text-muted hover:bg-[var(--app-panel-soft)]'}`}
-              >
-                {t('week')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setActivityRange('month')}
-                className={`h-8 rounded-md px-3 text-xs font-bold transition ${activityRange === 'month' ? 'bg-indigo-600 text-white' : 'app-text-muted hover:bg-[var(--app-panel-soft)]'}`}
-              >
-                {t('month')}
-              </button>
+            <div className="flex flex-wrap items-center gap-2">
+              {activityRange === 'month' && (
+                <div className="inline-flex items-center rounded-lg border p-1 app-panel">
+                  <button type="button" onClick={() => changeActivityMonth(-1)} className="flex h-8 w-8 items-center justify-center rounded-md app-text-muted hover:bg-[var(--app-panel-soft)]" aria-label={t('previousMonth')}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <span className="min-w-36 px-3 text-center text-xs font-bold capitalize app-text-soft">{activityMonthLabel}</span>
+                  <button type="button" onClick={() => changeActivityMonth(1)} className="flex h-8 w-8 items-center justify-center rounded-md app-text-muted hover:bg-[var(--app-panel-soft)]" aria-label={t('nextMonth')}>
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+              <div className="inline-flex rounded-lg border p-1 app-panel">
+                <button
+                  type="button"
+                  onClick={() => setActivityRange('week')}
+                  className={`h-8 rounded-md px-3 text-xs font-bold transition ${activityRange === 'week' ? 'bg-indigo-600 text-white' : 'app-text-muted hover:bg-[var(--app-panel-soft)]'}`}
+                >
+                  {t('week')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActivityRange('month')}
+                  className={`h-8 rounded-md px-3 text-xs font-bold transition ${activityRange === 'month' ? 'bg-indigo-600 text-white' : 'app-text-muted hover:bg-[var(--app-panel-soft)]'}`}
+                >
+                  {t('month')}
+                </button>
+              </div>
             </div>
           </div>
           <div className="h-72">
@@ -1510,7 +1550,9 @@ function UsageOverviewCard({ summary }: { summary: UsageSummary }) {
 
 function BillingPage({ billing, currentPlan }: { billing: { summary: UsageSummary; plans: Plan[] }; currentPlan: string }) {
   const t = useT();
-  const [selectedPlan, setSelectedPlan] = useState(currentPlan);
+  const canonicalCurrentPlan = canonicalPlanKey(currentPlan);
+  const [selectedPlan, setSelectedPlan] = useState(canonicalCurrentPlan);
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
 
   function updatePlan(event: FormEvent) {
     event.preventDefault();
@@ -1524,12 +1566,12 @@ function BillingPage({ billing, currentPlan }: { billing: { summary: UsageSummar
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide app-text-muted">{t('currentPlan')}</p>
             <h2 className="mt-2 text-3xl font-semibold app-text">{billing.summary.plan.name}</h2>
-            <p className="mt-1 text-sm app-text-soft">{billing.summary.plan.price_label}</p>
+            <p className="mt-1 text-sm app-text-soft">{priceLabel(billing.summary.plan, billingCycle)}</p>
             <p className="mt-4 max-w-3xl text-sm leading-6 app-text-muted">{t('billingNotConnected')}</p>
           </div>
           <form onSubmit={updatePlan} className="rounded-lg border p-4 app-border app-panel-soft">
             <label className="block">
-              <span className="mb-2 block text-sm font-semibold app-text">{t('changePlan')}</span>
+              <span className="mb-2 block text-sm font-semibold app-text">{t('selectPlan')}</span>
               <select value={selectedPlan} onChange={(event) => setSelectedPlan(event.target.value)} className="h-10 w-full rounded-lg border px-3 text-sm app-panel app-text">
                 {billing.plans.map((plan) => <option key={plan.key} value={plan.key}>{plan.name}</option>)}
               </select>
@@ -1549,57 +1591,137 @@ function BillingPage({ billing, currentPlan }: { billing: { summary: UsageSummar
         </div>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-4">
-        {billing.plans.map((plan) => (
-          <PlanCard key={plan.key} plan={plan} current={plan.key === currentPlan} />
-        ))}
+      <div className="flex justify-end">
+        <div className="inline-flex rounded-lg border p-1 app-border app-panel">
+          <button
+            type="button"
+            onClick={() => setBillingCycle('monthly')}
+            className={`h-9 rounded-md px-4 text-sm font-semibold transition ${billingCycle === 'monthly' ? 'bg-indigo-600 text-white' : 'app-text-soft hover:bg-[var(--app-panel-soft)]'}`}
+          >
+            {t('monthly')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setBillingCycle('annual')}
+            className={`h-9 rounded-md px-4 text-sm font-semibold transition ${billingCycle === 'annual' ? 'bg-indigo-600 text-white' : 'app-text-soft hover:bg-[var(--app-panel-soft)]'}`}
+          >
+            {t('annual')}
+          </button>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto rounded-lg border app-border app-panel">
+        <table className="min-w-[920px] w-full border-collapse text-left text-sm">
+          <thead className="app-panel-soft">
+            <tr className="border-b app-border">
+              <BillingPlanHeader>{t('plan')}</BillingPlanHeader>
+              <BillingPlanHeader centered><Calendar className="h-4 w-4 text-indigo-500" /> {t('aiBookings')}</BillingPlanHeader>
+              <BillingPlanHeader centered><MessageCircle className="h-4 w-4 text-indigo-500" /> {t('websiteChat')}</BillingPlanHeader>
+              <BillingPlanHeader centered><SiWhatsapp className="h-4 w-4 text-[#25D366]" /> {t('whatsapp')}</BillingPlanHeader>
+              <BillingPlanHeader centered><Phone className="h-4 w-4 text-indigo-500" /> {t('phoneAi')}</BillingPlanHeader>
+              <BillingPlanHeader>{t('price')}</BillingPlanHeader>
+            </tr>
+          </thead>
+          <tbody>
+            {billing.plans.map((plan) => (
+              <BillingPlanRow key={plan.key} plan={plan} current={plan.key === canonicalCurrentPlan} billingCycle={billingCycle} />
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
 
-function PlanCard({ plan, current }: { plan: Plan; current?: boolean }) {
+function BillingPlanHeader({ children, centered = false }: { children: ReactNode; centered?: boolean }) {
+  return <th className={`whitespace-nowrap px-4 py-3 text-xs font-bold uppercase tracking-wide app-text-muted ${centered ? 'text-center' : ''}`}><span className={`inline-flex items-center gap-2 ${centered ? 'justify-center' : ''}`}>{children}</span></th>;
+}
+
+function BillingPlanRow({ plan, current, billingCycle }: { plan: Plan; current?: boolean; billingCycle: 'monthly' | 'annual' }) {
   const t = useT();
 
   return (
-    <Card className={`p-5 ${plan.recommended ? 'ring-2 ring-indigo-500' : ''}`}>
-      <div className="mb-4 flex flex-wrap gap-1.5">
-        {(plan.channels ?? []).map((channel) => (
-          <span key={channel} className="rounded-md bg-indigo-500/10 px-2 py-1 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
-            {planItemLabel(channel, t)}
+    <tr className={`border-b last:border-b-0 app-border ${plan.recommended ? 'bg-indigo-500/5' : ''}`}>
+      <td className="min-w-64 px-4 py-4 align-top">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex h-10 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white">
+            {planDisplayLabel(plan, t)}{plan.recommended ? ` (${t('recommended').toLowerCase()})` : ''}
           </span>
-        ))}
-      </div>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-semibold app-text">{planDisplayLabel(plan, t)}</h3>
-          <p className="mt-1 text-2xl font-semibold app-text">{plan.price_label}</p>
+          {current && <span className="rounded-md bg-green-500/10 px-2 py-1 text-[10px] font-semibold uppercase text-green-700 dark:text-green-300">{t('currentPlan')}</span>}
         </div>
-        {plan.recommended && <span className="rounded-md bg-indigo-600 px-2 py-1 text-[10px] font-semibold uppercase text-white">{t('recommended')}</span>}
-      </div>
-      <div className="mt-5 space-y-2 text-sm app-text-soft">
-        <p>{formatLimit(plan.monthly_conversations, t)} {t('conversationsPerMonth')}</p>
-        <p>{formatLimit(plan.monthly_ai_messages, t)} {t('aiMessagesPerMonth')}</p>
-        <p>{formatLimit(plan.monthly_bookings, t)} {t('bookingsPerMonth')}</p>
-      </div>
-      <div className="mt-5 space-y-2 text-sm app-text-soft">
-        {(plan.features ?? []).map((feature) => (
-          <div key={feature} className="flex gap-2">
-            <Check className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
-            <span>
-              <span>{planItemLabel(feature, t)}</span>
-              {feature === 'Chat + Voice' && <span className="mt-0.5 block text-xs leading-5 app-text-muted">{t('chatVoiceClarification')}</span>}
-            </span>
-          </div>
-        ))}
-        {plan.key === 'voice' && <p className="text-[10px] font-semibold leading-4 text-indigo-600 dark:text-indigo-300">* {t('aiPhoneBilledPerMinute')}</p>}
-      </div>
-      {plan.contact_sales && (
-        <p className="mt-5 rounded-md bg-indigo-500/10 px-3 py-2 text-sm font-medium text-indigo-700 dark:text-indigo-300">{t('contactUs')}</p>
-      )}
-      {current && <p className="mt-5 rounded-md bg-green-500/10 px-3 py-2 text-sm font-medium text-green-700 dark:text-green-300">{t('currentPlan')}</p>}
-    </Card>
+        <p className="mt-3 max-w-xs text-xs leading-5 app-text-muted">{planDescription(plan, t)}</p>
+        <div className="mt-3 space-y-1 text-xs app-text-muted">
+          <p>{formatLimit(plan.monthly_conversations, t)} {t('conversationsPerMonth')}</p>
+          <p>{formatLimit(plan.monthly_ai_messages, t)} {t('aiMessagesPerMonth')}</p>
+          <p>{formatLimit(plan.monthly_bookings, t)} {t('bookingsPerMonth')}</p>
+        </div>
+      </td>
+      <BillingCapability included={planHasAiBookings(plan)} detail={`${formatLimit(plan.monthly_bookings, t)} ${t('bookings').toLowerCase()}`} />
+      <BillingCapability included={Boolean(plan.widgets_enabled)} detail={`${formatLimit(plan.monthly_conversations, t)} ${t('conversations').toLowerCase()}`} />
+      <BillingCapability included={Boolean(plan.whatsapp_enabled)} detail={plan.whatsapp_enabled ? whatsappDetail(plan, t) : undefined} />
+      <BillingCapability included={Boolean(plan.phone_enabled)} detail={plan.phone_enabled ? plan.phone_minutes_label || undefined : undefined} />
+      <td className="whitespace-nowrap px-4 pb-4 pt-16 align-top font-semibold app-text">
+        {priceLabel(plan, billingCycle)}
+        {billingCycle === 'annual' && monthlyPrice(plan) !== null && (
+          <span className="mt-1 block text-xs font-bold text-red-600">-{annualDiscountPercent()}%</span>
+        )}
+      </td>
+    </tr>
   );
+}
+
+function priceLabel(plan: Plan, billingCycle: 'monthly' | 'annual') {
+  const monthly = monthlyPrice(plan);
+
+  if (monthly === null) {
+    return plan.price_label.replace('/lună', '');
+  }
+
+  const value = billingCycle === 'annual' ? monthly * 10 : monthly;
+
+  return `${new Intl.NumberFormat('ro-RO').format(value)} RON`;
+}
+
+function monthlyPrice(plan: Plan) {
+  const match = plan.price_label.match(/^([\d.]+)\s+RON/);
+  if (! match) return null;
+
+  return Number(match[1].replaceAll('.', ''));
+}
+
+function annualDiscountPercent() {
+  return Math.round(((12 - 10) / 12) * 100);
+}
+
+function BillingCapability({ included, detail }: { included: boolean; detail?: string }) {
+  return (
+    <td className="px-4 pb-4 pt-12 text-center align-top">
+      {included ? <Check className="mx-auto h-5 w-5 text-green-600" /> : <span className="text-lg app-text-muted">—</span>}
+      {detail && <span className="mt-1 block whitespace-nowrap text-[11px] leading-4 app-text-muted">{detail}</span>}
+    </td>
+  );
+}
+
+function canonicalPlanKey(key?: string | null) {
+  const aliases: Record<string, string> = {
+    connect: 'chat_whatsapp',
+    voice: 'voice_starter',
+    enterprise: 'voice_pro',
+  };
+
+  return key ? aliases[key] ?? key : 'free';
+}
+
+function planDescription(plan: Plan, t: TranslateFn) {
+  return t(`planDescription_${plan.key}`) || plan.short_description_ro || plan.short_description_en || plan.description || '';
+}
+
+function planHasAiBookings(plan: Plan) {
+  return Boolean(plan.ai_bookings_enabled || plan.features?.some((feature) => ['AI booking requests', 'Programări AI'].includes(feature)));
+}
+
+function whatsappDetail(plan: Plan, t: TranslateFn, locale?: string) {
+  return `${formatLimit(plan.monthly_whatsapp_messages ?? null, t)} ${t('messages')}`;
 }
 
 function planDisplayLabel(plan: Plan, t: TranslateFn) {
@@ -1611,10 +1733,14 @@ function planItemLabel(value: string, t: TranslateFn) {
     'Website chat': t('websiteChat'),
     'Chat + Voice': t('chatVoice'),
     'Phone AI': t('phoneAi'),
+    'Telefon AI': t('phoneAi'),
     'Custom integrations': t('customIntegrations'),
+    'Dashboard': t('dashboardAccess'),
     'Dashboard access': t('dashboardAccess'),
+    'Programări AI': t('aiBookingRequests'),
     'AI booking requests': t('aiBookingRequests'),
     'Availability checks': t('availabilityChecks'),
+    'Notificări email pentru programări': t('emailBookingNotifications'),
     'Email booking notifications': t('emailBookingNotifications'),
     'WhatsApp assistant': t('whatsappAssistant'),
     'AI phone answering': t('aiPhoneAnswering'),
@@ -3843,7 +3969,7 @@ function BookingsDayCards({
                   <p className="hidden">
                     {[booking.service?.name || `Serviciu #${booking.service_id}`, booking.service?.type].filter(Boolean).join(' \u2022 ')}
                   </p>
-                  <p className="text-xs font-medium app-text-muted">
+                  <div className="flex flex-wrap items-center text-xs font-medium app-text-muted">
                     <span>{booking.service?.type || t('general')}</span>
                     <span className="mx-1.5 app-text-muted" aria-hidden="true">{'\u2022'}</span>
                     <span>{booking.service?.name || `Serviciu #${booking.service_id}`}</span>
@@ -3853,11 +3979,14 @@ function BookingsDayCards({
                     </>}
                     <span className="mx-1.5 app-text-muted" aria-hidden="true">{'\u2022'}</span>
                     <span>{booking.location?.name || t('noLocation')}</span>
-                  </p>
+                    {!!booking.service?.notes && <>
+                      <span className="mx-1.5 app-text-muted" aria-hidden="true">{'\u2022'}</span>
+                      <ServiceNotesPill notes={booking.service.notes} />
+                    </>}
+                  </div>
                   {bookingStaffLabel(booking) && (
                     <p className="text-xs app-text-muted">{t('assignedStaff')}: {bookingStaffLabel(booking)}</p>
                   )}
-                  {!!booking.service?.notes && <ServiceNotesPill notes={booking.service.notes} />}
                 </div>
                 <div className="flex items-center justify-start gap-2 lg:justify-end">
                   {(booking.status === 'pending' || booking.status === 'cancelled') && (
