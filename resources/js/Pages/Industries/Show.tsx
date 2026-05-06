@@ -36,47 +36,53 @@ export default function IndustryShow() {
         <meta name="description" content={locale === 'ro' ? content.pageFocus : seo.description} />
       </Head>
 
-      <PublicHeader
-        authUserName={auth.user?.name}
-        locale={locale}
-        onLanguageChange={switchLang}
-        startLabel={t('start')}
-        industriesLabel={t('industriesNav')}
-        pricingLabel={t('pricing')}
-      />
+      <div className="relative overflow-hidden">
+        <IndustryImage slug={businessType.slug} label={businessType.label} />
 
-      <section className="mx-auto grid max-w-6xl gap-10 px-6 py-14 lg:grid-cols-[1fr_0.9fr] lg:items-center">
-        <div>
-          <p className="mb-4 inline-flex rounded-md bg-indigo-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-indigo-700">{businessType.label}</p>
-          <h1 className="max-w-3xl text-5xl font-bold tracking-tight app-text md:text-6xl">{content.title}</h1>
-          <p className="mt-6 max-w-2xl text-lg leading-8 app-text-soft">{content.pageFocus}</p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/register" className="rounded-lg bg-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-indigo-700">{t('start')}</Link>
-            <Link href="/" className="rounded-lg border px-5 py-3 text-sm font-bold hover:bg-[var(--soft)] app-border">{t('industryViewDemo')}</Link>
-          </div>
-        </div>
+        <div className="relative z-10">
+          <PublicHeader
+            authUserName={auth.user?.name}
+            locale={locale}
+            onLanguageChange={switchLang}
+            startLabel={t('start')}
+            industriesLabel={t('industriesNav')}
+            pricingLabel={t('pricing')}
+          />
 
-        <div className="rounded-2xl border p-6 shadow-xl app-panel">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-indigo-600 text-white">
-              <Bot className="h-6 w-6" />
-            </div>
+          <section className="mx-auto grid max-w-6xl gap-10 px-6 py-14 lg:grid-cols-[1fr_0.9fr] lg:items-center">
             <div>
-              <p className="text-sm font-bold app-text">{t('industryCurrentMode')}</p>
-              <p className="text-sm app-text-muted">{t('industryAppointmentHandling')}</p>
+              <p className="mb-4 inline-flex rounded-md bg-indigo-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-indigo-700">{businessType.label}</p>
+              <h1 className="max-w-3xl text-5xl font-bold tracking-tight app-text md:text-6xl">{content.title}</h1>
+              <p className="mt-6 max-w-2xl text-lg leading-8 app-text-soft">{content.pageFocus}</p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Link href="/register" className="rounded-lg bg-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-indigo-700">{t('start')}</Link>
+                <Link href="/" className="rounded-lg border px-5 py-3 text-sm font-bold hover:bg-[var(--soft)] app-border">{t('industryViewDemo')}</Link>
+              </div>
             </div>
-          </div>
-          <p className="mt-5 text-sm leading-6 app-text-soft">
-            {hasFutureReservation
-              ? t('industryReservationLater')
-              : hasFutureLead
-                ? t('industryLeadLater')
-                : t('industryAppointmentNow')}
-          </p>
-        </div>
-      </section>
 
-      <section className="mx-auto max-w-6xl px-6 pb-20">
+            <div className="rounded-2xl border p-6 shadow-xl app-panel">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-indigo-600 text-white">
+                  <Bot className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold app-text">{t('industryCurrentMode')}</p>
+                  <p className="text-sm app-text-muted">{t('industryAppointmentHandling')}</p>
+                </div>
+              </div>
+              <p className="mt-5 text-sm leading-6 app-text-soft">
+                {hasFutureReservation
+                  ? t('industryReservationLater')
+                  : hasFutureLead
+                    ? t('industryLeadLater')
+                    : t('industryAppointmentNow')}
+              </p>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <section className="mx-auto max-w-6xl px-6 pb-20 mt-20">
         <div className="grid gap-5 md:grid-cols-3">
           <InfoCard icon={HelpCircle} title={t('industryWhatClientsAsk')}>
             <ul className="space-y-3 text-sm app-text-soft">
@@ -116,6 +122,21 @@ export default function IndustryShow() {
       </section>
       <PublicFooter t={t} />
     </main>
+  );
+}
+
+function IndustryImage({ slug, label }: { slug: string; label: string }) {
+  return (
+    <div className="absolute inset-0 z-0 bg-slate-200 dark:bg-white/10" aria-hidden="true">
+      <img
+        src={`/images/industries/${slug}.webp`}
+        alt={label}
+        className="h-full w-full object-cover opacity-25"
+        onError={(event) => {
+          event.currentTarget.style.opacity = '0';
+        }}
+      />
+    </div>
   );
 }
 

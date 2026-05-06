@@ -1,12 +1,14 @@
 ﻿import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { AlertModal, Badge, Button, Card, ConfirmationModal, DangerButton, Field, Input, SecondaryButton, ThemeToggle } from '@/Components/Ui';
+import type { ActivityChartRow } from '@/Components/ActivityChart';
 import { Booking, Conversation, Location as SalonLocation, OnboardingChecklist, OnboardingStep, OverviewData, PageProps, Plan, Salon, Service, Staff, UsageSummary, User as AuthUser } from '@/types';
 import { AlertTriangle, Bell, Bot, Building2, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, CreditCard, Download, ExternalLink, FileText, Globe2, LayoutDashboard, List, LogOut, MapPin, Menu, MessageCircle, MessageSquare, Pencil, Phone, Plus, QrCode, Save, Scissors, Search, Settings, Smartphone, Sparkles, Trash2, User, Users, Volume2, X, XCircle } from 'lucide-react';
 import { SiWhatsapp } from 'react-icons/si';
-import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, lazy, ReactNode, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { businessTaxonomy, findBusinessType, normalizeBusinessTypeSlug } from '@/data/businessTaxonomy';
+
+const ActivityChart = lazy(() => import('@/Components/ActivityChart'));
 
 type Props = PageProps<{
   section: 'overview' | 'onboarding' | 'ai-settings' | 'conversations' | 'chat-audio' | 'voice-calls' | 'whatsapp' | 'locations' | 'staff' | 'services' | 'bookings' | 'widget' | 'billing' | 'settings';
@@ -29,13 +31,12 @@ const nav = [
   { id: 'onboarding', label: 'setup', href: '/dashboard/onboarding', icon: List },
   { id: 'ai-settings', label: 'aiSettings', href: '/dashboard/ai-settings', icon: Sparkles, dividerAfter: true },
   { id: 'conversations', label: 'conversations', href: '/dashboard/conversations', icon: MessageSquare },
-  { id: 'chat-audio', label: 'chatAudio', href: '/dashboard/chat-audio', icon: Volume2 },
-  { id: 'voice-calls', label: 'voiceCalls', href: '/dashboard/voice-calls', icon: Phone },
+  { id: 'widget', label: 'chat', href: '/dashboard/widget', icon: MessageCircle },
   { id: 'whatsapp', label: 'whatsapp', href: '/dashboard/whatsapp', icon: MessageCircle },
-  { id: 'widget', label: 'widget', href: '/dashboard/widget', icon: QrCode, dividerAfter: true },
+  { id: 'voice-calls', label: 'voiceCalls', href: '/dashboard/voice-calls', icon: Phone, dividerAfter: true },
   { id: 'locations', label: 'locations', href: '/dashboard/locations', icon: MapPin },
   { id: 'staff', label: 'staff', href: '/dashboard/staff', icon: Users },
-  { id: 'services', label: 'services', href: '/dashboard/services', icon: Scissors },
+  { id: 'services', label: 'services', href: '/dashboard/services', icon: Scissors, dividerAfter: true },
   { id: 'bookings', label: 'bookings', href: '/dashboard/bookings', icon: Calendar },
   { id: 'billing', label: 'billing', href: '/dashboard/billing', icon: CreditCard },
 ];
@@ -59,7 +60,7 @@ export default function DashboardIndex() {
     staff: t('staffSubtitle'),
     services: t('servicesSubtitle'),
     bookings: t('bookingsSubtitle'),
-    widget: t('widgetSubtitle'),
+    widget: t('chatAudioSubtitle'),
     billing: t('billingSubtitle'),
     settings: t('settingsSubtitle'),
   };
@@ -83,15 +84,25 @@ export default function DashboardIndex() {
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
     if (section !== 'conversations' && section !== 'overview') return;
-    pollingRef.current = setInterval(() => {
+
+    function refreshDashboardData() {
+      if (document.hidden) return;
+
       router.visit(window.location.href, {
         only: ['salon', 'overview'],
         preserveScroll: true,
         preserveState: true,
         replace: true,
       });
-    }, 5000);
-    return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
+    }
+
+    pollingRef.current = setInterval(refreshDashboardData, 5000);
+    document.addEventListener('visibilitychange', refreshDashboardData);
+
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      document.removeEventListener('visibilitychange', refreshDashboardData);
+    };
   }, [section]);
 
   function switchLanguage(displayLanguage: 'ro' | 'en') {
@@ -180,7 +191,7 @@ export default function DashboardIndex() {
           {section === 'staff' && <StaffManagement salon={salon} query={query} />}
           {section === 'services' && <Services salon={salon} query={query} />}
           {section === 'bookings' && <Bookings salon={salon} query={query} />}
-          {section === 'widget' && <WidgetSettings salon={salon} />}
+          {section === 'widget' && <WidgetSettings salon={salon} query={query} />}
           {section === 'billing' && <BillingPage billing={billing} currentPlan={salon.plan ?? 'free'} />}
           {section === 'settings' && <SettingsPage salon={salon} />}
         </div>
@@ -258,8 +269,33 @@ function NavCountBadge({ count }: { count: number }) {
 
 function DashboardSidebarContent({ salon, section, user, t, onboarding, onNavigate }: { salon: Salon; section: Props['section']; user: AuthUser | null; t: TranslateFn; onboarding: OnboardingChecklist; onNavigate?: () => void }) {
   const [accountOpen, setAccountOpen] = useState(false);
+  const accountRef = useRef<HTMLDivElement>(null);
   const pendingBookingsCount = salon.bookings.filter((booking) => booking.status === 'pending').length;
   const remainingSetupCount = onboarding.steps.filter((step) => !step.completed && !step.coming_soon).length;
+
+  useEffect(() => {
+    if (!accountOpen) return;
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!accountRef.current?.contains(event.target as Node)) {
+        setAccountOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setAccountOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [accountOpen]);
 
   return (
     <>
@@ -269,6 +305,7 @@ function DashboardSidebarContent({ salon, section, user, t, onboarding, onNaviga
           const active = item.id === section;
           return (
             <div key={item.id}>
+              {item.dividerBefore && <div className="mx-3 my-3 h-0.5 rounded-full bg-white/25" />}
               <Link
                 href={item.href}
                 onClick={onNavigate}
@@ -284,15 +321,15 @@ function DashboardSidebarContent({ salon, section, user, t, onboarding, onNaviga
             </div>
           );
         })}
-      </nav>
-      <div className="shrink-0 border-t border-white/10 p-4">
-        <div className="relative">
+
+        <div className="relative" ref={accountRef}>
           {accountOpen && (
-            <div className="absolute bottom-full left-0 right-0 mb-2 rounded-lg border border-white/10 bg-slate-950 p-1 shadow-2xl">
+            <div className="absolute bottom-full left-0 right-0 mb-2 rounded-lg border border-white/10 bg-slate-950 p-1 shadow-2xl" role="menu">
               <Link
                 href="/dashboard/settings"
                 onClick={onNavigate}
                 className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-bold transition ${section === 'settings' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-white/10 hover:text-white'}`}
+                role="menuitem"
               >
                 <Settings className="h-4 w-4" />
                 {t('settings')}
@@ -301,6 +338,7 @@ function DashboardSidebarContent({ salon, section, user, t, onboarding, onNaviga
                 type="button"
                 onClick={() => router.post('/logout')}
                 className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-bold text-slate-300 transition hover:bg-red-500/10 hover:text-red-300"
+                role="menuitem"
               >
                 <LogOut className="h-4 w-4" />
                 {t('logout')}
@@ -311,6 +349,8 @@ function DashboardSidebarContent({ salon, section, user, t, onboarding, onNaviga
           <button
             type="button"
             onClick={() => setAccountOpen((open) => !open)}
+            aria-expanded={accountOpen}
+            aria-haspopup="menu"
             className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left hover:bg-white/10"
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10 text-sm font-bold text-white">
@@ -322,7 +362,7 @@ function DashboardSidebarContent({ salon, section, user, t, onboarding, onNaviga
             </span>
           </button>
         </div>
-      </div>
+      </nav>
     </>
   );
 }
@@ -383,13 +423,14 @@ function HeaderSearch({ query, onChange, placeholder }: { query: string; onChang
           value={query}
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
+          aria-label={placeholder}
         />
         {query.length >= 3 && (
           <button
             type="button"
             aria-label="Clear search"
             onClick={() => onChange('')}
-            className="absolute right-3 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center app-text-muted transition hover:app-text"
+            className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md app-text-muted transition hover:app-text"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -414,7 +455,7 @@ function HeaderSearch({ query, onChange, placeholder }: { query: string; onChang
                 type="button"
                 aria-label="Close search"
                 onClick={() => setOpen(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-lg app-text-soft hover:bg-[var(--app-panel-soft)]"
+                className="flex h-11 w-11 items-center justify-center rounded-lg app-text-soft hover:bg-[var(--app-panel-soft)]"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -427,6 +468,7 @@ function HeaderSearch({ query, onChange, placeholder }: { query: string; onChang
                 value={query}
                 onChange={(event) => onChange(event.target.value)}
                 placeholder={placeholder}
+                aria-label={placeholder}
               />
             </div>
           </div>
@@ -436,12 +478,14 @@ function HeaderSearch({ query, onChange, placeholder }: { query: string; onChang
   );
 }
 
-function WidgetSettings({ salon }: { salon: Salon }) {
+function WidgetSettings({ salon, query }: { salon: Salon; query: string }) {
   const t = useT();
   const { appUrl } = usePage<Props>().props;
   const embedCode = `<script async src="${appUrl}/widget/${salon.widget_key}.js"></script>`;
   const [domainsText, setDomainsText] = useState((salon.widget_allowed_domains ?? []).join('\n'));
   const [copied, setCopied] = useState(false);
+  const conversations = filterChatAudioConversations(salon.conversations, query);
+  const stats = chatAudioStats(salon.conversations);
   const form = useForm({
     widget_enabled: Boolean(salon.widget_enabled ?? true),
     widget_allowed_domains: salon.widget_allowed_domains ?? [],
@@ -469,6 +513,24 @@ function WidgetSettings({ salon }: { salon: Salon }) {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <SecondaryButton
+          type="button"
+          disabled={conversations.length === 0}
+          onClick={() => exportConversationsCsv(conversations, 'chat-audio-conversations', salon.timezone)}
+        >
+          <Download className="h-4 w-4" />
+          {t('exportCsv')}
+        </SecondaryButton>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <ChannelStat icon={MessageSquare} value={stats.total} label={t('totalChat')} tone="blue" />
+        <ChannelStat icon={Volume2} value={stats.audio} label={t('audio')} tone="purple" />
+        <ChannelStat icon={CheckCircle2} value={stats.completed} label={t('completedChats')} tone="green" />
+        <ChannelStat icon={XCircle} value={stats.abandoned} label={t('abandonedChats')} tone="slate" />
+      </div>
+
       <Card className="p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -506,12 +568,13 @@ function WidgetSettings({ salon }: { salon: Salon }) {
       <form onSubmit={submit}>
         <Card className="p-6">
           <div className="flex flex-col gap-2">
-            <h2 className="text-xl font-bold app-text">{t('installWidgetTitle')}</h2>
+            <h2 className="text-xl font-bold app-text">{t('widgetSettings')}</h2>
             <p className="max-w-2xl text-sm app-text-muted">{t('installWidgetHelp')}</p>
             <p className="text-sm font-medium app-text-soft">{t('widgetUsesConfiguredRules')}</p>
           </div>
 
           <div className="mt-6 rounded-lg border p-4 app-panel-soft app-border">
+            <p className="mb-3 text-sm font-bold app-text">{t('embedCode')}</p>
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <code className="block min-w-0 overflow-x-auto whitespace-nowrap rounded-md px-3 py-2 text-xs font-bold app-panel app-text">{embedCode}</code>
               <SecondaryButton type="button" onClick={copyEmbedCode}>{copied ? t('copied') : t('copyCode')}</SecondaryButton>
@@ -1184,7 +1247,7 @@ function InlineMarkdown({ text }: { text: string }) {
   return <>{text.replaceAll('**', '')}</>;
 }
 
-function buildActivityChart(conversations: Conversation[], range: 'week' | 'month', baseDate = new Date()) {
+function buildActivityChart(conversations: Conversation[], range: 'week' | 'month', baseDate = new Date()): ActivityChartRow[] {
   const today = new Date();
   const start = range === 'week'
     ? startOfWeek(today)
@@ -1268,7 +1331,7 @@ function activitySeriesLabels(t: TranslateFn): Record<string, string> {
 function ActivityLegendItem({ color, label }: { color: string; label: string }) {
   return (
     <span className="inline-flex items-center gap-2">
-      <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: color }} />
+      <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: `var(${color})` }} />
       {label}
     </span>
   );
@@ -1434,54 +1497,44 @@ function Overview({ salon, overview, onboarding }: { salon: Salon; overview: Ove
             <div className="flex flex-wrap items-center gap-2">
               {activityRange === 'month' && (
                 <div className="inline-flex items-center rounded-lg border p-1 app-panel">
-                  <button type="button" onClick={() => changeActivityMonth(-1)} className="flex h-8 w-8 items-center justify-center rounded-md app-text-muted hover:bg-[var(--app-panel-soft)]" aria-label={t('previousMonth')}>
+                  <button type="button" onClick={() => changeActivityMonth(-1)} className="flex h-11 w-11 items-center justify-center rounded-md app-text-muted hover:bg-[var(--app-panel-soft)]" aria-label={t('previousMonth')}>
                     <ChevronLeft className="h-4 w-4" />
                   </button>
                   <span className="min-w-36 px-3 text-center text-xs font-bold capitalize app-text-soft">{activityMonthLabel}</span>
-                  <button type="button" onClick={() => changeActivityMonth(1)} className="flex h-8 w-8 items-center justify-center rounded-md app-text-muted hover:bg-[var(--app-panel-soft)]" aria-label={t('nextMonth')}>
+                  <button type="button" onClick={() => changeActivityMonth(1)} className="flex h-11 w-11 items-center justify-center rounded-md app-text-muted hover:bg-[var(--app-panel-soft)]" aria-label={t('nextMonth')}>
                     <ChevronRight className="h-4 w-4" />
                   </button>
                 </div>
               )}
-              <div className="inline-flex rounded-lg border p-1 app-panel">
+              <div className="inline-flex rounded-lg border p-1 app-panel" role="group" aria-label={t('activityReport')}>
                 <button
                   type="button"
                   onClick={() => setActivityRange('week')}
-                  className={`h-8 rounded-md px-3 text-xs font-bold transition ${activityRange === 'week' ? 'bg-indigo-600 text-white' : 'app-text-muted hover:bg-[var(--app-panel-soft)]'}`}
+                  aria-pressed={activityRange === 'week'}
+                  className={`h-11 rounded-md px-3 text-xs font-bold transition ${activityRange === 'week' ? 'bg-indigo-600 text-white' : 'app-text-muted hover:bg-[var(--app-panel-soft)]'}`}
                 >
                   {t('week')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setActivityRange('month')}
-                  className={`h-8 rounded-md px-3 text-xs font-bold transition ${activityRange === 'month' ? 'bg-indigo-600 text-white' : 'app-text-muted hover:bg-[var(--app-panel-soft)]'}`}
+                  aria-pressed={activityRange === 'month'}
+                  className={`h-11 rounded-md px-3 text-xs font-bold transition ${activityRange === 'month' ? 'bg-indigo-600 text-white' : 'app-text-muted hover:bg-[var(--app-panel-soft)]'}`}
                 >
                   {t('month')}
                 </button>
               </div>
             </div>
           </div>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chart}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                <XAxis dataKey="label" tickLine={false} axisLine={false} interval={activityRange === 'month' ? 2 : 0} />
-                <YAxis tickLine={false} axisLine={false} allowDecimals={false} />
-                <Tooltip formatter={(value, name) => [value, activitySeriesLabels(t)[String(name)] ?? name]} />
-                <Bar dataKey="phoneDone" stackId="activity" fill="#2563eb" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="chatWhatsDone" stackId="activity" fill="#16a34a" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="chatAudioDone" stackId="activity" fill="#7c3aed" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="inProgress" stackId="activity" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="abandoned" stackId="activity" fill="#94a3b8" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <Suspense fallback={<div className="h-72 rounded-lg app-panel-soft" aria-hidden="true" />}>
+            <ActivityChart data={chart} labels={activitySeriesLabels(t)} range={activityRange} title={t('activityReport')} />
+          </Suspense>
           <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs font-bold app-text-muted">
-            <ActivityLegendItem color="#2563eb" label={t('phoneCalls')} />
-            <ActivityLegendItem color="#16a34a" label={t('chatWhats')} />
-            <ActivityLegendItem color="#7c3aed" label={t('chatAudio')} />
-            <ActivityLegendItem color="#f59e0b" label={t('inProgress')} />
-            <ActivityLegendItem color="#94a3b8" label={t('intentAbandoned')} />
+            <ActivityLegendItem color="--chart-phone" label={t('phoneCalls')} />
+            <ActivityLegendItem color="--chart-whatsapp" label={t('chatWhats')} />
+            <ActivityLegendItem color="--chart-chat-audio" label={t('chatAudio')} />
+            <ActivityLegendItem color="--chart-progress" label={t('inProgress')} />
+            <ActivityLegendItem color="--chart-abandoned" label={t('intentAbandoned')} />
           </div>
         </Card>
         <Card className="p-5">
@@ -1592,18 +1645,20 @@ function BillingPage({ billing, currentPlan }: { billing: { summary: UsageSummar
       </Card>
 
       <div className="flex justify-end">
-        <div className="inline-flex rounded-lg border p-1 app-border app-panel">
+        <div className="inline-flex rounded-lg border p-1 app-border app-panel" role="group" aria-label={t('price')}>
           <button
             type="button"
             onClick={() => setBillingCycle('monthly')}
-            className={`h-9 rounded-md px-4 text-sm font-semibold transition ${billingCycle === 'monthly' ? 'bg-indigo-600 text-white' : 'app-text-soft hover:bg-[var(--app-panel-soft)]'}`}
+            aria-pressed={billingCycle === 'monthly'}
+            className={`h-11 rounded-md px-4 text-sm font-semibold transition ${billingCycle === 'monthly' ? 'bg-indigo-600 text-white' : 'app-text-soft hover:bg-[var(--app-panel-soft)]'}`}
           >
             {t('monthly')}
           </button>
           <button
             type="button"
             onClick={() => setBillingCycle('annual')}
-            className={`h-9 rounded-md px-4 text-sm font-semibold transition ${billingCycle === 'annual' ? 'bg-indigo-600 text-white' : 'app-text-soft hover:bg-[var(--app-panel-soft)]'}`}
+            aria-pressed={billingCycle === 'annual'}
+            className={`h-11 rounded-md px-4 text-sm font-semibold transition ${billingCycle === 'annual' ? 'bg-indigo-600 text-white' : 'app-text-soft hover:bg-[var(--app-panel-soft)]'}`}
           >
             {t('annual')}
           </button>
@@ -1660,7 +1715,7 @@ function BillingPlanRow({ plan, current, billingCycle }: { plan: Plan; current?:
       <BillingCapability included={Boolean(plan.widgets_enabled)} detail={`${formatLimit(plan.monthly_conversations, t)} ${t('conversations').toLowerCase()}`} />
       <BillingCapability included={Boolean(plan.whatsapp_enabled)} detail={plan.whatsapp_enabled ? whatsappDetail(plan, t) : undefined} />
       <BillingCapability included={Boolean(plan.phone_enabled)} detail={plan.phone_enabled ? plan.phone_minutes_label || undefined : undefined} />
-      <td className="whitespace-nowrap px-4 pb-4 pt-16 align-top font-semibold app-text">
+      <td className="whitespace-nowrap px-4 py-4 align-middle font-semibold app-text">
         {priceLabel(plan, billingCycle)}
         {billingCycle === 'annual' && monthlyPrice(plan) !== null && (
           <span className="mt-1 block text-xs font-bold text-red-600">-{annualDiscountPercent()}%</span>
@@ -1695,7 +1750,7 @@ function annualDiscountPercent() {
 
 function BillingCapability({ included, detail }: { included: boolean; detail?: string }) {
   return (
-    <td className="px-4 pb-4 pt-12 text-center align-top">
+    <td className="px-4 py-4 text-center align-middle">
       {included ? <Check className="mx-auto h-5 w-5 text-green-600" /> : <span className="text-lg app-text-muted">—</span>}
       {detail && <span className="mt-1 block whitespace-nowrap text-[11px] leading-4 app-text-muted">{detail}</span>}
     </td>
@@ -3421,9 +3476,8 @@ function StaffPicker({ staffOptions, selectedStaff, onChange, emptyLabel }: { st
   );
 }
 
-function ChatAudio({ salon, query }: { salon: Salon; query: string }) {
-  const t = useT();
-  const conversations = salon.conversations.filter((conversation) => {
+function filterChatAudioConversations(conversations: Conversation[], query: string) {
+  return conversations.filter((conversation) => {
     const haystack = [
       conversation.contact_name,
       conversation.contact_phone,
@@ -3435,12 +3489,21 @@ function ChatAudio({ salon, query }: { salon: Salon; query: string }) {
 
     return haystack.includes(query.trim().toLowerCase());
   });
-  const stats = {
-    total: salon.conversations.length,
-    audio: salon.conversations.filter((conversation) => conversation.channel === 'voice' || conversation.voice_input_used).length,
-    completed: salon.conversations.filter((conversation) => conversation.status === 'completed').length,
-    abandoned: salon.conversations.filter((conversation) => conversation.intent === 'abandoned').length,
+}
+
+function chatAudioStats(conversations: Conversation[]) {
+  return {
+    total: conversations.length,
+    audio: conversations.filter((conversation) => conversation.channel === 'voice' || conversation.voice_input_used).length,
+    completed: conversations.filter((conversation) => conversation.status === 'completed').length,
+    abandoned: conversations.filter((conversation) => conversation.intent === 'abandoned').length,
   };
+}
+
+function ChatAudio({ salon, query }: { salon: Salon; query: string }) {
+  const t = useT();
+  const conversations = filterChatAudioConversations(salon.conversations, query);
+  const stats = chatAudioStats(salon.conversations);
 
   return (
     <div className="space-y-6">
@@ -3990,24 +4053,24 @@ function BookingsDayCards({
                 </div>
                 <div className="flex items-center justify-start gap-2 lg:justify-end">
                   {(booking.status === 'pending' || booking.status === 'cancelled') && (
-                    <button type="button" onClick={() => onConfirm(booking)} className="inline-flex h-8 w-8 items-center justify-center app-text-soft transition hover:text-green-600">
+                    <button type="button" onClick={() => onConfirm(booking)} aria-label={t('confirmBooking')} title={t('confirmBooking')} className="inline-flex h-11 w-11 items-center justify-center rounded-lg app-text-soft transition hover:bg-[var(--app-panel-soft)] hover:text-green-600">
                       <CheckCircle2 className="h-4 w-4 text-green-600" />
                     </button>
                   )}
                   {booking.client_phone && (
-                    <a href={`tel:${booking.client_phone}`} aria-label={booking.client_phone} title={booking.client_phone} className="inline-flex h-8 w-8 items-center justify-center app-text-soft transition hover:text-green-600">
+                    <a href={`tel:${booking.client_phone}`} aria-label={booking.client_phone} title={booking.client_phone} className="inline-flex h-11 w-11 items-center justify-center rounded-lg app-text-soft transition hover:bg-[var(--app-panel-soft)] hover:text-green-600">
                       <Phone className="h-4 w-4" />
                     </a>
                   )}
                   {booking.status !== 'cancelled' && (
-                    <button type="button" onClick={() => onCancel(booking)} className="inline-flex h-8 w-8 items-center justify-center app-text-soft transition hover:text-red-600">
+                    <button type="button" onClick={() => onCancel(booking)} aria-label={t('cancelBooking')} title={t('cancelBooking')} className="inline-flex h-11 w-11 items-center justify-center rounded-lg app-text-soft transition hover:bg-[var(--app-panel-soft)] hover:text-red-600">
                       <XCircle className="h-4 w-4 text-red-600" />
                     </button>
                   )}
-                  <button type="button" onClick={() => onEdit(booking)} aria-label={t('editBooking')} title={t('editBooking')} className="inline-flex h-8 w-8 items-center justify-center app-text-soft transition hover:app-text">
+                  <button type="button" onClick={() => onEdit(booking)} aria-label={t('editBooking')} title={t('editBooking')} className="inline-flex h-11 w-11 items-center justify-center rounded-lg app-text-soft transition hover:bg-[var(--app-panel-soft)] hover:app-text">
                     <Pencil className="h-4 w-4" />
                   </button>
-                  <button type="button" onClick={() => onDelete(booking)} className="inline-flex h-8 w-8 items-center justify-center text-red-600 transition hover:text-red-700">
+                  <button type="button" onClick={() => onDelete(booking)} aria-label={t('deleteBooking')} title={t('deleteBooking')} className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-red-600 transition hover:bg-red-500/10 hover:text-red-700">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>

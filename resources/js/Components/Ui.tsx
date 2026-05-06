@@ -85,8 +85,8 @@ export function AlertModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-lg border p-6 shadow-xl app-panel">
-        <h2 className="mb-2 text-base font-bold app-text">{title}</h2>
+      <div className="w-full max-w-sm rounded-lg border p-6 shadow-xl app-panel" role="dialog" aria-modal="true" aria-labelledby="alert-modal-title">
+        <h2 id="alert-modal-title" className="mb-2 text-base font-bold app-text">{title}</h2>
         <p className="mb-6 text-sm app-text-soft">{message}</p>
         <div className="flex justify-end">
           <button
@@ -125,8 +125,8 @@ export function ConfirmationModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-lg border p-6 shadow-xl app-panel">
-        <h2 className="mb-2 text-base font-bold app-text">{title}</h2>
+      <div className="w-full max-w-sm rounded-lg border p-6 shadow-xl app-panel" role="dialog" aria-modal="true" aria-labelledby="confirmation-modal-title">
+        <h2 id="confirmation-modal-title" className="mb-2 text-base font-bold app-text">{title}</h2>
         <p className="mb-6 text-sm app-text-soft">{message}</p>
         <div className="flex justify-end gap-3">
           <button

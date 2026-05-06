@@ -18,4 +18,23 @@ export default defineConfig({
       '@': path.resolve(__dirname, 'resources/js'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+
+          if (id.includes('lucide-react') || id.includes('react-icons')) {
+            return 'vendor-icons';
+          }
+
+          if (id.includes('recharts') || id.includes('d3-')) {
+            return 'vendor-charts';
+          }
+
+          return undefined;
+        },
+      },
+    },
+  },
 });

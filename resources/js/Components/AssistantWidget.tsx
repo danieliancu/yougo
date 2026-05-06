@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { MessageSquarePlus, Mic, Minus, Send, Sparkles, User } from 'lucide-react';
+import { MessageSquarePlus, Mic, Minus, Send, Sparkles, Square, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { ChatShell } from '@/Components/ChatShell';
 import { Salon } from '@/types';
@@ -15,18 +15,6 @@ type KnownContact = {
   phone: string;
 };
 
-type SpeechRecognitionInstance = {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  onstart: (() => void) | null;
-  onend: (() => void) | null;
-  onerror: (() => void) | null;
-  onresult: ((event: any) => void) | null;
-  start: () => void;
-  stop: () => void;
-  abort: () => void;
-};
 
 function assistantName(salon: Salon): string {
   return salon.ai_assistant_name?.trim() || 'Bella';
@@ -166,6 +154,7 @@ export function AssistantWidget({
   const name = assistantName(salon);
   const conversationStorageKey = storageKey ?? String(salon.id);
   const endpoint = chatEndpoint ?? `/assistant/${salon.id}/chat`;
+  const transcribeEndpoint = `/assistant/${salon.id}/transcribe`;
   const fallbackMessage = salon.ai_handoff_message?.trim() || t('assistantFallback');
   const initialGreeting = useMemo(() => buildGreeting(salon, locale), [salon, locale]);
   const [messages, setMessages] = useState<Message[]>(() => storedMessages(conversationStorageKey) ?? [{ role: 'assistant', content: initialGreeting }]);
@@ -180,7 +169,7 @@ export function AssistantWidget({
   const highlightNewChat = shouldHighlightNewChat(messages);
   const scrollRef = useRef<HTMLDivElement>(null);
   const conversationIdRef = useRef<number | null>(conversationId);
-  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
 
   useEffect(() => { conversationIdRef.current = conversationId; }, [conversationId]);
 
@@ -201,17 +190,11 @@ export function AssistantWidget({
     stopVoiceInput();
   }, []);
 
-  function speechLang() {
-    return locale === 'en' ? 'en-GB' : 'ro-RO';
-  }
-
   function stopVoiceInput() {
-    if (recognitionRef.current) {
-      recognitionRef.current.onerror = null;
-      recognitionRef.current.onend = null;
-      recognitionRef.current.abort();
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
     }
-    recognitionRef.current = null;
+    mediaRecorderRef.current = null;
     setListening(false);
   }
 
@@ -301,40 +284,77 @@ export function AssistantWidget({
   }
 
   function startVoice() {
-    if (loading || listening) return;
+    if (loading) return;
 
-    stopVoiceInput();
+    if (listening) {
+      stopVoiceInput();
+      return;
+    }
 
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
+    if (!navigator.mediaDevices?.getUserMedia) {
       toast.error(t('browserNoSpeech'));
       return;
     }
 
-    const recognition = new SpeechRecognition() as SpeechRecognitionInstance;
-    recognitionRef.current = recognition;
-    recognition.lang = speechLang();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.onstart = () => setListening(true);
-    recognition.onend = () => {
-      recognitionRef.current = null;
-      setListening(false);
-    };
-    recognition.onerror = () => {
-      recognitionRef.current = null;
-      setListening(false);
-      toast.error(t('speechFailed'));
-    };
-    recognition.onresult = (event: any) => {
-      const transcript = event.results?.[0]?.[0]?.transcript;
-      if (transcript) {
-        void send(transcript, { voiceInput: true });
+    navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+      const chunks: BlobPart[] = [];
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm')
+          ? 'audio/webm'
+          : '';
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      mediaRecorderRef.current = recorder;
+      setListening(true);
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        mediaRecorderRef.current = null;
+        setListening(false);
+
+        if (chunks.length === 0) {
+          toast.error(t('speechFailed'));
+          return;
+        }
+
+        const mimeType = recorder.mimeType || 'audio/webm';
+        const blob = new Blob(chunks, { type: mimeType });
+        const formData = new FormData();
+        formData.append('audio', blob, 'recording.webm');
+
+        setLoading(true);
+        fetch(transcribeEndpoint, {
+          method: 'POST',
+          credentials: 'same-origin',
+          body: formData,
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.text) {
+              void send(data.text, { voiceInput: true });
+            } else {
+              setLoading(false);
+              toast.error(data.detail || t('speechFailed'));
+            }
+          })
+          .catch(() => {
+            setLoading(false);
+            toast.error(t('speechFailed'));
+          });
+      };
+
+      recorder.start(250);
+    }).catch((err: DOMException) => {
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        toast.error(t('speechNotAllowed'));
       } else {
         toast.error(t('speechFailed'));
       }
-    };
-    recognition.start();
+    });
   }
 
   return (
@@ -379,10 +399,10 @@ export function AssistantWidget({
             type="button"
             aria-label={t('voiceAgent')}
             onClick={startVoice}
-            disabled={loading || listening}
-            className={`flex h-10 w-10 items-center justify-center rounded-lg border transition app-panel app-text-soft hover:bg-[var(--app-panel-soft)] disabled:cursor-not-allowed disabled:opacity-50 ${listening ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700' : ''}`}
+            disabled={loading}
+            className={`flex h-10 w-10 items-center justify-center rounded-lg border transition disabled:cursor-not-allowed disabled:opacity-50 ${listening ? 'border-red-600 bg-red-600 text-white hover:bg-red-700' : 'app-panel app-text-soft hover:bg-[var(--app-panel-soft)]'}`}
           >
-            <Mic className="h-5 w-5" />
+            {listening ? <Square className="h-4 w-4 fill-current" /> : <Mic className="h-5 w-5" />}
           </button>
         </div>
       }

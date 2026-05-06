@@ -14,6 +14,7 @@ use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\StaffController;
+use App\Http\Controllers\TranscribeController;
 use App\Http\Controllers\WidgetController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -37,6 +38,7 @@ Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
 
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
+    Route::redirect('/dashboard/chat-audio', '/dashboard/widget')->name('dashboard.chat-audio.redirect');
     Route::get('/dashboard/{section}', DashboardController::class)
         ->whereIn('section', ['overview', 'onboarding', 'ai-settings', 'conversations', 'chat-audio', 'voice-calls', 'whatsapp', 'locations', 'staff', 'services', 'bookings', 'widget', 'billing', 'settings'])
         ->name('dashboard.section');
@@ -83,3 +85,6 @@ Route::post('/assistant/{salon}/chat', [AssistantController::class, 'chat'])
 Route::post('/assistant/{salon}/abandon', [AssistantController::class, 'abandon'])
     ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class)
     ->name('assistant.abandon');
+Route::post('/assistant/{salon}/transcribe', TranscribeController::class)
+    ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class)
+    ->name('assistant.transcribe');

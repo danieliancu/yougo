@@ -23,9 +23,9 @@ export default function Landing() {
   const t = (key: string, params?: Record<string, string | number>) => translate(locale, key, params);
 
   return (
-    <main className="min-h-screen app-bg">
+    <main className="min-h-screen app-bg landing-page-bg">
       <Head title={t('landingTitle')} />
-      <div className="min-[1600px]:border-b min-[1600px]:border-slate-200 min-[1600px]:bg-[url('/images/hero.png')] min-[1600px]:bg-cover min-[1600px]:bg-left min-[1600px]:bg-no-repeat min-[1600px]:dark:border-white">
+      <div className="landing-hero-bg min-[1600px]:border-b min-[1600px]:border-slate-200 min-[1600px]:dark:border-white/10">
         <PublicHeader
           authUserName={auth.user?.name}
           locale={locale}
@@ -191,7 +191,7 @@ function PricingSection({ plans, t, authUser, locale }: { plans: Plan[]; t: (key
                 <PricingCapability included={Boolean(plan.widgets_enabled)} detail={`${formatLandingLimit(plan.monthly_conversations, t)} ${t('conversations').toLowerCase()}`} />
                 <PricingCapability included={Boolean(plan.whatsapp_enabled)} detail={plan.whatsapp_enabled ? whatsappDetail(plan, t, locale) : undefined} />
                 <PricingCapability included={Boolean(plan.phone_enabled)} detail={plan.phone_enabled ? plan.phone_minutes_label || undefined : undefined} />
-                <td className="whitespace-nowrap px-4 pb-4 pt-16 align-top font-semibold app-text">
+                <td className="whitespace-nowrap px-4 py-4 align-middle font-semibold app-text">
                   {priceLabel(plan, billingCycle, t)}
                   {billingCycle === 'annual' && monthlyPrice(plan) !== null && (
                     <span className="mt-1 block text-xs font-bold text-red-600">-{annualDiscountPercent()}%</span>
@@ -236,7 +236,7 @@ function PricingHeader({ children, centered = false }: { children: ReactNode; ce
 
 function PricingCapability({ included, detail }: { included: boolean; detail?: string }) {
   return (
-    <td className="px-4 pb-4 pt-12 text-center align-top">
+    <td className="px-4 py-4 text-center align-middle">
       {included ? <Check className="mx-auto h-5 w-5 text-green-600" /> : <span className="text-lg app-text-muted">—</span>}
       {detail && <span className="mt-1 block whitespace-nowrap text-[11px] leading-4 app-text-muted">{detail}</span>}
     </td>

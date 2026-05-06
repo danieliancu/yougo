@@ -40,6 +40,11 @@ textarea {
   --app-primary: #4f46e5;
   --app-primary-hover: #4338ca;
   --app-focus: rgba(79, 70, 229, 0.18);
+  --chart-phone: #2563eb;
+  --chart-whatsapp: #16a34a;
+  --chart-chat-audio: #7c3aed;
+  --chart-progress: #f59e0b;
+  --chart-abandoned: #94a3b8;
 }
 
 .dark {
@@ -59,6 +64,11 @@ textarea {
   --app-primary: #6366f1;
   --app-primary-hover: #818cf8;
   --app-focus: rgba(99, 102, 241, 0.24);
+  --chart-phone: #60a5fa;
+  --chart-whatsapp: #34d399;
+  --chart-chat-audio: #a78bfa;
+  --chart-progress: #fbbf24;
+  --chart-abandoned: #94a3b8;
 }
 
 body {
@@ -105,6 +115,28 @@ body {
 .app-bg {
   background: var(--app-bg);
   color: var(--app-text);
+}
+
+.dark .landing-page-bg {
+  background: #000;
+}
+
+.landing-hero-bg {
+  background-color: transparent;
+  background-image: none;
+}
+
+.dark .landing-hero-bg {
+  background-color: #000;
+}
+
+@media (min-width: 1600px) {
+  .landing-hero-bg {
+    background-image: url('/images/hero.webp');
+    background-position: left bottom;
+    background-repeat: no-repeat;
+    background-size: auto 100%;
+  }
 }
 
 .app-shell {
@@ -369,4 +401,15 @@ body {
   transition-duration: 160ms;
   transition-property: background-color, border-color, color, fill, stroke;
   transition-timing-function: ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -187,6 +187,21 @@ class WidgetEmbedTest extends TestCase
     {
         $user = User::factory()->create();
         $salon = $user->salon()->create(['name' => 'YouGo Studio']);
+        $salon->conversations()->create([
+            'channel' => 'web_widget',
+            'status' => 'completed',
+            'intent' => 'booking',
+            'contact_name' => 'Ana Pop',
+            'last_message_at' => now(),
+        ]);
+        $salon->conversations()->create([
+            'channel' => 'chat',
+            'voice_input_used' => true,
+            'status' => 'completed',
+            'intent' => 'abandoned',
+            'contact_name' => 'Mihai Ionescu',
+            'last_message_at' => now(),
+        ]);
 
         $this->actingAs($user)
             ->get('/dashboard/widget')
@@ -196,7 +211,29 @@ class WidgetEmbedTest extends TestCase
                 ->where('section', 'widget')
                 ->where('salon.id', $salon->id)
                 ->where('salon.widget_key', $salon->widget_key)
+                ->has('salon.conversations', 2)
+                ->where('salon.conversations.1.voice_input_used', true)
+                ->where('salon.conversations.1.intent', 'abandoned')
             );
+    }
+
+    public function test_dashboard_navigation_uses_widget_as_chat_voice_section(): void
+    {
+        $dashboard = file_get_contents(resource_path('js/Pages/Dashboard/Index.tsx'));
+
+        $this->assertStringContainsString("{ id: 'widget', label: 'chat', href: '/dashboard/widget'", $dashboard);
+        $this->assertStringNotContainsString("href: '/dashboard/chat-audio'", $dashboard);
+        $this->assertStringNotContainsString("label: 'widget', href: '/dashboard/widget'", $dashboard);
+    }
+
+    public function test_legacy_chat_audio_dashboard_route_redirects_to_widget(): void
+    {
+        $user = User::factory()->create();
+        $user->salon()->create(['name' => 'YouGo Studio']);
+
+        $this->actingAs($user)
+            ->get('/dashboard/chat-audio')
+            ->assertRedirect('/dashboard/widget');
     }
 
     public function test_authenticated_user_can_update_widget_settings(): void
