@@ -44,6 +44,7 @@ class BookingNotificationService
             Log::warning('AI booking notification could not be sent.', [
                 'booking_id' => $booking->id,
                 'salon_id' => $salon->id,
+                'recipient_email' => $salon->notification_email,
                 'error' => $exception->getMessage(),
             ]);
         }

@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\Salon;
 use App\Models\User;
-use Illuminate\Support\Facades\Http;
+use App\Services\Assistant\AssistantMessageLocalizer;
+use Carbon\CarbonInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class AssistantWidgetTest extends TestCase
@@ -144,6 +146,8 @@ class AssistantWidgetTest extends TestCase
     public function test_chat_can_return_availability_slots_from_tool_call(): void
     {
         config(['services.gemini.key' => 'test-key']);
+        $date = now()->next(CarbonInterface::TUESDAY)->toDateString();
+
         Http::fake([
             '*' => Http::response([
                 'candidates' => [[
@@ -154,7 +158,7 @@ class AssistantWidgetTest extends TestCase
                                 'args' => [
                                     'location_id' => '1',
                                     'service_id' => '1',
-                                    'date' => '2026-05-05',
+                                    'date' => $date,
                                 ],
                             ],
                         ]],
@@ -182,14 +186,18 @@ class AssistantWidgetTest extends TestCase
             ],
         ]);
 
+        $dateLabel = app(AssistantMessageLocalizer::class)->dateLabel($salon->refresh(), $date);
+
         $response->assertOk()
-            ->assertJsonPath('message', 'Pentru marți, 5 mai, am găsit următoarele sloturi libere: 10:00, 10:30. Ce variantă preferi?')
+            ->assertJsonPath('message', "Pentru {$dateLabel}, am găsit următoarele sloturi libere: 10:00, 10:30. Ce variantă preferi?")
             ->assertJsonStructure(['message', 'conversation_id']);
     }
 
     public function test_chat_can_check_preferred_availability_time(): void
     {
         config(['services.gemini.key' => 'test-key']);
+        $date = now()->next(CarbonInterface::TUESDAY)->toDateString();
+
         Http::fake([
             '*' => Http::response([
                 'candidates' => [[
@@ -200,7 +208,7 @@ class AssistantWidgetTest extends TestCase
                                 'args' => [
                                     'location_id' => '1',
                                     'service_id' => '1',
-                                    'date' => '2026-05-05',
+                                    'date' => $date,
                                     'preferred_time' => '18:00',
                                 ],
                             ],
@@ -230,14 +238,18 @@ class AssistantWidgetTest extends TestCase
             ],
         ]);
 
+        $dateLabel = app(AssistantMessageLocalizer::class)->dateLabel($salon->refresh(), $date);
+
         $response->assertOk()
-            ->assertJsonPath('message', 'Ora 18:00 este disponibilă pentru marți, 5 mai. Vrei să continuăm cu această oră?')
+            ->assertJsonPath('message', "Ora 18:00 este disponibilă pentru {$dateLabel}. Vrei să continuăm cu această oră?")
             ->assertJsonStructure(['message', 'conversation_id']);
     }
 
     public function test_chat_returns_english_availability_message_when_ai_language_is_english(): void
     {
         config(['services.gemini.key' => 'test-key']);
+        $date = now()->next(CarbonInterface::TUESDAY)->toDateString();
+
         Http::fake([
             '*' => Http::response([
                 'candidates' => [[
@@ -248,7 +260,7 @@ class AssistantWidgetTest extends TestCase
                                 'args' => [
                                     'location_id' => '1',
                                     'service_id' => '1',
-                                    'date' => '2026-05-05',
+                                    'date' => $date,
                                     'after_time' => '15:00',
                                 ],
                             ],
@@ -270,13 +282,14 @@ class AssistantWidgetTest extends TestCase
             'duration' => 30,
             'location_ids' => [$location->id],
         ]);
+        $dateLabel = app(AssistantMessageLocalizer::class)->dateLabel($salon, $date);
 
         $this->postJson("/assistant/{$salon->id}/chat", [
             'messages' => [
                 ['role' => 'user', 'content' => 'What is available after 15:00 on Tuesday?'],
             ],
         ])->assertOk()
-            ->assertJsonPath('message', 'For Tuesday, 5 May, after 15:00, I found these available slots: 15:30, 16:00. Which one would you prefer?');
+            ->assertJsonPath('message', "For {$dateLabel}, after 15:00, I found these available slots: 15:30, 16:00. Which one would you prefer?");
     }
 
     public function test_existing_booking_conversation_does_not_create_duplicate_booking(): void

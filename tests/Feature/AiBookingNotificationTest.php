@@ -3,12 +3,18 @@
 namespace Tests\Feature;
 
 use App\Mail\NewAiBookingMail;
+use App\Mail\TestEmailMail;
 use App\Models\Salon;
 use App\Models\User;
 use App\Services\Booking\BookingCreator;
 use App\Services\Notifications\BookingNotificationService;
+use Carbon\CarbonInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use RuntimeException;
 use Tests\TestCase;
 
 class AiBookingNotificationTest extends TestCase
@@ -19,14 +25,14 @@ class AiBookingNotificationTest extends TestCase
     {
         Mail::fake();
         [$salon, $booking] = $this->createAiBooking([
-            'notification_email' => 'owner@example.com',
+            'notification_email' => 'programari@client-business.test',
             'email_notifications' => true,
             'booking_confirmations' => true,
         ]);
 
         app(BookingNotificationService::class)->sendAiBookingNotification($booking);
 
-        Mail::assertSent(NewAiBookingMail::class, fn ($mail) => $mail->hasTo('owner@example.com'));
+        Mail::assertSent(NewAiBookingMail::class, fn ($mail) => $mail->hasTo('programari@client-business.test'));
         $this->assertNotNull($booking->refresh()->notification_sent_at);
         $this->assertSame('ai_assistant', $booking->source);
         $this->assertSame($salon->id, $booking->salon_id);
@@ -96,6 +102,70 @@ class AiBookingNotificationTest extends TestCase
         Mail::assertNothingSent();
     }
 
+    public function test_booking_notification_does_not_use_mail_from_address_as_recipient(): void
+    {
+        Mail::fake();
+        Config::set('mail.from.address', 'notifications@yougo.test');
+        [, $booking] = $this->createAiBooking([
+            'notification_email' => 'programari@client-business.test',
+        ]);
+
+        app(BookingNotificationService::class)->sendAiBookingNotification($booking);
+
+        Mail::assertSent(NewAiBookingMail::class, fn ($mail) => $mail->hasTo('programari@client-business.test'));
+        Mail::assertNotSent(NewAiBookingMail::class, fn ($mail) => $mail->hasTo('notifications@yougo.test'));
+    }
+
+    public function test_booking_creation_does_not_fail_if_notification_send_throws_exception(): void
+    {
+        Log::spy();
+        Mail::shouldReceive('to')
+            ->once()
+            ->with('programari@client-business.test')
+            ->andThrow(new RuntimeException('SMTP transport failed'));
+
+        [, $booking] = $this->createAiBooking([
+            'notification_email' => 'programari@client-business.test',
+        ]);
+
+        app(BookingNotificationService::class)->sendAiBookingNotification($booking);
+
+        $this->assertSame('pending', $booking->refresh()->status);
+        $this->assertNull($booking->notification_sent_at);
+        Log::shouldHaveReceived('warning')->once()->with('AI booking notification could not be sent.', [
+            'booking_id' => $booking->id,
+            'salon_id' => $booking->salon_id,
+            'recipient_email' => 'programari@client-business.test',
+            'error' => 'SMTP transport failed',
+        ]);
+    }
+
+    public function test_test_email_command_exists(): void
+    {
+        $this->assertArrayHasKey('yougo:test-email', Artisan::all());
+    }
+
+    public function test_test_email_command_sends_mail(): void
+    {
+        Mail::fake();
+
+        $exitCode = Artisan::call('yougo:test-email', [
+            'email' => 'recipient@example.com',
+        ]);
+
+        $this->assertSame(0, $exitCode);
+        Mail::assertSent(TestEmailMail::class, fn ($mail) => $mail->hasTo('recipient@example.com'));
+        $this->assertStringContainsString('Test email sent to recipient@example.com.', Artisan::output());
+    }
+
+    public function test_env_example_contains_resend_key_placeholder(): void
+    {
+        $envExample = file_get_contents(base_path('.env.example'));
+
+        $this->assertStringContainsString('RESEND_KEY=', $envExample);
+        $this->assertStringContainsString('MAIL_MAILER=log', $envExample);
+    }
+
     public function test_booking_creation_still_succeeds_without_notification(): void
     {
         Mail::fake();
@@ -131,7 +201,7 @@ class AiBookingNotificationTest extends TestCase
             'client_phone' => '0700000000',
             'location_id' => (string) $location->id,
             'service_id' => (string) $service->id,
-            'date' => '2026-05-05',
+            'date' => now()->next(CarbonInterface::TUESDAY)->toDateString(),
             'time' => '10:00',
         ], $source);
 
