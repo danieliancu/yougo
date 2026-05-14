@@ -109,19 +109,6 @@ class WidgetEmbedTest extends TestCase
         $this->assertSame(1, $salon->conversations()->count());
     }
 
-    public function test_widget_chat_marks_conversation_when_voice_input_is_used(): void
-    {
-        config(['services.gemini.key' => null]);
-        $salon = $this->createSalon();
-
-        $this->postJson("/widget/{$salon->widget_key}/chat", [
-            'messages' => [['role' => 'user', 'content' => 'Buna, folosesc microfonul']],
-            'voice_input_used' => true,
-        ])->assertStatus(503);
-
-        $this->assertTrue($salon->conversations()->first()->voice_input_used);
-    }
-
     public function test_widget_chat_accepts_known_contact(): void
     {
         config(['services.gemini.key' => 'test-key']);
@@ -196,7 +183,6 @@ class WidgetEmbedTest extends TestCase
         ]);
         $salon->conversations()->create([
             'channel' => 'chat',
-            'voice_input_used' => true,
             'status' => 'completed',
             'intent' => 'abandoned',
             'contact_name' => 'Mihai Ionescu',
@@ -212,12 +198,11 @@ class WidgetEmbedTest extends TestCase
                 ->where('salon.id', $salon->id)
                 ->where('salon.widget_key', $salon->widget_key)
                 ->has('salon.conversations', 2)
-                ->where('salon.conversations.1.voice_input_used', true)
                 ->where('salon.conversations.1.intent', 'abandoned')
             );
     }
 
-    public function test_dashboard_navigation_uses_widget_as_chat_voice_section(): void
+    public function test_dashboard_navigation_uses_widget_as_chat_section(): void
     {
         $dashboard = file_get_contents(resource_path('js/Pages/Dashboard/Index.tsx'));
 

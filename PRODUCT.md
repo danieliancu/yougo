@@ -6,7 +6,7 @@ product
 
 ## Product Purpose
 
-YouGo is an AI receptionist platform for appointment-based businesses. It helps small teams answer website chat questions, collect appointment requests, manage bookings, and monitor usage from a dashboard. The product is currently focused on Appointment Mode, web widget chat, voice input inside chat, AI booking requests, dashboard workflows, notifications, and local plan-limit testing.
+YouGo is an AI receptionist platform for appointment-based businesses. It helps small teams answer website chat questions, collect appointment requests, manage bookings, and monitor usage from a dashboard. The product is currently focused on Appointment Mode, web widget chat, AI booking requests, dashboard workflows, notifications, and local plan-limit testing.
 
 ## Primary Users
 
@@ -46,6 +46,6 @@ YouGo should feel like a modern operational tool: restrained colors, clear hiera
 - No Stripe integration or real payments yet.
 - No WhatsApp implementation or WhatsApp usage tracking yet.
 - No Phone AI or Telnyx implementation yet.
-- Chat + Voice means voice input in website chat only; AI replies in text.
+- Chat means text input in website chat; AI replies in text.
 - Usage tracking currently enforces conversations, AI messages, and bookings.
 - Pricing and Billing UI may display future capabilities, but enforcement should remain limited to implemented tracked fields.

@@ -1,5 +1,5 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { CalendarCheck, Check, MessageCircle, Mic, Minus, Phone, Plug, Plus, Send } from 'lucide-react';
+import { CalendarCheck, Check, MessageCircle, Minus, Phone, Plug, Plus, Send } from 'lucide-react';
 import { SiWhatsapp } from 'react-icons/si';
 import { ReactNode, useEffect, useState } from 'react';
 import { ChatShell } from '@/Components/ChatShell';
@@ -62,10 +62,7 @@ export default function Landing() {
             <p className="mt-2 text-sm app-text-soft">{t('feature1Desc')}</p>
           </div>
           <div className="flex flex-col items-center rounded-2xl p-8 text-center">
-            <div className="relative mb-5">
-              <MessageCircle className="h-14 w-14 text-indigo-500" />
-              <Mic className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 text-indigo-500" />
-            </div>
+            <MessageCircle className="mb-5 h-14 w-14 text-indigo-500" />
             <p className="text-lg font-bold app-text">{t('feature2Title')}</p>
             <p className="mt-2 text-sm app-text-soft">{t('feature2Desc')}</p>
           </div>
@@ -262,7 +259,7 @@ function planDisplayLabel(plan: Plan, t: (key: string, params?: Record<string, s
 function planItemLabel(value: string, t: (key: string, params?: Record<string, string | number>) => string) {
   const labels: Record<string, string> = {
     'Website chat': t('websiteChat'),
-    'Chat + Voice': t('chatVoice'),
+    Chat: t('chatVoice'),
     'Phone AI': t('phoneAi'),
     'Telefon AI': t('phoneAi'),
     'Custom integrations': t('customIntegrations'),
@@ -382,7 +379,7 @@ function ChatLivePreview({ t }: { t: (key: string) => string }) {
       footerClassName="border-t border-white/10 p-4"
       action={
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 text-blue-200">
-          <Mic className="h-5 w-5" />
+          <MessageCircle className="h-5 w-5" />
         </div>
       }
       footer={

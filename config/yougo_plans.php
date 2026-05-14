@@ -13,10 +13,10 @@ return [
         'whatsapp_enabled' => false,
         'phone_enabled' => false,
         'channels' => [
-            'Chat + Voice',
+            'Chat',
         ],
         'features' => [
-            'Chat + Voice',
+            'Chat',
             'AI booking requests',
             'Availability checks',
             'Dashboard access',
@@ -42,10 +42,10 @@ return [
         'ai_bookings_enabled' => true,
         'recommended' => false,
         'channels' => [
-            'Chat + Voice',
+            'Chat',
         ],
         'features' => [
-            'Chat + Voice',
+            'Chat',
             'Programări AI',
             'Dashboard',
             'Notificări email pentru programări',
@@ -69,11 +69,11 @@ return [
         'ai_bookings_enabled' => true,
         'recommended' => false,
         'channels' => [
-            'Chat + Voice',
+            'Chat',
             'WhatsApp',
         ],
         'features' => [
-            'Chat + Voice',
+            'Chat',
             'WhatsApp',
             'Programări AI',
             'Dashboard',
@@ -98,13 +98,13 @@ return [
         'ai_bookings_enabled' => true,
         'recommended' => true,
         'channels' => [
-            'Chat + Voice',
+            'Chat',
             'WhatsApp',
             'Telefon AI',
         ],
         'features' => [
             'Telefon AI',
-            'Chat + Voice',
+            'Chat',
             'WhatsApp',
             'Programări AI',
             'Dashboard',
@@ -129,13 +129,13 @@ return [
         'ai_bookings_enabled' => true,
         'recommended' => false,
         'channels' => [
-            'Chat + Voice',
+            'Chat',
             'WhatsApp',
             'Telefon AI',
         ],
         'features' => [
             'Telefon AI',
-            'Chat + Voice',
+            'Chat',
             'WhatsApp',
             'Programări AI',
             'Dashboard',
@@ -160,13 +160,13 @@ return [
         'ai_bookings_enabled' => true,
         'recommended' => false,
         'channels' => [
-            'Chat + Voice',
+            'Chat',
             'WhatsApp',
             'Telefon AI',
         ],
         'features' => [
             'Telefon AI',
-            'Chat + Voice',
+            'Chat',
             'WhatsApp',
             'Programări AI',
             'Dashboard',

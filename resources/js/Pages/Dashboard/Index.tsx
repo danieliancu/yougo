@@ -2,7 +2,7 @@
 import { AlertModal, Badge, Button, Card, ConfirmationModal, DangerButton, Field, Input, SecondaryButton, ThemeToggle } from '@/Components/Ui';
 import type { ActivityChartRow } from '@/Components/ActivityChart';
 import { Booking, Conversation, Location as SalonLocation, OnboardingChecklist, OnboardingStep, OverviewData, PageProps, Plan, Salon, Service, Staff, UsageSummary, User as AuthUser } from '@/types';
-import { AlertTriangle, Bell, Bot, Building2, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, CreditCard, Download, ExternalLink, FileText, Globe2, LayoutDashboard, List, LogOut, MapPin, Menu, MessageCircle, MessageSquare, Pencil, Phone, Plus, QrCode, Save, Scissors, Search, Settings, Smartphone, Sparkles, Trash2, User, Users, Volume2, X, XCircle } from 'lucide-react';
+import { AlertTriangle, Bell, Bot, Building2, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, CreditCard, Download, ExternalLink, FileText, Globe2, LayoutDashboard, List, LogOut, MapPin, Menu, MessageCircle, MessageSquare, Pencil, Phone, Plus, QrCode, Save, Scissors, Search, Settings, Smartphone, Sparkles, Trash2, User, Users, X, XCircle } from 'lucide-react';
 import { SiWhatsapp } from 'react-icons/si';
 import { FormEvent, lazy, ReactNode, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
@@ -590,9 +590,8 @@ function WidgetSettings({ salon, query }: { salon: Salon; query: string }) {
         </SecondaryButton>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <ChannelStat icon={MessageSquare} value={stats.total} label={t('totalChat')} tone="blue" />
-        <ChannelStat icon={Volume2} value={stats.audio} label={t('audio')} tone="purple" />
         <ChannelStat icon={CheckCircle2} value={stats.completed} label={t('completedChats')} tone="green" />
         <ChannelStat icon={XCircle} value={stats.abandoned} label={t('abandonedChats')} tone="slate" />
       </div>
@@ -1059,7 +1058,7 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
               <Detail icon={User} label={t('contact')} value={conversationTitle(selected, t)} />
             </DarkPanel>
             <DarkPanel>
-              <h3 className="mb-6 flex items-center gap-2 text-lg font-bold app-text"><Phone className="h-5 w-5" /> {t('voiceAgent')}</h3>
+              <h3 className="mb-6 flex items-center gap-2 text-lg font-bold app-text"><Phone className="h-5 w-5" /> {t('phoneAi')}</h3>
               <Detail icon={Bot} label={t('agent')} value={`${salon.ai_assistant_name?.trim() || 'Bella'} Romania Line`} />
               <Detail icon={Phone} label={t('businessPhone')} value={salon.locations[0]?.phone || '+40 000 000 000'} />
             </DarkPanel>
@@ -1852,7 +1851,7 @@ function planDisplayLabel(plan: Plan, t: TranslateFn) {
 function planItemLabel(value: string, t: TranslateFn) {
   const labels: Record<string, string> = {
     'Website chat': t('websiteChat'),
-    'Chat + Voice': t('chatVoice'),
+    Chat: t('chatVoice'),
     'Phone AI': t('phoneAi'),
     'Telefon AI': t('phoneAi'),
     'Custom integrations': t('customIntegrations'),
@@ -3560,7 +3559,6 @@ function filterChatAudioConversations(conversations: Conversation[], query: stri
 function chatAudioStats(conversations: Conversation[]) {
   return {
     total: conversations.length,
-    audio: conversations.filter((conversation) => conversation.channel === 'voice' || conversation.voice_input_used).length,
     completed: conversations.filter((conversation) => conversation.status === 'completed').length,
     abandoned: conversations.filter((conversation) => conversation.intent === 'abandoned').length,
   };
@@ -3584,9 +3582,8 @@ function ChatAudio({ salon, query }: { salon: Salon; query: string }) {
         </SecondaryButton>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <ChannelStat icon={MessageSquare} value={stats.total} label={t('totalChat')} tone="blue" />
-        <ChannelStat icon={Volume2} value={stats.audio} label={t('audio')} tone="purple" />
         <ChannelStat icon={CheckCircle2} value={stats.completed} label={t('completedChats')} tone="green" />
         <ChannelStat icon={XCircle} value={stats.abandoned} label={t('abandonedChats')} tone="slate" />
       </div>

@@ -8,6 +8,7 @@ use App\Services\Assistant\AssistantMessageLocalizer;
 use Carbon\CarbonInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class AssistantWidgetTest extends TestCase
@@ -71,17 +72,37 @@ class AssistantWidgetTest extends TestCase
         $this->assertSame(2, $salon->conversations()->first()->messages()->where('role', 'user')->count());
     }
 
-    public function test_assistant_chat_marks_conversation_when_voice_input_is_used(): void
+    public function test_assistant_widget_source_has_no_voice_input_ui_or_payload(): void
+    {
+        $source = file_get_contents(resource_path('js/Components/AssistantWidget.tsx'));
+
+        $this->assertStringNotContainsString('Mic', $source);
+        $this->assertStringNotContainsString('startVoice', $source);
+        $this->assertStringNotContainsString('voice_input_used', $source);
+        $this->assertStringNotContainsString('getUserMedia', $source);
+        $this->assertStringNotContainsString('MediaRecorder', $source);
+        $this->assertStringNotContainsString('SpeechRecognition', $source);
+    }
+
+    public function test_assistant_chat_keeps_text_payload_and_removed_column_is_absent(): void
     {
         config(['services.gemini.key' => null]);
         $salon = $this->createSalon();
 
+        $this->assertFalse(Schema::hasColumn('conversations', 'voice_input_used'));
+
         $this->postJson("/assistant/{$salon->id}/chat", [
-            'messages' => [['role' => 'user', 'content' => 'Buna, vorbesc din microfon']],
-            'voice_input_used' => true,
+            'messages' => [['role' => 'user', 'content' => 'Buna']],
         ])->assertStatus(503);
 
-        $this->assertTrue($salon->conversations()->first()->voice_input_used);
+        $this->assertSame(1, $salon->conversations()->count());
+    }
+
+    public function test_assistant_transcribe_route_is_removed(): void
+    {
+        $salon = $this->createSalon();
+
+        $this->post("/assistant/{$salon->id}/transcribe")->assertNotFound();
     }
 
     public function test_assistant_chat_accepts_known_contact_and_adds_it_to_prompt(): void
