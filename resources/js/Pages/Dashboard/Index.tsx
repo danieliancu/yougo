@@ -26,20 +26,68 @@ type TranslateFn = (key: string, params?: Record<string, string | number>) => st
 
 const TABLE_PILL_CLASS = 'inline-flex items-center justify-center whitespace-nowrap rounded-md font-semibold uppercase tracking-wide min-w-28 px-2 py-1 text-[10px]';
 
-const nav = [
+type DashboardSection = Props['section'];
+type NavItem = {
+  id: DashboardSection;
+  label: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+};
+type NavGroup = {
+  id: 'assistant' | 'businessSetup' | 'account';
+  label: string;
+  items: NavItem[];
+};
+
+const topLevelNavItems: NavItem[] = [
   { id: 'overview', label: 'overview', href: '/dashboard', icon: LayoutDashboard },
   { id: 'onboarding', label: 'setup', href: '/dashboard/onboarding', icon: List },
-  { id: 'ai-settings', label: 'aiSettings', href: '/dashboard/ai-settings', icon: Sparkles, dividerAfter: true },
-  { id: 'conversations', label: 'conversations', href: '/dashboard/conversations', icon: MessageSquare },
-  { id: 'widget', label: 'chat', href: '/dashboard/widget', icon: MessageCircle },
-  { id: 'whatsapp', label: 'whatsapp', href: '/dashboard/whatsapp', icon: MessageCircle },
-  { id: 'voice-calls', label: 'voiceCalls', href: '/dashboard/voice-calls', icon: Phone, dividerAfter: true },
-  { id: 'locations', label: 'locations', href: '/dashboard/locations', icon: MapPin },
-  { id: 'staff', label: 'staff', href: '/dashboard/staff', icon: Users },
-  { id: 'services', label: 'services', href: '/dashboard/services', icon: Scissors, dividerAfter: true },
   { id: 'bookings', label: 'bookings', href: '/dashboard/bookings', icon: Calendar },
-  { id: 'billing', label: 'billing', href: '/dashboard/billing', icon: CreditCard },
 ];
+
+const navGroups: NavGroup[] = [
+  {
+    id: 'assistant',
+    label: 'navGroupAssistant',
+    items: [
+      { id: 'ai-settings', label: 'aiSettings', href: '/dashboard/ai-settings', icon: Sparkles },
+      { id: 'conversations', label: 'conversations', href: '/dashboard/conversations', icon: MessageSquare },
+      { id: 'widget', label: 'chat', href: '/dashboard/widget', icon: MessageCircle },
+      { id: 'whatsapp', label: 'whatsapp', href: '/dashboard/whatsapp', icon: MessageCircle },
+      { id: 'voice-calls', label: 'voiceCalls', href: '/dashboard/voice-calls', icon: Phone },
+    ],
+  },
+  {
+    id: 'businessSetup',
+    label: 'navGroupBusinessSetup',
+    items: [
+      { id: 'services', label: 'services', href: '/dashboard/services', icon: Scissors },
+      { id: 'staff', label: 'staff', href: '/dashboard/staff', icon: Users },
+      { id: 'locations', label: 'locations', href: '/dashboard/locations', icon: MapPin },
+    ],
+  },
+  {
+    id: 'account',
+    label: 'navGroupAccount',
+    items: [
+      { id: 'settings', label: 'settings', href: '/dashboard/settings', icon: Settings },
+      { id: 'billing', label: 'billing', href: '/dashboard/billing', icon: CreditCard },
+    ],
+  },
+];
+
+const nav = [...topLevelNavItems, ...navGroups.flatMap((group) => group.items)];
+
+function navGroupForSection(section: DashboardSection) {
+  return navGroups.find((group) => group.items.some((item) => item.id === section));
+}
+
+const navGroupIds = navGroups.map((group) => group.id);
+
+const defaultOpenGroups = navGroupIds.reduce((groups, id) => ({
+  ...groups,
+  [id]: false,
+}), {} as Record<NavGroup['id'], boolean>);
 
 export default function DashboardIndex() {
   const t = useT();
@@ -268,100 +316,118 @@ function NavCountBadge({ count }: { count: number }) {
 }
 
 function DashboardSidebarContent({ salon, section, user, t, onboarding, onNavigate }: { salon: Salon; section: Props['section']; user: AuthUser | null; t: TranslateFn; onboarding: OnboardingChecklist; onNavigate?: () => void }) {
-  const [accountOpen, setAccountOpen] = useState(false);
-  const accountRef = useRef<HTMLDivElement>(null);
+  const activeGroup = navGroupForSection(section);
+  const [openGroups, setOpenGroups] = useState<Record<NavGroup['id'], boolean>>(() => ({
+    ...defaultOpenGroups,
+    ...(activeGroup ? { [activeGroup.id]: true } : {}),
+  }));
   const pendingBookingsCount = salon.bookings.filter((booking) => booking.status === 'pending').length;
   const remainingSetupCount = onboarding.steps.filter((step) => !step.completed && !step.coming_soon).length;
 
   useEffect(() => {
-    if (!accountOpen) return;
+    const group = navGroupForSection(section);
+    if (!group) return;
 
-    function handlePointerDown(event: MouseEvent) {
-      if (!accountRef.current?.contains(event.target as Node)) {
-        setAccountOpen(false);
-      }
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setAccountOpen(false);
-      }
-    }
-
-    document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [accountOpen]);
+    setOpenGroups((groups) => ({
+      ...groups,
+      [group.id]: true,
+    }));
+  }, [section]);
 
   return (
     <>
       <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
-        {nav.map((item) => {
-          const Icon = item.icon;
-          const active = item.id === section;
-          return (
-            <div key={item.id}>
-              {item.dividerBefore && <div className="mx-3 my-3 h-0.5 rounded-full bg-white/25" />}
+        <div className="space-y-1 pb-1">
+          {topLevelNavItems.map((item) => {
+            const Icon = item.icon;
+            const active = item.id === section;
+
+            return (
               <Link
+                key={item.id}
                 href={item.href}
                 onClick={onNavigate}
                 className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-bold transition ${active ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-white/10 hover:text-white'}`}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4 shrink-0" />
                 <span className="min-w-0 flex-1 truncate">{t(item.label)}</span>
                 {item.id === 'bookings' && pendingBookingsCount > 0 && <span className="railway-lights shrink-0" aria-hidden="true" />}
                 {item.id === 'onboarding' && remainingSetupCount > 0 && <NavCountBadge count={remainingSetupCount} />}
                 {item.id === 'bookings' && pendingBookingsCount > 0 && <NavCountBadge count={pendingBookingsCount} />}
               </Link>
-              {item.dividerAfter && <div className="mx-3 my-3 h-0.5 rounded-full bg-white/25" />}
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
+        {navGroups.map((group) => {
+          const open = openGroups[group.id];
 
-        <div className="relative" ref={accountRef}>
-          {accountOpen && (
-            <div className="absolute bottom-full left-0 right-0 mb-2 rounded-lg border border-white/10 bg-slate-950 p-1 shadow-2xl" role="menu">
-              <Link
-                href="/dashboard/settings"
-                onClick={onNavigate}
-                className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-bold transition ${section === 'settings' ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-white/10 hover:text-white'}`}
-                role="menuitem"
-              >
-                <Settings className="h-4 w-4" />
-                {t('settings')}
-              </Link>
+          return (
+            <section key={group.id} className="rounded-lg">
               <button
                 type="button"
-                onClick={() => router.post('/logout')}
-                className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-bold text-slate-300 transition hover:bg-red-500/10 hover:text-red-300"
-                role="menuitem"
+                onClick={() => setOpenGroups((groups) => ({ ...groups, [group.id]: !groups[group.id] }))}
+                aria-expanded={open}
+                className="flex h-9 w-full items-center gap-3 rounded-lg px-3 text-left text-[11px] font-bold uppercase tracking-wide text-white transition hover:bg-white/5"
               >
-                <LogOut className="h-4 w-4" />
-                {t('logout')}
+                <span className="min-w-0 flex-1 truncate">{t(group.label)}</span>
+                <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform duration-200 ease-out ${open ? 'rotate-180' : ''}`} />
               </button>
-            </div>
-          )}
 
-          <button
-            type="button"
-            onClick={() => setAccountOpen((open) => !open)}
-            aria-expanded={accountOpen}
-            aria-haspopup="menu"
-            className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left hover:bg-white/10"
-          >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10 text-sm font-bold text-white">
-              {(user?.name ?? 'U').slice(0, 1).toUpperCase()}
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-bold text-white">{user?.name}</span>
-              <span className="block truncate text-xs text-slate-400">{user?.email}</span>
-            </span>
-          </button>
-        </div>
+              <div className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+                <div className="min-h-0 overflow-hidden">
+                  <div className="space-y-1 pb-1 pt-1">
+                    {group.items.map((item) => {
+                      const Icon = item.icon;
+                      const active = item.id === section;
+                      const isProfile = item.id === 'settings';
+
+                      return (
+                        <Link
+                          key={item.id}
+                          href={item.href}
+                          onClick={onNavigate}
+                          className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-bold transition ${active ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-white/10 hover:text-white'}`}
+                        >
+                          {isProfile ? (
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 text-xs font-bold text-white">
+                              {(user?.name ?? 'U').slice(0, 1).toUpperCase()}
+                            </span>
+                          ) : (
+                            <Icon className="h-4 w-4 shrink-0" />
+                          )}
+                          {isProfile ? (
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-bold text-white">{user?.name}</span>
+                              <span className={`block truncate text-xs font-medium ${active ? 'text-indigo-100' : 'text-slate-400'}`}>{user?.email}</span>
+                            </span>
+                          ) : (
+                            <span className="min-w-0 flex-1 truncate">{t(item.label)}</span>
+                          )}
+                          {item.id === 'bookings' && pendingBookingsCount > 0 && <span className="railway-lights shrink-0" aria-hidden="true" />}
+                          {item.id === 'onboarding' && remainingSetupCount > 0 && <NavCountBadge count={remainingSetupCount} />}
+                          {item.id === 'bookings' && pendingBookingsCount > 0 && <NavCountBadge count={pendingBookingsCount} />}
+                        </Link>
+                      );
+                    })}
+                    {group.id === 'account' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onNavigate?.();
+                          router.post('/logout');
+                        }}
+                        className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-bold text-red-300 transition hover:bg-red-500/10 hover:text-red-200"
+                      >
+                        <LogOut className="h-4 w-4 shrink-0" />
+                        <span className="min-w-0 flex-1 truncate text-left">{t('logout')}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+          );
+        })}
       </nav>
     </>
   );

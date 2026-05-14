@@ -15,6 +15,53 @@ type KnownContact = {
   phone: string;
 };
 
+type BrowserSpeechRecognition = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((event: SpeechRecognitionResultEventLike) => void) | null;
+  onend: (() => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+};
+
+type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
+
+type SpeechRecognitionResultEventLike = {
+  resultIndex: number;
+  results: {
+    length: number;
+    [index: number]: {
+      isFinal: boolean;
+      [index: number]: {
+        transcript: string;
+      };
+    };
+  };
+};
+
+type SpeechRecognitionErrorEventLike = {
+  error?: string;
+};
+
+type WindowWithSpeechRecognition = Window & {
+  SpeechRecognition?: BrowserSpeechRecognitionConstructor;
+  webkitSpeechRecognition?: BrowserSpeechRecognitionConstructor;
+};
+
+type StopVoiceOptions = {
+  sendTranscript?: boolean;
+  showFailure?: boolean;
+};
+
+type TranscribeResponse = {
+  text?: string;
+  detail?: string;
+  error?: string;
+};
+
 
 function assistantName(salon: Salon): string {
   return salon.ai_assistant_name?.trim() || 'Bella';
@@ -55,6 +102,22 @@ function csrfTokens() {
 
 function sessionKey(storageKey: string) {
   return `yougo-assistant:${storageKey}:conversation-id`;
+}
+
+function speechRecognitionConstructor(): BrowserSpeechRecognitionConstructor | null {
+  if (typeof window === 'undefined') return null;
+
+  const speechWindow = window as WindowWithSpeechRecognition;
+
+  return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition ?? null;
+}
+
+function voiceRecognitionLang(locale: string) {
+  return locale === 'en' ? 'en-GB' : 'ro-RO';
+}
+
+function normalizedTranscript(text: string) {
+  return text.replace(/\s+/g, ' ').trim();
 }
 
 function messagesSessionKey(storageKey: string) {
@@ -169,7 +232,21 @@ export function AssistantWidget({
   const highlightNewChat = shouldHighlightNewChat(messages);
   const scrollRef = useRef<HTMLDivElement>(null);
   const conversationIdRef = useRef<number | null>(conversationId);
+  const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const backupRecorderRef = useRef<MediaRecorder | null>(null);
+  const backupStreamRef = useRef<MediaStream | null>(null);
+  const backupChunksRef = useRef<BlobPart[]>([]);
+  const voiceSessionActiveRef = useRef(false);
+  const voiceStopRequestedRef = useRef(false);
+  const shouldSendVoiceRef = useRef(false);
+  const shouldShowVoiceFailureRef = useRef(false);
+  const shouldTranscribeRecordingRef = useRef(false);
+  const shouldFallbackToRecordingRef = useRef(false);
+  const finalVoiceTranscriptRef = useRef('');
+  const interimVoiceTranscriptRef = useRef('');
+  const liveVoiceTranscriptRef = useRef('');
+  const speechErrorRef = useRef<string | null>(null);
 
   useEffect(() => { conversationIdRef.current = conversationId; }, [conversationId]);
 
@@ -187,15 +264,159 @@ export function AssistantWidget({
   }, [messages, loading]);
 
   useEffect(() => () => {
-    stopVoiceInput();
+    stopVoiceInput({ sendTranscript: false, showFailure: false });
   }, []);
 
-  function stopVoiceInput() {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
+  function resetSpeechTranscriptRefs() {
+    finalVoiceTranscriptRef.current = '';
+    interimVoiceTranscriptRef.current = '';
+    liveVoiceTranscriptRef.current = '';
+    speechErrorRef.current = null;
+  }
+
+  function transcribeAudioBlob(blob: Blob) {
+    const formData = new FormData();
+    formData.append('audio', blob, 'recording.webm');
+
+    setLoading(true);
+    fetch(transcribeEndpoint, {
+      method: 'POST',
+      credentials: 'same-origin',
+      body: formData,
+    })
+      .then(async (res) => {
+        const data = await res.json().catch((): TranscribeResponse => ({}));
+
+        if (!res.ok) {
+          throw new Error(data.detail || t('speechFailed'));
+        }
+
+        return data;
+      })
+      .then((data: TranscribeResponse) => {
+        if (data.text) {
+          void send(data.text, { voiceInput: true });
+        } else {
+          setLoading(false);
+          toast.error(data.detail || t('speechFailed'));
+        }
+      })
+      .catch((error) => {
+        setLoading(false);
+        toast.error(error instanceof Error ? error.message : t('speechFailed'));
+      });
+  }
+
+  function startBackupRecording() {
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') return;
+
+    navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+      if (!voiceSessionActiveRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm')
+          ? 'audio/webm'
+          : '';
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+
+      backupChunksRef.current = [];
+      backupStreamRef.current = stream;
+      backupRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) backupChunksRef.current.push(event.data);
+      };
+
+      recorder.onstop = () => {
+        stream.getTracks().forEach((track) => track.stop());
+        backupStreamRef.current = null;
+      };
+
+      recorder.start(250);
+    }).catch(() => {
+      backupChunksRef.current = [];
+      backupRecorderRef.current = null;
+      backupStreamRef.current = null;
+    });
+  }
+
+  function stopBackupRecording(options: { transcribe?: boolean } = {}) {
+    const recorder = backupRecorderRef.current;
+    const chunks = backupChunksRef.current;
+    const shouldTranscribe = options.transcribe === true;
+
+    backupRecorderRef.current = null;
+
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.onstop = () => {
+        backupStreamRef.current?.getTracks().forEach((track) => track.stop());
+        backupStreamRef.current = null;
+
+        if (!shouldTranscribe) {
+          backupChunksRef.current = [];
+          return;
+        }
+
+        const recordedChunks = backupChunksRef.current;
+        backupChunksRef.current = [];
+
+        if (recordedChunks.length === 0) {
+          toast.error(t('speechFailed'));
+          return;
+        }
+
+        transcribeAudioBlob(new Blob(recordedChunks, { type: recorder.mimeType || 'audio/webm' }));
+      };
+      recorder.stop();
+      return;
     }
+
+    backupStreamRef.current?.getTracks().forEach((track) => track.stop());
+    backupStreamRef.current = null;
+    backupChunksRef.current = [];
+
+    if (shouldTranscribe && chunks.length > 0) {
+      transcribeAudioBlob(new Blob(chunks, { type: recorder?.mimeType || 'audio/webm' }));
+    }
+  }
+
+  function stopVoiceInput(options: StopVoiceOptions = {}) {
+    const { sendTranscript = false, showFailure = false } = options;
+
+    voiceSessionActiveRef.current = false;
+    voiceStopRequestedRef.current = true;
+    shouldSendVoiceRef.current = sendTranscript;
+    shouldShowVoiceFailureRef.current = showFailure;
+    if (!sendTranscript) {
+      shouldFallbackToRecordingRef.current = false;
+      stopBackupRecording({ transcribe: false });
+    }
+
+    if (recognitionRef.current) {
+      try {
+        if (sendTranscript) {
+          recognitionRef.current.stop();
+        } else {
+          recognitionRef.current.abort();
+        }
+      } catch {
+        recognitionRef.current = null;
+        setListening(false);
+      }
+    }
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      shouldTranscribeRecordingRef.current = sendTranscript;
+      mediaRecorderRef.current.stop();
+    } else if (!recognitionRef.current) {
+      setListening(false);
+    }
+
     mediaRecorderRef.current = null;
-    setListening(false);
   }
 
   async function send(text: string, options: { voiceInput?: boolean } = {}) {
@@ -255,11 +476,15 @@ export function AssistantWidget({
 
   function submit(event: FormEvent) {
     event.preventDefault();
+    if (listening) {
+      stopVoiceInput({ sendTranscript: false, showFailure: false });
+    }
     void send(input);
   }
 
   function startNewChat() {
-    stopVoiceInput();
+    stopVoiceInput({ sendTranscript: false, showFailure: false });
+    resetSpeechTranscriptRefs();
 
     const lastContact = storedLastContact(conversationStorageKey);
     const greeting = {
@@ -276,7 +501,8 @@ export function AssistantWidget({
   }
 
   function minimizeWidget() {
-    stopVoiceInput();
+    stopVoiceInput({ sendTranscript: false, showFailure: false });
+    resetSpeechTranscriptRefs();
 
     if (window.parent && window.parent !== window) {
       window.parent.postMessage({ type: 'yougo-widget:minimize' }, '*');
@@ -287,11 +513,147 @@ export function AssistantWidget({
     if (loading) return;
 
     if (listening) {
-      stopVoiceInput();
+      stopVoiceInput({ sendTranscript: true, showFailure: true });
       return;
     }
 
-    if (!navigator.mediaDevices?.getUserMedia) {
+    const SpeechRecognition = speechRecognitionConstructor();
+    if (SpeechRecognition) {
+      startSpeechRecognition(SpeechRecognition);
+      return;
+    }
+
+    startRecordingFallback();
+  }
+
+  function startSpeechRecognition(SpeechRecognition: BrowserSpeechRecognitionConstructor) {
+    resetSpeechTranscriptRefs();
+    voiceSessionActiveRef.current = true;
+    voiceStopRequestedRef.current = false;
+    startBackupRecording();
+    startSpeechRecognitionInstance(SpeechRecognition);
+  }
+
+  function startSpeechRecognitionInstance(SpeechRecognition: BrowserSpeechRecognitionConstructor) {
+    const recognition = new SpeechRecognition();
+    recognition.lang = voiceRecognitionLang(locale);
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognitionRef.current = recognition;
+    shouldSendVoiceRef.current = false;
+    shouldShowVoiceFailureRef.current = false;
+    setListening(true);
+
+    recognition.onresult = (event) => {
+      let finalTranscript = finalVoiceTranscriptRef.current;
+      let interimTranscript = '';
+
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const transcript = event.results[index][0]?.transcript ?? '';
+
+        if (event.results[index].isFinal) {
+          finalTranscript += ` ${transcript}`;
+        } else {
+          interimTranscript += ` ${transcript}`;
+        }
+      }
+
+      finalVoiceTranscriptRef.current = normalizedTranscript(finalTranscript);
+      interimVoiceTranscriptRef.current = normalizedTranscript(interimTranscript);
+
+      const liveTranscript = normalizedTranscript(`${finalVoiceTranscriptRef.current} ${interimVoiceTranscriptRef.current}`);
+      liveVoiceTranscriptRef.current = liveTranscript;
+      setInput(liveTranscript);
+    };
+
+    recognition.onerror = (event) => {
+      speechErrorRef.current = event.error ?? 'unknown';
+
+      if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        voiceSessionActiveRef.current = false;
+        shouldShowVoiceFailureRef.current = false;
+        shouldFallbackToRecordingRef.current = false;
+        toast.error(t('speechNotAllowed'));
+      } else if (event.error === 'network') {
+        voiceSessionActiveRef.current = false;
+        shouldSendVoiceRef.current = false;
+        shouldShowVoiceFailureRef.current = true;
+        shouldFallbackToRecordingRef.current = false;
+      }
+    };
+
+    recognition.onend = () => {
+      const shouldSend = shouldSendVoiceRef.current;
+      const shouldShowFailure = shouldShowVoiceFailureRef.current;
+      const shouldFallbackToRecording = shouldFallbackToRecordingRef.current;
+      const shouldKeepListening = voiceSessionActiveRef.current && !voiceStopRequestedRef.current && !shouldFallbackToRecording;
+      shouldSendVoiceRef.current = false;
+      shouldShowVoiceFailureRef.current = false;
+      shouldFallbackToRecordingRef.current = false;
+      recognitionRef.current = null;
+      setListening(shouldKeepListening);
+
+      const recognitionTranscript = normalizedTranscript(
+        `${finalVoiceTranscriptRef.current} ${interimVoiceTranscriptRef.current}`,
+      );
+      const finalTranscript = recognitionTranscript || liveVoiceTranscriptRef.current;
+      const speechError = speechErrorRef.current;
+
+      if (shouldFallbackToRecording) {
+        resetSpeechTranscriptRefs();
+        startRecordingFallback();
+        return;
+      }
+
+      if (shouldKeepListening) {
+        window.setTimeout(() => {
+          if (!voiceSessionActiveRef.current || voiceStopRequestedRef.current || recognitionRef.current) return;
+          startSpeechRecognitionInstance(SpeechRecognition);
+        }, 100);
+        return;
+      }
+
+      resetSpeechTranscriptRefs();
+
+      if (!shouldSend) return;
+
+      if (finalTranscript) {
+        stopBackupRecording({ transcribe: false });
+        setInput(finalTranscript);
+        void send(finalTranscript, { voiceInput: true });
+        return;
+      }
+
+      if (shouldSend) {
+        stopBackupRecording({ transcribe: true });
+        return;
+      }
+
+      if (shouldShowFailure && speechError === 'network') {
+        toast.error(t('browserNoSpeech'));
+      } else if (shouldShowFailure && !speechError) {
+        toast.error(t('speechFailed'));
+      } else if (shouldShowFailure) {
+        toast.error(t('speechFailed'));
+      }
+    };
+
+    try {
+      recognition.start();
+    } catch {
+      recognitionRef.current = null;
+      voiceSessionActiveRef.current = false;
+      voiceStopRequestedRef.current = false;
+      shouldSendVoiceRef.current = false;
+      shouldShowVoiceFailureRef.current = false;
+      shouldFallbackToRecordingRef.current = false;
+      setListening(false);
+      toast.error(t('speechFailed'));
+    }
+  }
+
+  function startRecordingFallback() {
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
       toast.error(t('browserNoSpeech'));
       return;
     }
@@ -305,6 +667,7 @@ export function AssistantWidget({
           : '';
       const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
       mediaRecorderRef.current = recorder;
+      shouldTranscribeRecordingRef.current = true;
       setListening(true);
 
       recorder.ondataavailable = (e) => {
@@ -312,9 +675,15 @@ export function AssistantWidget({
       };
 
       recorder.onstop = () => {
+        const shouldTranscribe = shouldTranscribeRecordingRef.current;
+        shouldTranscribeRecordingRef.current = false;
         stream.getTracks().forEach((t) => t.stop());
         mediaRecorderRef.current = null;
         setListening(false);
+
+        if (!shouldTranscribe) {
+          return;
+        }
 
         if (chunks.length === 0) {
           toast.error(t('speechFailed'));
@@ -323,32 +692,12 @@ export function AssistantWidget({
 
         const mimeType = recorder.mimeType || 'audio/webm';
         const blob = new Blob(chunks, { type: mimeType });
-        const formData = new FormData();
-        formData.append('audio', blob, 'recording.webm');
-
-        setLoading(true);
-        fetch(transcribeEndpoint, {
-          method: 'POST',
-          credentials: 'same-origin',
-          body: formData,
-        })
-          .then((res) => res.json())
-          .then((data) => {
-            if (data.text) {
-              void send(data.text, { voiceInput: true });
-            } else {
-              setLoading(false);
-              toast.error(data.detail || t('speechFailed'));
-            }
-          })
-          .catch(() => {
-            setLoading(false);
-            toast.error(t('speechFailed'));
-          });
+        transcribeAudioBlob(blob);
       };
 
       recorder.start(250);
     }).catch((err: DOMException) => {
+      shouldTranscribeRecordingRef.current = false;
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
         toast.error(t('speechNotAllowed'));
       } else {
@@ -408,11 +757,6 @@ export function AssistantWidget({
       }
       footer={
         <form onSubmit={submit}>
-          {listening && (
-            <p className="mb-2 text-xs font-semibold text-blue-600 dark:text-blue-300">
-              {t('voiceListening')}
-            </p>
-          )}
           <div className="flex items-center gap-2 rounded-xl border px-3 py-2 app-panel">
             <input
               value={input}
