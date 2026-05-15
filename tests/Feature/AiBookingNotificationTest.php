@@ -77,6 +77,22 @@ class AiBookingNotificationTest extends TestCase
         $this->assertNull($booking->refresh()->notification_sent_at);
     }
 
+    public function test_does_not_send_booking_notification_on_free_plan(): void
+    {
+        Mail::fake();
+        [, $booking] = $this->createAiBooking([
+            'plan' => 'free',
+            'notification_email' => 'owner@example.com',
+            'email_notifications' => true,
+            'booking_confirmations' => true,
+        ]);
+
+        app(BookingNotificationService::class)->sendAiBookingNotification($booking);
+
+        Mail::assertNothingSent();
+        $this->assertNull($booking->refresh()->notification_sent_at);
+    }
+
     public function test_does_not_send_duplicate_notification_when_already_sent(): void
     {
         Mail::fake();
@@ -180,6 +196,7 @@ class AiBookingNotificationTest extends TestCase
         $user = User::factory()->create();
         $salon = $user->salon()->create(array_merge([
             'name' => 'YouGo Studio',
+            'plan' => 'website_chat',
             'notification_email' => 'owner@example.com',
             'email_notifications' => true,
             'booking_confirmations' => true,

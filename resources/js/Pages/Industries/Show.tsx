@@ -44,9 +44,10 @@ export default function IndustryShow() {
             authUserName={auth.user?.name}
             locale={locale}
             onLanguageChange={switchLang}
-            startLabel={t('start')}
+            startLabel={auth.user ? t('goDashboard') : t('start')}
             industriesLabel={t('industriesNav')}
             pricingLabel={t('pricing')}
+            logoMode="light"
           />
 
           <section className="mx-auto grid max-w-6xl gap-10 px-6 py-14 lg:grid-cols-[1fr_0.9fr] lg:items-center">

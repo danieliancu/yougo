@@ -44,6 +44,10 @@ class SettingsController extends Controller
             $data['logo_path'] = $request->file('logo')->store('logos', 'public');
         }
 
+        $currentPlan = $salon->plan ?: 'free';
+        $isFreePlan = $currentPlan === 'free';
+        $phoneEnabled = (bool) config("yougo_plans.{$currentPlan}.phone_enabled", false);
+
         $salon->update([
             'name' => $data['business_name'],
             'logo_path' => $data['logo_path'] ?? $salon->logo_path,
@@ -54,9 +58,9 @@ class SettingsController extends Controller
             'website' => $data['website'] ?? null,
             'business_phone' => $data['business_phone'] ?? null,
             'notification_email' => $data['notification_email'] ?? null,
-            'email_notifications' => $request->boolean('email_notifications'),
-            'missed_call_alerts' => $request->boolean('missed_call_alerts'),
-            'booking_confirmations' => $request->boolean('booking_confirmations'),
+            'email_notifications' => $isFreePlan ? false : $request->boolean('email_notifications'),
+            'missed_call_alerts' => $phoneEnabled ? $request->boolean('missed_call_alerts') : false,
+            'booking_confirmations' => $isFreePlan ? false : $request->boolean('booking_confirmations'),
             'display_language' => $data['display_language'],
             'date_format' => $data['date_format'],
         ]);

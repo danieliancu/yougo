@@ -262,6 +262,7 @@ class WidgetEmbedTest extends TestCase
         Mail::fake();
 
         $salon = $this->createSalon([
+            'plan' => 'website_chat',
             'notification_email' => 'owner@example.com',
             'email_notifications' => true,
             'booking_confirmations' => true,

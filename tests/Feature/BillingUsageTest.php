@@ -342,16 +342,19 @@ class BillingUsageTest extends TestCase
     {
         $landing = file_get_contents(resource_path('js/Pages/Landing.tsx'));
         $dashboard = file_get_contents(resource_path('js/Pages/Dashboard/Index.tsx'));
+        $pricingGrid = file_get_contents(resource_path('js/Components/PricingPlansGrid.tsx'));
         $translations = file_get_contents(resource_path('js/i18n.ts'));
 
         foreach (['price', 'websiteChat', 'whatsapp', 'phoneAi', 'aiBookings'] as $key) {
-            $this->assertStringContainsString($key, $landing);
-            $this->assertStringContainsString($key, $dashboard);
+            $this->assertStringContainsString($key, $pricingGrid);
             $this->assertStringContainsString($key, $translations);
         }
 
+        $this->assertStringContainsString('PricingPlansGrid', $landing);
+        $this->assertStringContainsString('PricingPlansGrid', $dashboard);
+
         foreach (['free', 'website_chat', 'chat_whatsapp', 'voice_starter', 'voice_growth', 'voice_pro'] as $key) {
-            $this->assertStringContainsString($key, $landing);
+            $this->assertStringContainsString($key, $pricingGrid);
         }
 
         foreach (['pricingSubtitle_free', 'pricingSubtitle_website_chat', 'pricingSubtitle_chat_whatsapp', 'pricingSubtitle_voice'] as $key) {
@@ -363,9 +366,15 @@ class BillingUsageTest extends TestCase
         }
 
         $this->assertStringContainsString("useState<VoicePlanKey>('voice_starter')", $landing);
-        $this->assertStringContainsString("grid-cols-4", $landing);
+        $this->assertStringContainsString("grid-cols-4", $pricingGrid);
         $this->assertStringContainsString('/register', $landing);
-        $this->assertStringContainsString('/dashboard/billing', $landing);
+        $this->assertStringContainsString('/dashboard/billing', $pricingGrid);
+        $this->assertStringContainsString('goDashboard', $landing);
+        $this->assertLessThan(strpos($landing, '<FaqSection'), strpos($landing, '<div id="pricing">'));
+        $this->assertStringContainsString('Quickly compare the included channels and monthly limits. Start with website chat', $translations);
+        $this->assertStringContainsString('Compară rapid canalele incluse și limitele lunare. Începi cu chat pe site', $translations);
+        $this->assertStringNotContainsString('pricingChannelTitle', $landing);
+        $this->assertStringNotContainsString('pricingChannelBody', $landing);
         $this->assertStringContainsString('Voice Starter', $translations);
         $this->assertStringContainsString('Voice Growth', $translations);
         $this->assertStringContainsString('Voice Pro', $translations);
@@ -381,7 +390,7 @@ class BillingUsageTest extends TestCase
 
         $this->assertStringContainsString('Trimite notificări email pentru cererile noi', $translations);
         $this->assertStringContainsString('Sends email notifications for new requests', $translations);
-        $this->assertStringContainsString('text-green-600', $landing);
+        $this->assertStringContainsString('text-green-600', $pricingGrid);
         $this->assertStringNotContainsString('>Da<', $landing);
         $this->assertStringNotContainsString('>Nu<', $landing);
         $this->assertStringNotContainsString('>Yes<', $landing);

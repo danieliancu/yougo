@@ -1,6 +1,7 @@
 ﻿import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { AlertModal, Badge, Button, Card, ConfirmationModal, DangerButton, Field, Input, SecondaryButton, ThemeToggle } from '@/Components/Ui';
 import type { ActivityChartRow } from '@/Components/ActivityChart';
+import { PricingPlansGrid, VoicePlanKey } from '@/Components/PricingPlansGrid';
 import { Booking, Conversation, Location as SalonLocation, OnboardingChecklist, OnboardingStep, OverviewData, PageProps, Plan, Salon, Service, Staff, UsageSummary, User as AuthUser } from '@/types';
 import { AlertTriangle, Bell, Bot, Building2, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, CreditCard, Download, ExternalLink, FileText, Globe2, LayoutDashboard, List, LogOut, MapPin, Menu, MessageCircle, MessageSquare, Pencil, Phone, Plus, QrCode, Save, Scissors, Search, Settings, Smartphone, Sparkles, Trash2, User, Users, X, XCircle } from 'lucide-react';
 import { SiWhatsapp } from 'react-icons/si';
@@ -83,6 +84,7 @@ function navGroupForSection(section: DashboardSection) {
 }
 
 const navGroupIds = navGroups.map((group) => group.id);
+const sidebarOpenGroupsStorageKey = 'yougo-dashboard-open-groups';
 
 const defaultOpenGroups = navGroupIds.reduce((groups, id) => ({
   ...groups,
@@ -317,22 +319,18 @@ function NavCountBadge({ count }: { count: number }) {
 
 function DashboardSidebarContent({ salon, section, user, t, onboarding, onNavigate }: { salon: Salon; section: Props['section']; user: AuthUser | null; t: TranslateFn; onboarding: OnboardingChecklist; onNavigate?: () => void }) {
   const activeGroup = navGroupForSection(section);
-  const [openGroups, setOpenGroups] = useState<Record<NavGroup['id'], boolean>>(() => ({
-    ...defaultOpenGroups,
-    ...(activeGroup ? { [activeGroup.id]: true } : {}),
-  }));
+  const [openGroups, setOpenGroups] = useState<Record<NavGroup['id'], boolean>>(() => {
+    const stored = storedSidebarOpenGroups();
+    const hasStored = Object.keys(stored).length > 0;
+
+    return {
+      ...defaultOpenGroups,
+      ...stored,
+      ...(!hasStored && activeGroup ? { [activeGroup.id]: true } : {}),
+    };
+  });
   const pendingBookingsCount = salon.bookings.filter((booking) => booking.status === 'pending').length;
   const remainingSetupCount = onboarding.steps.filter((step) => !step.completed && !step.coming_soon).length;
-
-  useEffect(() => {
-    const group = navGroupForSection(section);
-    if (!group) return;
-
-    setOpenGroups((groups) => ({
-      ...groups,
-      [group.id]: true,
-    }));
-  }, [section]);
 
   return (
     <>
@@ -365,7 +363,12 @@ function DashboardSidebarContent({ salon, section, user, t, onboarding, onNaviga
             <section key={group.id} className="rounded-lg">
               <button
                 type="button"
-                onClick={() => setOpenGroups((groups) => ({ ...groups, [group.id]: !groups[group.id] }))}
+                onClick={() => setOpenGroups((groups) => {
+                  const next = { ...groups, [group.id]: !groups[group.id] };
+                  storeSidebarOpenGroups(next);
+
+                  return next;
+                })}
                 aria-expanded={open}
                 className="flex h-9 w-full items-center gap-3 rounded-lg px-3 text-left text-[11px] font-bold uppercase tracking-wide text-white transition hover:bg-white/5"
               >
@@ -388,20 +391,17 @@ function DashboardSidebarContent({ salon, section, user, t, onboarding, onNaviga
                           onClick={onNavigate}
                           className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-bold transition ${active ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-white/10 hover:text-white'}`}
                         >
-                          {isProfile ? (
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 text-xs font-bold text-white">
-                              {(user?.name ?? 'U').slice(0, 1).toUpperCase()}
-                            </span>
-                          ) : (
-                            <Icon className="h-4 w-4 shrink-0" />
-                          )}
+                          {isProfile && <Icon className="h-4 w-4 shrink-0" />}
                           {isProfile ? (
                             <span className="min-w-0 flex-1">
                               <span className="block truncate text-sm font-bold text-white">{user?.name}</span>
                               <span className={`block truncate text-xs font-medium ${active ? 'text-indigo-100' : 'text-slate-400'}`}>{user?.email}</span>
                             </span>
                           ) : (
-                            <span className="min-w-0 flex-1 truncate">{t(item.label)}</span>
+                            <>
+                              <Icon className="h-4 w-4 shrink-0" />
+                              <span className="min-w-0 flex-1 truncate">{t(item.label)}</span>
+                            </>
                           )}
                           {item.id === 'bookings' && pendingBookingsCount > 0 && <span className="railway-lights shrink-0" aria-hidden="true" />}
                           {item.id === 'onboarding' && remainingSetupCount > 0 && <NavCountBadge count={remainingSetupCount} />}
@@ -431,6 +431,30 @@ function DashboardSidebarContent({ salon, section, user, t, onboarding, onNaviga
       </nav>
     </>
   );
+}
+
+function storedSidebarOpenGroups(): Partial<Record<NavGroup['id'], boolean>> {
+  if (typeof window === 'undefined') return {};
+
+  try {
+    const stored = window.sessionStorage.getItem(sidebarOpenGroupsStorageKey);
+    if (! stored) return {};
+
+    const parsed = JSON.parse(stored) as Partial<Record<NavGroup['id'], boolean>>;
+
+    return navGroupIds.reduce((groups, id) => ({
+      ...groups,
+      ...(typeof parsed[id] === 'boolean' ? { [id]: parsed[id] } : {}),
+    }), {} as Partial<Record<NavGroup['id'], boolean>>);
+  } catch {
+    return {};
+  }
+}
+
+function storeSidebarOpenGroups(groups: Record<NavGroup['id'], boolean>): void {
+  if (typeof window === 'undefined') return;
+
+  window.sessionStorage.setItem(sidebarOpenGroupsStorageKey, JSON.stringify(groups));
 }
 
 function LanguageToggle({ locale, onChange }: { locale: 'ro' | 'en'; onChange: (locale: 'ro' | 'en') => void }) {
@@ -693,9 +717,12 @@ function WidgetSettings({ salon, query }: { salon: Salon; query: string }) {
 
 function SettingsPage({ salon }: { salon: Salon }) {
   const t = useT();
-  const { auth } = usePage<Props>().props;
+  const { auth, billing } = usePage<Props>().props;
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
   const initialBusinessType = normalizeBusinessTypeSlug(salon.business_type) || 'salon-beauty';
+  const currentPlan = billing.plans.find((plan) => plan.key === (salon.plan ?? 'free'));
+  const paidEmailSettingsAvailable = (salon.plan ?? 'free') !== 'free';
+  const missedCallAlertsAvailable = Boolean(currentPlan?.phone_enabled);
   const form = useForm({
     name: auth.user?.name ?? '',
     business_name: salon.name ?? '',
@@ -705,9 +732,9 @@ function SettingsPage({ salon }: { salon: Salon }) {
     website: salon.website ?? '',
     business_phone: salon.business_phone ?? '',
     notification_email: salon.notification_email ?? '',
-    email_notifications: salon.email_notifications ?? true,
-    missed_call_alerts: salon.missed_call_alerts ?? true,
-    booking_confirmations: salon.booking_confirmations ?? true,
+    email_notifications: paidEmailSettingsAvailable ? (salon.email_notifications ?? true) : false,
+    missed_call_alerts: missedCallAlertsAvailable ? (salon.missed_call_alerts ?? true) : false,
+    booking_confirmations: paidEmailSettingsAvailable ? (salon.booking_confirmations ?? true) : false,
     display_language: salon.display_language ?? 'ro',
     date_format: salon.date_format ?? 'DD/MM/YYYY',
     logo: null as File | null,
@@ -715,7 +742,14 @@ function SettingsPage({ salon }: { salon: Salon }) {
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    form.post('/settings', { forceFormData: true, preserveScroll: true });
+    form
+      .transform((data) => ({
+        ...data,
+        email_notifications: paidEmailSettingsAvailable ? data.email_notifications : false,
+        booking_confirmations: paidEmailSettingsAvailable ? data.booking_confirmations : false,
+        missed_call_alerts: missedCallAlertsAvailable ? data.missed_call_alerts : false,
+      }))
+      .post('/settings', { forceFormData: true, preserveScroll: true });
   }
 
   return (
@@ -784,9 +818,9 @@ function SettingsPage({ salon }: { salon: Salon }) {
           </DarkField>
           <p className="mt-2 text-sm text-sky-300">{t('notificationEmailHelp')}</p>
           <div className="mt-7 divide-y divide-slate-800">
-            <ToggleRow title={t('emailNotifications')} subtitle={t('emailNotificationsHelp')} checked={form.data.email_notifications} onChange={(checked) => form.setData('email_notifications', checked)} />
-            <ToggleRow title={t('missedCallAlerts')} subtitle={t('missedCallAlertsHelp')} checked={form.data.missed_call_alerts} onChange={(checked) => form.setData('missed_call_alerts', checked)} />
-            <ToggleRow title={t('bookingConfirmations')} subtitle={t('bookingConfirmationsHelp')} checked={form.data.booking_confirmations} onChange={(checked) => form.setData('booking_confirmations', checked)} />
+            <ToggleRow title={t('bookingConfirmations')} subtitle={t('bookingConfirmationsHelp')} checked={form.data.booking_confirmations} onChange={(checked) => form.setData('booking_confirmations', checked)} disabled={!paidEmailSettingsAvailable} helper={!paidEmailSettingsAvailable ? t('availableOnPaidPlans') : undefined} />
+            <ToggleRow title={t('emailNotifications')} subtitle={t('emailNotificationsHelp')} checked={form.data.email_notifications} onChange={(checked) => form.setData('email_notifications', checked)} disabled={!paidEmailSettingsAvailable} helper={!paidEmailSettingsAvailable ? t('availableOnPaidPlans') : undefined} />
+            <ToggleRow title={t('missedCallAlerts')} subtitle={t('missedCallAlertsHelp')} checked={form.data.missed_call_alerts} onChange={(checked) => form.setData('missed_call_alerts', checked)} disabled={!missedCallAlertsAvailable} helper={!missedCallAlertsAvailable ? t('availableWithPhoneAi') : undefined} />
           </div>
         </SettingsPanel>
 
@@ -882,15 +916,16 @@ function DarkSelect(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return <select {...props} className={`h-10 w-full rounded-lg border px-3 text-sm font-medium outline-none focus:border-blue-500 app-panel ${props.className ?? ''}`} />;
 }
 
-function ToggleRow({ title, subtitle, checked, onChange }: { title: string; subtitle: string; checked: boolean; onChange: (checked: boolean) => void }) {
+function ToggleRow({ title, subtitle, checked, onChange, disabled = false, helper }: { title: string; subtitle: string; checked: boolean; onChange: (checked: boolean) => void; disabled?: boolean; helper?: string }) {
   return (
-    <div className="flex items-center gap-5 py-7">
-      <button type="button" onClick={() => onChange(!checked)} className={`relative h-6 w-11 shrink-0 rounded-full transition ${checked ? 'bg-blue-600' : 'bg-slate-700'}`}>
+    <div className={`flex items-center gap-5 py-7 ${disabled ? 'opacity-55' : ''}`}>
+      <button type="button" onClick={() => !disabled && onChange(!checked)} disabled={disabled} aria-disabled={disabled} className={`relative h-6 w-11 shrink-0 rounded-full transition disabled:cursor-not-allowed ${checked && !disabled ? 'bg-blue-600' : 'bg-slate-700'}`}>
         <span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${checked ? 'left-6' : 'left-1'}`} />
       </button>
       <div>
         <p className="font-bold app-text">{title}</p>
         <p className="mt-1 text-sm app-text-muted">{subtitle}</p>
+        {helper && <p className="mt-2 text-xs font-bold text-sky-300">{helper}</p>}
       </div>
     </div>
   );
@@ -1671,6 +1706,9 @@ function BillingPage({ billing, currentPlan }: { billing: { summary: UsageSummar
   const canonicalCurrentPlan = canonicalPlanKey(currentPlan);
   const [selectedPlan, setSelectedPlan] = useState(canonicalCurrentPlan);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
+  const [selectedVoicePlan, setSelectedVoicePlan] = useState<VoicePlanKey>(
+    isVoicePlanKey(canonicalCurrentPlan) ? canonicalCurrentPlan : 'voice_starter'
+  );
 
   function updatePlan(event: FormEvent) {
     event.preventDefault();
@@ -1730,64 +1768,21 @@ function BillingPage({ billing, currentPlan }: { billing: { summary: UsageSummar
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border app-border app-panel">
-        <table className="min-w-[920px] w-full border-collapse text-left text-sm">
-          <thead className="app-panel-soft">
-            <tr className="border-b app-border">
-              <BillingPlanHeader>{t('plan')}</BillingPlanHeader>
-              <BillingPlanHeader centered><Calendar className="h-4 w-4 text-indigo-500" /> {t('aiBookings')}</BillingPlanHeader>
-              <BillingPlanHeader centered><MessageCircle className="h-4 w-4 text-indigo-500" /> {t('websiteChat')}</BillingPlanHeader>
-              <BillingPlanHeader centered><SiWhatsapp className="h-4 w-4 text-[#25D366]" /> {t('whatsapp')}</BillingPlanHeader>
-              <BillingPlanHeader centered><Phone className="h-4 w-4 text-indigo-500" /> {t('phoneAi')}</BillingPlanHeader>
-              <BillingPlanHeader>{t('price')}</BillingPlanHeader>
-            </tr>
-          </thead>
-          <tbody>
-            {billing.plans.map((plan) => (
-              <BillingPlanRow key={plan.key} plan={plan} current={plan.key === canonicalCurrentPlan} billingCycle={billingCycle} />
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <PricingPlansGrid
+        plans={billing.plans}
+        billingCycle={billingCycle}
+        selectedVoicePlan={selectedVoicePlan}
+        onSelectedVoicePlanChange={setSelectedVoicePlan}
+        t={t}
+        showCtas={false}
+        currentPlanKey={canonicalCurrentPlan}
+      />
     </div>
   );
 }
 
-function BillingPlanHeader({ children, centered = false }: { children: ReactNode; centered?: boolean }) {
-  return <th className={`whitespace-nowrap px-4 py-3 text-xs font-bold uppercase tracking-wide app-text-muted ${centered ? 'text-center' : ''}`}><span className={`inline-flex items-center gap-2 ${centered ? 'justify-center' : ''}`}>{children}</span></th>;
-}
-
-function BillingPlanRow({ plan, current, billingCycle }: { plan: Plan; current?: boolean; billingCycle: 'monthly' | 'annual' }) {
-  const t = useT();
-
-  return (
-    <tr className={`border-b last:border-b-0 app-border ${plan.recommended ? 'bg-indigo-500/5' : ''}`}>
-      <td className="min-w-64 px-4 py-4 align-top">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex h-10 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white">
-            {planDisplayLabel(plan, t)}{plan.recommended ? ` (${t('recommended').toLowerCase()})` : ''}
-          </span>
-          {current && <span className="rounded-md bg-green-500/10 px-2 py-1 text-[10px] font-semibold uppercase text-green-700 dark:text-green-300">{t('currentPlan')}</span>}
-        </div>
-        <p className="mt-3 max-w-xs text-xs leading-5 app-text-muted">{planDescription(plan, t)}</p>
-        <div className="mt-3 space-y-1 text-xs app-text-muted">
-          <p>{formatLimit(plan.monthly_conversations, t)} {t('conversationsPerMonth')}</p>
-          <p>{formatLimit(plan.monthly_ai_messages, t)} {t('aiMessagesPerMonth')}</p>
-          <p>{formatLimit(plan.monthly_bookings, t)} {t('bookingsPerMonth')}</p>
-        </div>
-      </td>
-      <BillingCapability included={planHasAiBookings(plan)} detail={`${formatLimit(plan.monthly_bookings, t)} ${t('bookings').toLowerCase()}`} />
-      <BillingCapability included={Boolean(plan.widgets_enabled)} detail={`${formatLimit(plan.monthly_conversations, t)} ${t('conversations').toLowerCase()}`} />
-      <BillingCapability included={Boolean(plan.whatsapp_enabled)} detail={plan.whatsapp_enabled ? whatsappDetail(plan, t) : undefined} />
-      <BillingCapability included={Boolean(plan.phone_enabled)} detail={plan.phone_enabled ? plan.phone_minutes_label || undefined : undefined} />
-      <td className="whitespace-nowrap px-4 py-4 align-middle font-semibold app-text">
-        {priceLabel(plan, billingCycle)}
-        {billingCycle === 'annual' && monthlyPrice(plan) !== null && (
-          <span className="mt-1 block text-xs font-bold text-red-600">-{annualDiscountPercent()}%</span>
-        )}
-      </td>
-    </tr>
-  );
+function isVoicePlanKey(plan: string): plan is VoicePlanKey {
+  return ['voice_starter', 'voice_growth', 'voice_pro'].includes(plan);
 }
 
 function priceLabel(plan: Plan, billingCycle: 'monthly' | 'annual') {
@@ -1813,15 +1808,6 @@ function annualDiscountPercent() {
   return Math.round(((12 - 10) / 12) * 100);
 }
 
-function BillingCapability({ included, detail }: { included: boolean; detail?: string }) {
-  return (
-    <td className="px-4 py-4 text-center align-middle">
-      {included ? <Check className="mx-auto h-5 w-5 text-green-600" /> : <span className="text-lg app-text-muted">—</span>}
-      {detail && <span className="mt-1 block whitespace-nowrap text-[11px] leading-4 app-text-muted">{detail}</span>}
-    </td>
-  );
-}
-
 function canonicalPlanKey(key?: string | null) {
   const aliases: Record<string, string> = {
     connect: 'chat_whatsapp',
@@ -1830,47 +1816,6 @@ function canonicalPlanKey(key?: string | null) {
   };
 
   return key ? aliases[key] ?? key : 'free';
-}
-
-function planDescription(plan: Plan, t: TranslateFn) {
-  return t(`planDescription_${plan.key}`) || plan.short_description_ro || plan.short_description_en || plan.description || '';
-}
-
-function planHasAiBookings(plan: Plan) {
-  return Boolean(plan.ai_bookings_enabled || plan.features?.some((feature) => ['AI booking requests', 'Programări AI'].includes(feature)));
-}
-
-function whatsappDetail(plan: Plan, t: TranslateFn, locale?: string) {
-  return `${formatLimit(plan.monthly_whatsapp_messages ?? null, t)} ${t('messages')}`;
-}
-
-function planDisplayLabel(plan: Plan, t: TranslateFn) {
-  return t(`planName_${plan.key}`) || plan.name;
-}
-
-function planItemLabel(value: string, t: TranslateFn) {
-  const labels: Record<string, string> = {
-    'Website chat': t('websiteChat'),
-    Chat: t('chatVoice'),
-    'Phone AI': t('phoneAi'),
-    'Telefon AI': t('phoneAi'),
-    'Custom integrations': t('customIntegrations'),
-    'Dashboard': t('dashboardAccess'),
-    'Dashboard access': t('dashboardAccess'),
-    'Programări AI': t('aiBookingRequests'),
-    'AI booking requests': t('aiBookingRequests'),
-    'Availability checks': t('availabilityChecks'),
-    'Notificări email pentru programări': t('emailBookingNotifications'),
-    'Email booking notifications': t('emailBookingNotifications'),
-    'WhatsApp assistant': t('whatsappAssistant'),
-    'AI phone answering': t('aiPhoneAnswering'),
-    'Custom usage limits': t('customUsageLimits'),
-    'Multi-location support': t('multiLocationSupport'),
-    'Advanced setup': t('advancedSetup'),
-    'Limited monthly usage': t('limitedMonthlyUsage'),
-  };
-
-  return labels[value] ?? value;
 }
 
 function UsageBar({ label, used, limit }: { label: string; used: number; limit: number | null }) {

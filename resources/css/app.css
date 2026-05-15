@@ -177,6 +177,22 @@ body {
   color: var(--app-text-muted);
 }
 
+.yougo-logo-light {
+  display: block;
+}
+
+.yougo-logo-dark {
+  display: none;
+}
+
+.dark .yougo-logo-light {
+  display: none;
+}
+
+.dark .yougo-logo-dark {
+  display: block;
+}
+
 .app-accent-text {
   color: #4338ca;
 }

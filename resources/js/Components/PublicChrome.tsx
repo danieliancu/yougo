@@ -18,9 +18,10 @@ type PublicHeaderProps = {
   startLabel: string;
   industriesLabel: string;
   pricingLabel: string;
+  logoMode?: 'theme' | 'light';
 };
 
-export function PublicHeader({ authUserName, locale, onLanguageChange, startLabel, industriesLabel, pricingLabel }: PublicHeaderProps) {
+export function PublicHeader({ authUserName, locale, onLanguageChange, startLabel, industriesLabel, pricingLabel, logoMode = 'theme' }: PublicHeaderProps) {
   const aboutLabel = locale === 'ro' ? 'Despre' : 'About';
   const scrollToLandingSection = (event: MouseEvent<HTMLAnchorElement>, sectionId: string) => {
     if (typeof window === 'undefined' || window.location.pathname !== '/') return;
@@ -36,8 +37,7 @@ export function PublicHeader({ authUserName, locale, onLanguageChange, startLabe
   return (
     <nav className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-5">
       <Link href="/" className="flex items-center">
-        <img src="/images/logo-white.png" className="h-12 w-auto dark:hidden" alt="YouGo" />
-        <img src="/images/logo-dark.png" className="hidden h-12 w-auto dark:block" alt="YouGo" />
+        <PublicBrandLogo className="h-12" mode={logoMode} />
       </Link>
       <div className="hidden items-center gap-2 md:flex">
         <ThemeToggle />
@@ -61,6 +61,19 @@ export function PublicHeader({ authUserName, locale, onLanguageChange, startLabe
         />
       </div>
     </nav>
+  );
+}
+
+function PublicBrandLogo({ className, mode = 'theme' }: { className: string; mode?: 'theme' | 'light' }) {
+  if (mode === 'light') {
+    return <img src="/images/logo-white.png" className={`${className} w-auto`} alt="YouGo" />;
+  }
+
+  return (
+    <>
+      <img src="/images/logo-white.png" className={`yougo-logo-light ${className} w-auto`} alt="YouGo" />
+      <img src="/images/logo-dark.png" className={`yougo-logo-dark ${className} w-auto`} alt="YouGo" />
+    </>
   );
 }
 
@@ -259,8 +272,7 @@ export function PublicFooter({ t }: { t: (key: string) => string }) {
       <div className="mx-auto grid max-w-6xl gap-8 px-6 py-10 md:grid-cols-[1.2fr_0.7fr_0.8fr_0.8fr]">
         <div>
           <Link href="/" className="inline-flex items-center">
-            <img src="/images/logo-white.png" className="h-11 w-auto dark:hidden" alt="YouGo" />
-            <img src="/images/logo-dark.png" className="hidden h-11 w-auto dark:block" alt="YouGo" />
+            <PublicBrandLogo className="h-11" />
           </Link>
           <p className="mt-4 max-w-md text-sm leading-6 app-text-soft">{t('footerDescription')}</p>
         </div>
