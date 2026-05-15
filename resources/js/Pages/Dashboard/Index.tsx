@@ -3,7 +3,7 @@ import { AlertModal, Badge, Button, Card, ConfirmationModal, DangerButton, Field
 import type { ActivityChartRow } from '@/Components/ActivityChart';
 import { PricingPlansGrid, VoicePlanKey } from '@/Components/PricingPlansGrid';
 import { Booking, Conversation, Location as SalonLocation, OnboardingChecklist, OnboardingStep, OverviewData, PageProps, Plan, Salon, Service, Staff, UsageSummary, User as AuthUser } from '@/types';
-import { AlertTriangle, Bell, Bot, Building2, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, CreditCard, Download, ExternalLink, FileText, Globe2, LayoutDashboard, List, LogOut, MapPin, Menu, MessageCircle, MessageSquare, Pencil, Phone, Plus, QrCode, Save, Scissors, Search, Settings, Smartphone, Sparkles, Trash2, User, Users, X, XCircle } from 'lucide-react';
+import { AlertTriangle, Bell, Bot, Building2, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, CreditCard, Download, ExternalLink, FileText, Globe2, LayoutDashboard, List, LogOut, MapPin, Menu, MessageCircle, MessageSquare, MoreHorizontal, Pencil, Phone, Plus, QrCode, Save, Scissors, Search, Settings, Smartphone, Sparkles, Trash2, User, Users, X, XCircle } from 'lucide-react';
 import { SiWhatsapp } from 'react-icons/si';
 import { FormEvent, lazy, ReactNode, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
@@ -1198,10 +1198,10 @@ function IntentPill({ intent, compact = false, bookingStatus }: { intent: string
 function StatusPill({ status, t, className = '' }: { status: string; t: TranslateFn; className?: string }) {
   const tones: Record<string, string> = {
     pending: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
-    confirmed: 'bg-green-700 text-white dark:bg-green-700 dark:text-white',
-    programat: 'bg-green-700 text-white dark:bg-green-700 dark:text-white',
+    confirmed: 'bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300',
+    programat: 'bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300',
     cancelled: 'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300',
-    completed: 'bg-blue-600 text-white dark:bg-blue-600 dark:text-white',
+    completed: 'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300',
     open: 'bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300',
   };
   const labels: Record<string, string> = {
@@ -1214,7 +1214,7 @@ function StatusPill({ status, t, className = '' }: { status: string; t: Translat
   };
 
   return (
-    <span className={`${TABLE_PILL_CLASS} gap-1.5 ${tones[status] ?? tones.completed} ${className}`}>
+    <span className={`inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-sm font-semibold ${tones[status] ?? tones.completed} ${className}`}>
       {status === 'pending' && <span className="railway-lights shrink-0" aria-hidden="true" />}
       {status === 'completed' && <Check className="h-3 w-3 shrink-0 stroke-[3]" />}
       {labels[status] ?? status}
@@ -3073,9 +3073,8 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
           <Button className="mt-5" onClick={() => setAdding(true)}><Plus className="h-4 w-4" /> {t('addService')}</Button>
         </Card>
       ) : (
-      <Card className="overflow-hidden">
-        <Table headers={[
-          t('service'),
+        <DashboardTable headers={[
+          <DashboardTableHeaderLabel>{t('service')}</DashboardTableHeaderLabel>,
           <span key="capacity-header" className="inline-flex items-center gap-1.5">
             <span className="leading-tight">
               {t('simultaneousBookingsLine1')}<br />
@@ -3102,12 +3101,12 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
             selected={branchFilter}
             onChange={setBranchFilter}
           />,
-          t('duration'),
-          t('priceRon'),
-          '',
-        ]}>
-          {filteredServices.map((service) => (
-            <tr key={service.id} className="border-t app-border">
+          <DashboardTableHeaderLabel>{t('duration')}</DashboardTableHeaderLabel>,
+          <DashboardTableHeaderLabel>{t('priceRon')}</DashboardTableHeaderLabel>,
+          <span className="sr-only">{t('actions')}</span>,
+        ]} minWidth="980px">
+          {filteredServices.map((service, index) => (
+            <tr key={service.id} className={dashboardTableRowClass(index)}>
               <>
                   <td className="px-5 py-4 align-top">
                     <div className="flex flex-wrap items-center gap-2">
@@ -3144,20 +3143,32 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
                   <td className="px-5 py-4 text-sm app-text-soft">{service.duration} min</td>
                   <td className="px-5 py-4 font-semibold text-indigo-700">{service.price}</td>
                   <td className="px-5 py-4">
-                    <div className="flex justify-end gap-2">
-                      <SecondaryButton onClick={() => startEditService(service)}><Pencil className="h-4 w-4" /></SecondaryButton>
-                      <DangerButton onClick={() => setConfirmation({
-                        title: t('deleteService'),
-                        message: t('deleteServiceConfirm'),
-                        onConfirm: () => router.delete(`/services/${service.id}`, { preserveScroll: true }),
-                      })}><Trash2 className="h-4 w-4" /></DangerButton>
-                    </div>
+                    <RowActionsMenu label={t('actions')}>
+                      {(close) => (
+                        <>
+                          <RowActionButton onClick={() => { close(); startEditService(service); }}>
+                            <Pencil className="h-4 w-4" />
+                            {t('editService')}
+                          </RowActionButton>
+                          <RowActionButton tone="danger" onClick={() => {
+                            close();
+                            setConfirmation({
+                              title: t('deleteService'),
+                              message: t('deleteServiceConfirm'),
+                              onConfirm: () => router.delete(`/services/${service.id}`, { preserveScroll: true }),
+                            });
+                          }}>
+                            <Trash2 className="h-4 w-4" />
+                            {t('deleteService')}
+                          </RowActionButton>
+                        </>
+                      )}
+                    </RowActionsMenu>
                   </td>
               </>
             </tr>
           ))}
-        </Table>
-      </Card>
+        </DashboardTable>
       )}
     </div>
   );
@@ -3284,6 +3295,71 @@ function BranchFilterHeader({ label, locations, selected, onChange }: { label: s
                   {checked && <Check className="h-2.5 w-2.5 text-white" />}
                 </span>
                 <span className="app-text">{location.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DateFilterHeader({ label, dates, selected, onChange, t }: { label: string; dates: string[]; selected: string[]; onChange: (next: string[]) => void; t: TranslateFn }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const active = selected.length > 0;
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
+
+  function toggle(date: string) {
+    onChange(selected.includes(date) ? selected.filter((value) => value !== date) : [...selected, date]);
+  }
+
+  if (dates.length === 0) {
+    return <span>{label.toLocaleUpperCase()}</span>;
+  }
+
+  return (
+    <div ref={ref} className="relative inline-block">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 transition hover:bg-white/10 ${active ? 'text-indigo-400' : ''}`}
+      >
+        {label.toLocaleUpperCase()}
+        {active && <span className="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-semibold text-white">{selected.length}</span>}
+        <ChevronDown className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-1 min-w-56 rounded-lg border p-1 shadow-lg app-border app-panel normal-case tracking-normal">
+          {selected.length > 0 && (
+            <button
+              type="button"
+              onClick={() => { onChange([]); setOpen(false); }}
+              className="flex w-full cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-xs font-medium text-indigo-600 transition hover:bg-[var(--app-panel-soft)]"
+            >
+              Reset
+            </button>
+          )}
+          {dates.map((date) => {
+            const checked = selected.includes(date);
+            return (
+              <button
+                key={date}
+                type="button"
+                onClick={() => toggle(date)}
+                className="flex w-full cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition hover:bg-[var(--app-panel-soft)]"
+              >
+                <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${checked ? 'border-indigo-600 bg-indigo-600' : 'border-[var(--app-border)]'}`}>
+                  {checked && <Check className="h-2.5 w-2.5 text-white" />}
+                </span>
+                <span className="app-text">{formatBookingGroupDate(date, t)}</span>
               </button>
             );
           })}
@@ -3672,12 +3748,117 @@ function ChannelStat({ icon: Icon, value, label, tone, compact = false }: { icon
   );
 }
 
+function DashboardTable({ headers, children, minWidth = '920px' }: { headers: ReactNode[]; children: ReactNode; minWidth?: string }) {
+  return (
+    <div className="overflow-hidden rounded-2xl border shadow-sm app-border app-panel">
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-left text-sm" style={{ minWidth }}>
+          <thead className="app-panel-soft">
+            <tr className="border-b app-border">
+              {headers.map((header, index) => (
+                <th key={index} className="whitespace-nowrap px-5 py-4 text-xs font-semibold uppercase tracking-wide app-text-muted">
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>{children}</tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function DashboardTableHeaderLabel({ children }: { children: ReactNode }) {
+  return (
+    <span>{children}</span>
+  );
+}
+
+function dashboardTableRowClass(index: number) {
+  return `border-b last:border-b-0 app-border transition hover:bg-indigo-500/5 ${index % 2 === 0 ? 'app-panel' : 'app-panel-soft'}`;
+}
+
+function RowActionsMenu({ label, children }: { label: string; children: (close: () => void) => ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const [direction, setDirection] = useState<'down' | 'up'>('down');
+  const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    function onClickOutside(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
+
+  function toggleOpen() {
+    if (!open) {
+      const rect = buttonRef.current?.getBoundingClientRect();
+      if (rect) {
+        const menuHeight = 224;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        setDirection(spaceBelow < menuHeight && rect.top > menuHeight ? 'up' : 'down');
+      }
+    }
+
+    setOpen((value) => !value);
+  }
+
+  return (
+    <div ref={ref} className="relative flex justify-end">
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-label={label}
+        title={label}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={toggleOpen}
+        className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg app-text-muted transition hover:bg-[var(--app-panel-soft)] hover:app-text"
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </button>
+      {open && (
+        <div className={`absolute right-0 z-50 min-w-44 rounded-lg border p-1 shadow-xl app-border app-panel ${direction === 'up' ? 'bottom-10' : 'top-10'}`}>
+          {children(() => setOpen(false))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RowActionButton({ children, onClick, tone = 'default' }: { children: ReactNode; onClick: () => void; tone?: 'default' | 'danger' }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold transition hover:bg-[var(--app-panel-soft)] ${tone === 'danger' ? 'text-red-600' : 'app-text-soft'}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function RowActionLink({ children, href }: { children: ReactNode; href: string }) {
+  return (
+    <a href={href} className="flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold transition app-text-soft hover:bg-[var(--app-panel-soft)]">
+      {children}
+    </a>
+  );
+}
+
 function Bookings({ salon, query }: { salon: Salon; query: string }) {
   const t = useT();
   const [view, setView] = useState<'archive' | 'list' | 'calendar'>('list');
   const [editingBookingId, setEditingBookingId] = useState<number | null>(null);
   const [isAddingBooking, setIsAddingBooking] = useState(false);
   const [bookingCategory, setBookingCategory] = useState('');
+  const [selectedBookingDates, setSelectedBookingDates] = useState<string[]>([]);
   const [confirmation, setConfirmation] = useState<{ title: string; message: string; tone?: 'danger' | 'neutral'; confirmLabel?: string; onConfirm: () => void } | null>(null);
   const editForm = useForm({
     client_name: '',
@@ -3710,11 +3891,23 @@ function Bookings({ salon, query }: { salon: Salon; query: string }) {
       cancelled: salon.bookings.filter((booking) => booking.status === 'cancelled' && booking.date >= todayKey).length,
     };
   }, [salon.bookings, todayKey]);
-  const visibleBookings = useMemo(() => (
+  const visibleBookingsBase = useMemo(() => (
     view === 'archive'
       ? filteredBookings.filter((booking) => booking.date < todayKey)
       : filteredBookings.filter((booking) => booking.date >= todayKey)
   ), [filteredBookings, todayKey, view]);
+  const bookingDateOptions = useMemo(
+    () => Array.from(new Set(visibleBookingsBase.map((booking) => booking.date))).sort(),
+    [visibleBookingsBase],
+  );
+  useEffect(() => {
+    setSelectedBookingDates((current) => current.filter((date) => bookingDateOptions.includes(date)));
+  }, [bookingDateOptions]);
+  const visibleBookings = useMemo(() => (
+    selectedBookingDates.length === 0
+      ? visibleBookingsBase
+      : visibleBookingsBase.filter((booking) => selectedBookingDates.includes(booking.date))
+  ), [selectedBookingDates, visibleBookingsBase]);
   const groupedBookings = useMemo(() => groupBookingsByDay(visibleBookings), [visibleBookings]);
   const bookingCategoryOptions = useMemo(
     () => Array.from(new Set([
@@ -3930,6 +4123,9 @@ function Bookings({ salon, query }: { salon: Salon; query: string }) {
       {(view === 'list' || view === 'archive') && (
         <BookingsDayCards
           groups={groupedBookings}
+          dateOptions={bookingDateOptions}
+          selectedDates={selectedBookingDates}
+          onDateChange={setSelectedBookingDates}
           t={t}
           onEdit={startEditBooking}
           onConfirm={(booking) => router.put(`/bookings/${booking.id}`, { status: 'confirmed' }, { preserveScroll: true })}
@@ -3988,8 +4184,32 @@ function groupBookingsByDay(bookings: Salon['bookings']) {
   }));
 }
 
+function formatBookingGroupDate(date: string, t: TranslateFn) {
+  const locale = t('date') === 'Date' ? 'en-GB' : 'ro-RO';
+  const formatted = new Intl.DateTimeFormat(locale, {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+  }).format(new Date(`${date}T00:00:00`));
+
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+}
+
+function bookingDetailsLine(booking: Salon['bookings'][number], t: TranslateFn) {
+  return [
+    booking.service?.name || (booking.service_id ? `${t('service')} #${booking.service_id}` : null),
+    bookingStaffLabel(booking),
+    booking.service?.type,
+    booking.service?.price ? `${booking.service.price} RON` : null,
+    booking.location?.name,
+  ].filter(Boolean).join(' • ');
+}
+
 function BookingsDayCards({
   groups,
+  dateOptions,
+  selectedDates,
+  onDateChange,
   t,
   onEdit,
   onConfirm,
@@ -3997,6 +4217,9 @@ function BookingsDayCards({
   onDelete,
 }: {
   groups: ReturnType<typeof groupBookingsByDay>;
+  dateOptions: string[];
+  selectedDates: string[];
+  onDateChange: (next: string[]) => void;
   t: TranslateFn;
   onEdit: (booking: Salon['bookings'][number]) => void;
   onConfirm: (booking: Salon['bookings'][number]) => void;
@@ -4005,89 +4228,83 @@ function BookingsDayCards({
 }) {
   if (groups.length === 0) {
     return (
-      <Card className="p-6">
+      <div className="rounded-2xl border p-6 app-border app-panel">
         <div className="flex min-h-24 items-center justify-center text-sm app-text-muted">{t('noBookingsFound')}</div>
-      </Card>
+      </div>
     );
   }
 
+  let rowIndex = 0;
+
   return (
-    <div className="space-y-4">
-      {groups.map((group) => (
-        <Card key={group.date} className="overflow-hidden">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b p-5 app-border app-panel-soft">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-base font-semibold capitalize app-text">{formatBookingDay(group.date)}</h3>
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-semibold leading-none text-white">
-                {group.bookings.length}
-              </span>
-            </div>
-            <span className={`${TABLE_PILL_CLASS} bg-indigo-500/10 text-indigo-700 dark:text-indigo-200`}>
-              {group.bookings[0]?.time} - {lastBookingEndTime(group.bookings)}
-            </span>
-          </div>
-          <div className="divide-y app-border">
-            {group.bookings.map((booking) => (
-              <div key={booking.id} className="grid gap-x-6 gap-y-3 p-5 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center">
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className={`${TABLE_PILL_CLASS} shrink-0 border app-border ${isPastBookingTime(booking) ? 'bg-slate-200 text-slate-500 dark:bg-white/10 dark:text-slate-400' : 'bg-white text-slate-950'}`}>
-                    {bookingTimeRange(booking.time, booking.service?.duration)}
-                  </span>
-                  <StatusPill status={booking.status} t={t} />
-                </div>
-                <div className="min-w-0">
-                  <p className="font-semibold app-text">{booking.client_name}</p>
-                  <p className="hidden">
-                    {[booking.service?.name || `Serviciu #${booking.service_id}`, booking.service?.type].filter(Boolean).join(' \u2022 ')}
-                  </p>
-                  <div className="flex flex-wrap items-center text-xs font-medium app-text-muted">
-                    <span>{booking.service?.type || t('general')}</span>
-                    <span className="mx-1.5 app-text-muted" aria-hidden="true">{'\u2022'}</span>
-                    <span>{booking.service?.name || `Serviciu #${booking.service_id}`}</span>
-                    {booking.service?.price && <>
-                      <span className="mx-1.5 app-text-muted" aria-hidden="true">{'\u2022'}</span>
-                      <span>{booking.service.price} RON</span>
-                    </>}
-                    <span className="mx-1.5 app-text-muted" aria-hidden="true">{'\u2022'}</span>
-                    <span>{booking.location?.name || t('noLocation')}</span>
-                    {!!booking.service?.notes && <>
-                      <span className="mx-1.5 app-text-muted" aria-hidden="true">{'\u2022'}</span>
-                      <ServiceNotesPill notes={booking.service.notes} />
-                    </>}
-                  </div>
-                  {bookingStaffLabel(booking) && (
-                    <p className="text-xs app-text-muted">{t('assignedStaff')}: {bookingStaffLabel(booking)}</p>
-                  )}
-                </div>
-                <div className="flex items-center justify-start gap-2 lg:justify-end">
-                  {(booking.status === 'pending' || booking.status === 'cancelled') && (
-                    <button type="button" onClick={() => onConfirm(booking)} aria-label={t('confirmBooking')} title={t('confirmBooking')} className="inline-flex h-11 w-11 items-center justify-center rounded-lg app-text-soft transition hover:bg-[var(--app-panel-soft)] hover:text-green-600">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    </button>
-                  )}
-                  {booking.client_phone && (
-                    <a href={`tel:${booking.client_phone}`} aria-label={booking.client_phone} title={booking.client_phone} className="inline-flex h-11 w-11 items-center justify-center rounded-lg app-text-soft transition hover:bg-[var(--app-panel-soft)] hover:text-green-600">
-                      <Phone className="h-4 w-4" />
-                    </a>
-                  )}
-                  {booking.status !== 'cancelled' && (
-                    <button type="button" onClick={() => onCancel(booking)} aria-label={t('cancelBooking')} title={t('cancelBooking')} className="inline-flex h-11 w-11 items-center justify-center rounded-lg app-text-soft transition hover:bg-[var(--app-panel-soft)] hover:text-red-600">
-                      <XCircle className="h-4 w-4 text-red-600" />
-                    </button>
-                  )}
-                  <button type="button" onClick={() => onEdit(booking)} aria-label={t('editBooking')} title={t('editBooking')} className="inline-flex h-11 w-11 items-center justify-center rounded-lg app-text-soft transition hover:bg-[var(--app-panel-soft)] hover:app-text">
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button type="button" onClick={() => onDelete(booking)} aria-label={t('deleteBooking')} title={t('deleteBooking')} className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-red-600 transition hover:bg-red-500/10 hover:text-red-700">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      ))}
-    </div>
+    <DashboardTable
+      headers={[
+        <DateFilterHeader label={t('date')} dates={dateOptions} selected={selectedDates} onChange={onDateChange} t={t} />,
+        <DashboardTableHeaderLabel>{t('time')}</DashboardTableHeaderLabel>,
+        <DashboardTableHeaderLabel>{t('status')}</DashboardTableHeaderLabel>,
+        <DashboardTableHeaderLabel>{t('name')}</DashboardTableHeaderLabel>,
+        <DashboardTableHeaderLabel>{t('phone')}</DashboardTableHeaderLabel>,
+        <DashboardTableHeaderLabel>{t('details')}</DashboardTableHeaderLabel>,
+        <span className="sr-only">{t('actions')}</span>,
+      ]}
+      minWidth="1040px"
+    >
+      {groups.flatMap((group) => group.bookings.map((booking, bookingIndex) => {
+        const currentIndex = rowIndex++;
+        const detail = bookingDetailsLine(booking, t);
+
+        return (
+          <tr key={booking.id} className={dashboardTableRowClass(currentIndex)}>
+            <td className="w-48 px-5 py-4 align-top text-sm font-semibold app-text">
+              {bookingIndex === 0 ? formatBookingGroupDate(group.date, t) : ''}
+            </td>
+            <td className="whitespace-nowrap px-5 py-4 align-top text-sm font-semibold app-text">
+              {bookingTimeRange(booking.time, booking.service?.duration)}
+            </td>
+            <td className="px-5 py-4 align-top">
+              <StatusPill status={booking.status} t={t} />
+            </td>
+            <td className="px-5 py-4 align-top font-semibold app-text">{booking.client_name}</td>
+            <td className="whitespace-nowrap px-5 py-4 align-top app-text-soft">{booking.client_phone || t('phoneMissingShort')}</td>
+            <td className="min-w-72 px-5 py-4 align-top app-text-soft">{detail || '-'}</td>
+            <td className="w-14 px-5 py-4 align-top">
+              <RowActionsMenu label={t('actions')}>
+                {(close) => (
+                  <>
+                    {(booking.status === 'pending' || booking.status === 'cancelled') && (
+                      <RowActionButton onClick={() => { close(); onConfirm(booking); }}>
+                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                        {t('confirmBooking')}
+                      </RowActionButton>
+                    )}
+                    {booking.client_phone && (
+                      <RowActionLink href={`tel:${booking.client_phone}`}>
+                        <Phone className="h-4 w-4 text-green-600" />
+                        {booking.client_phone}
+                      </RowActionLink>
+                    )}
+                    {booking.status !== 'cancelled' && (
+                      <RowActionButton onClick={() => { close(); onCancel(booking); }}>
+                        <XCircle className="h-4 w-4 text-red-600" />
+                        {t('cancelBooking')}
+                      </RowActionButton>
+                    )}
+                    <RowActionButton onClick={() => { close(); onEdit(booking); }}>
+                      <Pencil className="h-4 w-4" />
+                      {t('editBooking')}
+                    </RowActionButton>
+                    <RowActionButton tone="danger" onClick={() => { close(); onDelete(booking); }}>
+                      <Trash2 className="h-4 w-4" />
+                      {t('deleteBooking')}
+                    </RowActionButton>
+                  </>
+                )}
+              </RowActionsMenu>
+            </td>
+          </tr>
+        );
+      }))}
+    </DashboardTable>
   );
 }
 
