@@ -1,7 +1,7 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { CalendarCheck, Check, MessageCircle, Minus, Phone, Plug, Plus, Send } from 'lucide-react';
+import { Check, MessageCircle, Minus, Phone, Plug, Plus, Send } from 'lucide-react';
 import { SiWhatsapp } from 'react-icons/si';
-import { ReactNode, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChatShell } from '@/Components/ChatShell';
 import { PublicFooter, PublicHeader, PublicLocale } from '@/Components/PublicChrome';
 import { translate } from '@/i18n';
@@ -135,76 +135,186 @@ function FaqSection({ t }: { t: (key: string, params?: Record<string, string | n
   );
 }
 
-function PricingSection({ plans, t, authUser, locale }: { plans: Plan[]; t: (key: string, params?: Record<string, string | number>) => string; authUser: boolean; locale: PublicLocale }) {
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
+type BillingCycle = 'monthly' | 'annual';
+type PublicPlanKey = 'free' | 'website_chat' | 'chat_whatsapp';
+type VoicePlanKey = 'voice_starter' | 'voice_growth' | 'voice_pro';
+
+function PricingSection({ plans, t, authUser }: { plans: Plan[]; t: (key: string, params?: Record<string, string | number>) => string; authUser: boolean; locale: PublicLocale }) {
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
+  const [selectedVoicePlan, setSelectedVoicePlan] = useState<VoicePlanKey>('voice_starter');
+  const cardKeys: PublicPlanKey[] = ['free', 'website_chat', 'chat_whatsapp'];
+  const voiceKeys: VoicePlanKey[] = ['voice_starter', 'voice_growth', 'voice_pro'];
+  const selectedVoice = planByKey(plans, selectedVoicePlan);
 
   return (
     <section className="mx-auto max-w-6xl px-6 pb-24">
-      <div className="mb-8 max-w-2xl">
-        <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">{t('pricing')}</p>
-        <h2 className="mt-2 text-3xl font-bold app-text md:text-4xl">{t('choosePlan')}</h2>
-        <p className="mt-4 text-sm app-text-muted">{t('paymentsComingSoon')}</p>
-        <div className="mt-5 inline-flex rounded-lg border p-1 app-border app-panel">
-          <button
-            type="button"
-            onClick={() => setBillingCycle('monthly')}
-            className={`h-9 rounded-md px-4 text-sm font-semibold transition ${billingCycle === 'monthly' ? 'bg-indigo-600 text-white' : 'app-text-soft hover:bg-[var(--soft)]'}`}
-          >
-            {t('monthly')}
-          </button>
-          <button
-            type="button"
-            onClick={() => setBillingCycle('annual')}
-            className={`h-9 rounded-md px-4 text-sm font-semibold transition ${billingCycle === 'annual' ? 'bg-indigo-600 text-white' : 'app-text-soft hover:bg-[var(--soft)]'}`}
-          >
-            {t('annual')}
-          </button>
+      <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+        <div className="max-w-2xl">
+          <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">{t('pricing')}</p>
+          <h2 className="mt-2 text-3xl font-bold app-text md:text-4xl">{t('choosePlan')}</h2>
+          <p className="mt-4 text-sm leading-6 app-text-muted">{t('pricingChannelCopy')}</p>
+          <p className="mt-2 text-sm app-text-muted">{t('paymentsComingSoon')}</p>
+        </div>
+        <div className="inline-flex w-fit rounded-lg border p-1 app-border app-panel">
+          {(['monthly', 'annual'] as BillingCycle[]).map((cycle) => (
+            <button
+              key={cycle}
+              type="button"
+              onClick={() => setBillingCycle(cycle)}
+              className={`h-9 rounded-md px-4 text-sm font-semibold transition ${billingCycle === cycle ? 'bg-indigo-600 text-white' : 'app-text-soft hover:bg-[var(--soft)]'}`}
+            >
+              {t(cycle)}
+            </button>
+          ))}
         </div>
       </div>
-      <div className="overflow-x-auto rounded-lg border app-border app-panel">
-        <table className="min-w-[920px] w-full border-collapse text-left text-sm">
-          <thead className="app-panel-soft">
-            <tr className="border-b app-border">
-              <PricingHeader>{t('plan')}</PricingHeader>
-              <PricingHeader centered><CalendarCheck className="h-4 w-4 text-indigo-500" /> {t('aiBookings')}</PricingHeader>
-              <PricingHeader centered><MessageCircle className="h-4 w-4 text-indigo-500" /> {t('websiteChat')}</PricingHeader>
-              <PricingHeader centered><SiWhatsapp className="h-4 w-4 text-[#25D366]" /> {t('whatsapp')}</PricingHeader>
-              <PricingHeader centered><Phone className="h-4 w-4 text-indigo-500" /> {t('phoneAi')}</PricingHeader>
-              <PricingHeader>{t('price')}</PricingHeader>
-            </tr>
-          </thead>
-          <tbody>
-            {plans.map((plan) => (
-              <tr key={plan.key} className={`border-b last:border-b-0 app-border ${plan.recommended ? 'bg-indigo-500/5' : ''}`}>
-                <td className="min-w-64 px-4 py-4 align-top">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Link href={authUser ? '/dashboard/billing' : '/register'} className="inline-flex h-10 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700">
-                      {planDisplayLabel(plan, t)}{plan.recommended ? ` (${t('recommended').toLowerCase()})` : ''}
-                    </Link>
-                  </div>
-                  <p className="mt-3 max-w-xs text-xs leading-5 app-text-muted">{planDescription(plan, t)}</p>
-                </td>
-                <PricingCapability included={planHasAiBookings(plan)} detail={`${formatLandingLimit(plan.monthly_bookings, t)} ${t('bookings').toLowerCase()}`} />
-                <PricingCapability included={Boolean(plan.widgets_enabled)} detail={`${formatLandingLimit(plan.monthly_conversations, t)} ${t('conversations').toLowerCase()}`} />
-                <PricingCapability included={Boolean(plan.whatsapp_enabled)} detail={plan.whatsapp_enabled ? whatsappDetail(plan, t, locale) : undefined} />
-                <PricingCapability included={Boolean(plan.phone_enabled)} detail={plan.phone_enabled ? plan.phone_minutes_label || undefined : undefined} />
-                <td className="whitespace-nowrap px-4 py-4 align-middle font-semibold app-text">
-                  {priceLabel(plan, billingCycle, t)}
-                  {billingCycle === 'annual' && monthlyPrice(plan) !== null && (
-                    <span className="mt-1 block text-xs font-bold text-red-600">-{annualDiscountPercent()}%</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+
+      <div className="mb-6 rounded-lg border px-5 py-4 app-border app-panel-soft">
+        <h3 className="text-base font-bold app-text">{t('pricingChannelTitle')}</h3>
+        <p className="mt-1 text-sm leading-6 app-text-soft">{t('pricingChannelBody')}</p>
+      </div>
+
+      <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        {cardKeys.map((key) => {
+          const plan = planByKey(plans, key);
+
+          return (
+            <PricingCard
+              key={key}
+              plan={plan}
+              fallbackName={t(`planName_${key}`)}
+              subtitle={t(`pricingSubtitle_${key}`)}
+              highlights={pricingHighlights(key, plan, t)}
+              usage={usageLines(plan, t)}
+              ctaLabel={pricingCtaLabel(key, t)}
+              href={pricingHref(authUser)}
+              billingCycle={billingCycle}
+              t={t}
+            />
+          );
+        })}
+
+        <article className="flex min-h-full flex-col rounded-xl border border-indigo-300 p-5 shadow-sm app-panel dark:border-indigo-500/60">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-xl font-bold app-text">{t('pricingVoiceName')}</h3>
+                <span className="rounded-md bg-indigo-50 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200">{t('completeReceptionist')}</span>
+              </div>
+              <p className="mt-3 min-h-[3rem] whitespace-pre-line text-sm leading-6 app-text-soft">{t('pricingSubtitle_voice')}</p>
+            </div>
+          </div>
+
+          {selectedVoice ? (
+            <>
+              <PriceBlock plan={selectedVoice} billingCycle={billingCycle} t={t} />
+              <VoiceUsage plan={selectedVoice} t={t} />
+              <div className="mb-5 grid grid-cols-3 gap-1 rounded-lg border p-1 app-border app-panel-soft">
+                {voiceKeys.map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSelectedVoicePlan(key)}
+                    className={`h-9 rounded-md text-xs font-bold transition ${selectedVoicePlan === key ? 'bg-indigo-600 text-white shadow-sm' : 'app-text-soft hover:bg-[var(--soft)]'}`}
+                  >
+                    {voiceTabLabel(key, t)}
+                  </button>
+                ))}
+              </div>
+              <FeatureList items={[t('phoneAi'), t('websiteChat'), t('whatsapp'), t('aiBookings'), t('emailBookingNotifications'), t('dashboardAccess')]} />
+              <Link href={pricingHref(authUser)} className="mt-auto inline-flex h-11 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-bold text-white shadow-sm hover:bg-indigo-700">
+                {voiceCtaLabel(selectedVoicePlan, t)}
+              </Link>
+            </>
+          ) : (
+            <MissingPlanFallback t={t} />
+          )}
+        </article>
       </div>
     </section>
   );
 }
 
-function priceLabel(plan: Plan, billingCycle: 'monthly' | 'annual', t: (key: string, params?: Record<string, string | number>) => string) {
+function PricingCard({ plan, fallbackName, subtitle, highlights, usage, ctaLabel, href, billingCycle, t }: { plan?: Plan; fallbackName: string; subtitle: string; highlights: string[]; usage: string[]; ctaLabel: string; href: string; billingCycle: BillingCycle; t: (key: string, params?: Record<string, string | number>) => string }) {
+  return (
+    <article className="flex min-h-full flex-col rounded-xl border p-5 shadow-sm app-panel app-border">
+      <h3 className="text-xl font-bold app-text">{plan ? planDisplayLabel(plan, t) : fallbackName}</h3>
+      <p className="mt-3 min-h-[3rem] whitespace-pre-line text-sm leading-6 app-text-soft">{subtitle}</p>
+      {plan ? (
+        <>
+          <PriceBlock plan={plan} billingCycle={billingCycle} t={t} />
+          <UsageList items={usage} />
+          <FeatureList items={highlights} />
+          <Link href={href} className="mt-auto inline-flex h-11 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-bold text-white shadow-sm hover:bg-indigo-700">
+            {ctaLabel}
+          </Link>
+        </>
+      ) : (
+        <MissingPlanFallback t={t} />
+      )}
+    </article>
+  );
+}
+
+function UsageList({ items }: { items: string[] }) {
+  return (
+    <div className="mb-5 grid gap-1 rounded-lg border px-3 py-2 text-xs font-semibold leading-5 app-border app-text-muted">
+      {items.map((item) => <span key={item}>{item}</span>)}
+    </div>
+  );
+}
+
+function FeatureList({ items }: { items: string[] }) {
+  return (
+    <ul className="mt-5 mb-5 grid gap-3 text-sm font-medium app-text-soft">
+      {items.map((item) => (
+        <li key={item} className="flex gap-2">
+          <Check className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
+          <span>{item}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function PriceBlock({ plan, billingCycle, t }: { plan: Plan; billingCycle: BillingCycle; t: (key: string, params?: Record<string, string | number>) => string }) {
   const monthly = monthlyPrice(plan);
+
+  return (
+    <div className="mt-6 mb-4">
+      <p className="text-3xl font-bold app-text">{priceLabel(plan, billingCycle, t)}</p>
+      {billingCycle === 'annual' && monthly !== null && (
+        <p className="mt-1 text-xs font-bold text-red-600">-{annualDiscountPercent()}% - {t('billedAnnually')}</p>
+      )}
+    </div>
+  );
+}
+
+function VoiceUsage({ plan, t }: { plan: Plan; t: (key: string, params?: Record<string, string | number>) => string }) {
+  const rows = [
+    plan.phone_minutes_label && plan.phone_minutes_label !== '—' ? `${plan.phone_minutes_label} ${t('phoneMinutes').toLowerCase()}` : null,
+    `${formatLandingLimit(plan.monthly_conversations, t)} ${t('conversationsIncluded')}`,
+    `${formatLandingLimit(plan.monthly_bookings, t)} ${t('bookingsIncluded')}`,
+    `${formatLandingLimit(plan.monthly_whatsapp_messages ?? null, t)} ${t('whatsappMessagesIncluded')}`,
+  ].filter(Boolean) as string[];
+
+  return (
+    <div className="mb-5 grid gap-2 rounded-lg border px-3 py-3 text-xs font-semibold leading-5 app-border app-text-muted">
+      {rows.map((row) => <span key={row}>{row}</span>)}
+    </div>
+  );
+}
+
+function MissingPlanFallback({ t }: { t: (key: string, params?: Record<string, string | number>) => string }) {
+  return <p className="mt-6 rounded-lg border px-3 py-3 text-sm app-border app-text-muted">{t('pricingPlanUnavailable')}</p>;
+}
+
+function priceLabel(plan: Plan, billingCycle: BillingCycle, t: (key: string, params?: Record<string, string | number>) => string) {
+  const monthly = monthlyPrice(plan);
+
+  if (billingCycle === 'monthly') {
+    return plan.price_label;
+  }
 
   if (monthly === null) {
     return plan.price_label.replace('/lună', '');
@@ -227,58 +337,62 @@ function annualDiscountPercent() {
   return Math.round(((12 - 10) / 12) * 100);
 }
 
-function PricingHeader({ children, centered = false }: { children: ReactNode; centered?: boolean }) {
-  return <th className={`whitespace-nowrap px-4 py-3 text-xs font-bold uppercase tracking-wide app-text-muted ${centered ? 'text-center' : ''}`}><span className={`inline-flex items-center gap-2 ${centered ? 'justify-center' : ''}`}>{children}</span></th>;
-}
-
-function PricingCapability({ included, detail }: { included: boolean; detail?: string }) {
-  return (
-    <td className="px-4 py-4 text-center align-middle">
-      {included ? <Check className="mx-auto h-5 w-5 text-green-600" /> : <span className="text-lg app-text-muted">—</span>}
-      {detail && <span className="mt-1 block whitespace-nowrap text-[11px] leading-4 app-text-muted">{detail}</span>}
-    </td>
-  );
-}
-
-function planDescription(plan: Plan, t: (key: string, params?: Record<string, string | number>) => string) {
-  return t(`planDescription_${plan.key}`) || plan.short_description_ro || plan.short_description_en || plan.description || '';
-}
-
-function planHasAiBookings(plan: Plan) {
-  return Boolean(plan.ai_bookings_enabled || plan.features?.some((feature) => ['AI booking requests', 'Programări AI'].includes(feature)));
-}
-
-function whatsappDetail(plan: Plan, t: (key: string, params?: Record<string, string | number>) => string, locale: PublicLocale) {
-  return `${formatLandingLimit(plan.monthly_whatsapp_messages ?? null, t)} ${t('messages')}`;
-}
-
 function planDisplayLabel(plan: Plan, t: (key: string, params?: Record<string, string | number>) => string) {
   return t(`planName_${plan.key}`) || plan.name;
 }
 
-function planItemLabel(value: string, t: (key: string, params?: Record<string, string | number>) => string) {
-  const labels: Record<string, string> = {
-    'Website chat': t('websiteChat'),
-    Chat: t('chatVoice'),
-    'Phone AI': t('phoneAi'),
-    'Telefon AI': t('phoneAi'),
-    'Custom integrations': t('customIntegrations'),
-    'Dashboard': t('dashboardAccess'),
-    'Dashboard access': t('dashboardAccess'),
-    'Programări AI': t('aiBookingRequests'),
-    'AI booking requests': t('aiBookingRequests'),
-    'Availability checks': t('availabilityChecks'),
-    'Notificări email pentru programări': t('emailBookingNotifications'),
-    'Email booking notifications': t('emailBookingNotifications'),
-    'WhatsApp assistant': t('whatsappAssistant'),
-    'AI phone answering': t('aiPhoneAnswering'),
-    'Custom usage limits': t('customUsageLimits'),
-    'Multi-location support': t('multiLocationSupport'),
-    'Advanced setup': t('advancedSetup'),
-    'Limited monthly usage': t('limitedMonthlyUsage'),
-  };
+function planByKey(plans: Plan[], key: string) {
+  return plans.find((plan) => plan.key === key);
+}
 
-  return labels[value] ?? value;
+function pricingHref(authUser: boolean) {
+  return authUser ? '/dashboard/billing' : '/register';
+}
+
+function pricingHighlights(key: PublicPlanKey, plan: Plan | undefined, t: (key: string, params?: Record<string, string | number>) => string) {
+  if (key === 'free') {
+    return [
+      t('websiteChat'),
+      `${formatLandingLimit(plan?.monthly_bookings ?? 10, t)} ${t('aiBookings')}`,
+      `${formatLandingLimit(plan?.monthly_conversations ?? 50, t)} ${t('chatConversations')}`,
+      t('dashboardAccess'),
+    ];
+  }
+
+  if (key === 'chat_whatsapp') {
+    return [t('websiteChat'), t('whatsapp'), t('aiBookings'), t('emailBookingNotifications'), t('dashboardAccess')];
+  }
+
+  return [t('websiteChat'), t('aiBookings'), t('availabilityChecks'), t('emailBookingNotifications'), t('dashboardAccess')];
+}
+
+function usageLines(plan: Plan | undefined, t: (key: string, params?: Record<string, string | number>) => string) {
+  if (! plan) return [t('pricingPlanUnavailable')];
+
+  const parts = [
+    `${formatLandingLimit(plan.monthly_conversations, t)} ${t('conversations')}`,
+    `${formatLandingLimit(plan.monthly_bookings, t)} ${t('aiBookings')}`,
+  ];
+
+  if (plan.whatsapp_enabled) {
+    parts.push(`${formatLandingLimit(plan.monthly_whatsapp_messages ?? null, t)} ${t('whatsappMessages')}`);
+  }
+
+  return parts;
+}
+
+function pricingCtaLabel(key: PublicPlanKey, t: (key: string, params?: Record<string, string | number>) => string) {
+  if (key === 'free') return t('startFree');
+  if (key === 'chat_whatsapp') return t('chooseChatWhatsapp');
+  return t('chooseWebsiteChat');
+}
+
+function voiceTabLabel(key: VoicePlanKey, t: (key: string, params?: Record<string, string | number>) => string) {
+  return t(`voiceTab_${key}`);
+}
+
+function voiceCtaLabel(key: VoicePlanKey, t: (key: string, params?: Record<string, string | number>) => string) {
+  return t(`choose_${key}`);
 }
 
 function formatLandingLimit(value: number | null, t: (key: string, params?: Record<string, string | number>) => string): string {
