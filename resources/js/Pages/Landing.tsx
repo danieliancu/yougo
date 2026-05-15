@@ -44,8 +44,8 @@ export default function Landing() {
                 {t('landingCopy')}
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <Link href={auth.user ? '/dashboard' : '/register'} className="rounded-lg bg-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-indigo-700">{t('openDashboard')}</Link>
-                <Link href="/login" className="rounded-lg border px-5 py-3 text-sm font-bold hover:bg-[var(--soft)]">{t('login')}</Link>
+                <Link href={auth.user ? '/dashboard' : '/register'} className="rounded-lg bg-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-indigo-700">{t('startFree')}</Link>
+                <button type="button" className="rounded-lg border border-slate-950 bg-transparent px-5 py-3 text-sm font-bold text-slate-950 hover:bg-slate-950 hover:text-white dark:border-white dark:text-white dark:hover:bg-white dark:hover:text-slate-950">{t('howItWorks')}</button>
               </div>
             </div>
 
@@ -57,19 +57,19 @@ export default function Landing() {
       <section className="mx-auto max-w-6xl px-6 pb-20 mt-8">
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           <div className="flex flex-col items-center rounded-2xl p-8 text-center">
-            <Phone className="mb-5 h-14 w-14 text-indigo-500" />
-            <p className="text-lg font-bold app-text">{t('feature1Title')}</p>
-            <p className="mt-2 text-sm app-text-soft">{t('feature1Desc')}</p>
-          </div>
-          <div className="flex flex-col items-center rounded-2xl p-8 text-center">
             <MessageCircle className="mb-5 h-14 w-14 text-indigo-500" />
             <p className="text-lg font-bold app-text">{t('feature2Title')}</p>
             <p className="mt-2 text-sm app-text-soft">{t('feature2Desc')}</p>
           </div>
           <div className="flex flex-col items-center rounded-2xl p-8 text-center">
-            <SiWhatsapp className="mb-5 h-14 w-14 text-[#25D366]" />
+            <SiWhatsapp className="mb-5 h-14 w-14 text-indigo-500" />
             <p className="text-lg font-bold app-text">{t('feature3Title')}</p>
             <p className="mt-2 text-sm app-text-soft">{t('feature3Desc')}</p>
+          </div>
+          <div className="flex flex-col items-center rounded-2xl p-8 text-center">
+            <Phone className="mb-5 h-14 w-14 text-indigo-500" />
+            <p className="text-lg font-bold app-text">{t('feature1Title')}</p>
+            <p className="mt-2 text-sm app-text-soft">{t('feature1Desc')}</p>
           </div>
           <div className="flex flex-col items-center rounded-2xl p-8 text-center">
             <Plug className="mb-5 h-14 w-14 text-indigo-500" />
@@ -105,7 +105,7 @@ function FaqSection({ t }: { t: (key: string, params?: Record<string, string | n
   ];
 
   return (
-    <section className="mx-auto max-w-6xl px-6 pb-24">
+    <section id="faq" className="mx-auto max-w-6xl px-6 pb-24">
       <div className="mb-8 max-w-2xl">
         <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">{t('faqEyebrow')}</p>
         <h2 className="mt-2 text-3xl font-bold app-text md:text-4xl">{t('faqTitle')}</h2>

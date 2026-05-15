@@ -1,14 +1,14 @@
 import { Link } from '@inertiajs/react';
 import { ChevronDown, Lock, Menu, X } from 'lucide-react';
-import { useState } from 'react';
+import { type MouseEvent, useState } from 'react';
 import { ThemeToggle } from '@/Components/Ui';
 import { businessTaxonomy } from '@/data/businessTaxonomy';
 
 export type PublicLocale = 'ro' | 'en';
 
 const languages = [
-  { id: 'ro' as PublicLocale, label: 'RO', flag: '\u{1F1F7}\u{1F1F4}' },
-  { id: 'en' as PublicLocale, label: 'EN', flag: '\u{1F1EC}\u{1F1E7}' },
+  { id: 'ro' as PublicLocale, label: 'RO' },
+  { id: 'en' as PublicLocale, label: 'EN' },
 ];
 
 type PublicHeaderProps = {
@@ -21,17 +21,32 @@ type PublicHeaderProps = {
 };
 
 export function PublicHeader({ authUserName, locale, onLanguageChange, startLabel, industriesLabel, pricingLabel }: PublicHeaderProps) {
+  const aboutLabel = locale === 'ro' ? 'Despre' : 'About';
+  const scrollToLandingSection = (event: MouseEvent<HTMLAnchorElement>, sectionId: string) => {
+    if (typeof window === 'undefined' || window.location.pathname !== '/') return;
+
+    const target = document.getElementById(sectionId);
+    if (! target) return;
+
+    event.preventDefault();
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.history.pushState(null, '', `#${sectionId}`);
+  };
+
   return (
     <nav className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-5">
       <Link href="/" className="flex items-center">
         <img src="/images/logo-white.png" className="h-12 w-auto dark:hidden" alt="YouGo" />
         <img src="/images/logo-dark.png" className="hidden h-12 w-auto dark:block" alt="YouGo" />
       </Link>
-      <div className="hidden items-center gap-3 md:flex">
+      <div className="hidden items-center gap-2 md:flex">
         <ThemeToggle />
         <IndustriesMenu label={industriesLabel} locale={locale} />
-        <Link href="/#pricing" className="flex h-10 items-center rounded-lg px-3 text-sm font-bold app-text-soft hover:bg-[var(--soft)]">
+        <Link href="/#pricing" onClick={(event) => scrollToLandingSection(event, 'pricing')} className="flex h-10 cursor-pointer items-center rounded-lg px-3 text-sm font-bold app-text-soft hover:bg-[var(--soft)]">
           {pricingLabel}
+        </Link>
+        <Link href="/#faq" onClick={(event) => scrollToLandingSection(event, 'faq')} className="flex h-10 cursor-pointer items-center rounded-lg px-3 text-sm font-bold app-text-soft hover:bg-[var(--soft)]">
+          {aboutLabel}
         </Link>
         <LandingLanguageToggle locale={locale} onChange={onLanguageChange} />
         <PublicCta authUserName={authUserName} startLabel={startLabel} />
@@ -45,18 +60,13 @@ export function PublicHeader({ authUserName, locale, onLanguageChange, startLabe
           pricingLabel={pricingLabel}
         />
       </div>
-      <PublicCta
-        authUserName={authUserName}
-        startLabel={startLabel}
-        className="flex h-10 basis-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-bold text-white sm:basis-auto md:hidden"
-      />
     </nav>
   );
 }
 
 function PublicCta({ authUserName, startLabel, className = 'flex items-center gap-2 rounded-lg bg-slate-950 px-4 py-2 text-sm font-bold text-white dark:border dark:border-white' }: { authUserName?: string; startLabel: string; className?: string }) {
   return (
-    <Link href={authUserName ? '/dashboard' : '/register'} className={className}>
+    <Link href={authUserName ? '/dashboard' : '/register'} className={`${className} cursor-pointer`}>
       {authUserName && <Lock className="h-4 w-4 shrink-0" />}
       {authUserName ?? startLabel}
     </Link>
@@ -68,25 +78,23 @@ function LandingLanguageToggle({ locale, onChange }: { locale: PublicLocale; onC
   const active = languages.find((l) => l.id === locale) ?? languages[0];
 
   return (
-    <div className="relative">
+    <div className="relative" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex h-10 min-w-20 items-center justify-center gap-2 rounded-lg border px-3 text-xs font-bold uppercase app-text-soft hover:bg-[var(--soft)]"
+        className="flex h-10 cursor-pointer items-center gap-2 rounded-lg px-3 text-sm font-bold app-text-soft hover:bg-[var(--soft)]"
       >
-        <span aria-hidden="true">{active.flag}</span>
         {active.label}
+        <ChevronDown className="h-4 w-4" />
       </button>
       {open && (
-        <div className="absolute right-0 top-12 z-50 w-36 rounded-lg border p-1 shadow-lg app-panel">
+        <div className="absolute left-0 top-10 z-50 w-36 rounded-lg border p-1 shadow-lg app-panel">
           {languages.map((item) => (
             <button
               key={item.id}
               type="button"
               onClick={() => { setOpen(false); onChange(item.id); }}
-              className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-bold transition ${locale === item.id ? 'bg-indigo-600 text-white' : 'app-text-soft hover:bg-[var(--soft)]'}`}
+              className="flex w-full cursor-pointer items-center rounded-md px-3 py-2 text-left text-sm font-bold app-text-soft transition hover:bg-indigo-600 hover:!text-white"
             >
-              <span aria-hidden="true">{item.flag}</span>
               {item.label}
             </button>
           ))}
@@ -118,24 +126,22 @@ function IndustriesMenu({ label, locale }: { label: string; locale: PublicLocale
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="relative">
+    <div className="relative" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
-        onMouseEnter={() => setOpen(true)}
-        className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-bold app-text-soft hover:bg-[var(--soft)]"
+        className="flex h-10 cursor-pointer items-center gap-2 rounded-lg px-3 text-sm font-bold app-text-soft hover:bg-[var(--soft)]"
       >
         {label}
         <ChevronDown className="h-4 w-4" />
       </button>
       {open && (
-        <div onMouseLeave={() => setOpen(false)} className="absolute right-0 top-12 z-50 hidden max-h-[70vh] w-72 overflow-y-auto rounded-2xl border p-3 shadow-2xl app-panel md:block">
+        <div className="absolute left-0 top-10 z-50 hidden max-h-[70vh] w-72 overflow-y-auto rounded-2xl border p-3 shadow-2xl app-panel md:block">
           <div className="grid gap-1">
             {businessTaxonomy.map((group) => (
               <Link
                 key={group.slug}
                 href={`/industries/${group.slug}`}
-                className="rounded-lg px-3 py-2 text-sm font-bold app-text-soft hover:bg-[var(--soft)] hover:text-indigo-600"
+                className="cursor-pointer rounded-lg px-3 py-2 text-sm font-bold app-text-soft hover:bg-indigo-600 hover:!text-white"
               >
                 {industryMenuLabel(group.slug, locale)}
               </Link>
@@ -159,6 +165,21 @@ function MobileLandingMenu({
   pricingLabel: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [languageOpen, setLanguageOpen] = useState(false);
+  const [industriesOpen, setIndustriesOpen] = useState(false);
+  const active = languages.find((item) => item.id === locale) ?? languages[0];
+  const aboutLabel = locale === 'ro' ? 'Despre' : 'About';
+  const scrollToLandingSection = (event: MouseEvent<HTMLAnchorElement>, sectionId: string) => {
+    if (typeof window === 'undefined' || window.location.pathname !== '/') return;
+
+    const target = document.getElementById(sectionId);
+    if (! target) return;
+
+    event.preventDefault();
+    setOpen(false);
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.history.pushState(null, '', `#${sectionId}`);
+  };
 
   return (
     <div className="relative">
@@ -173,34 +194,57 @@ function MobileLandingMenu({
       </button>
       {open && (
         <div className="absolute right-0 top-12 z-50 max-h-[75vh] w-[calc(100vw-2rem)] overflow-y-auto rounded-2xl border p-4 shadow-2xl app-panel">
-          <div className="mb-4 flex gap-2">
-            {languages.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onLanguageChange(item.id)}
-                className={`flex h-10 flex-1 items-center justify-center gap-2 rounded-lg border text-xs font-bold uppercase ${locale === item.id ? 'border-indigo-600 bg-indigo-600 text-white' : 'app-text-soft hover:bg-[var(--soft)]'}`}
-              >
-                <span aria-hidden="true">{item.flag}</span>
-                {item.label}
-              </button>
-            ))}
-          </div>
-          <Link href="/#pricing" className="mb-4 block px-1 pb-2 text-xs font-bold uppercase tracking-wide text-indigo-600">
+          <button
+            type="button"
+            onClick={() => setLanguageOpen((value) => !value)}
+            className="mb-2 flex w-full cursor-pointer items-center justify-between rounded-lg px-1 pb-2 text-left text-xs font-bold uppercase tracking-wide text-indigo-600"
+            aria-expanded={languageOpen}
+          >
+            {active.label}
+            <ChevronDown className={`h-4 w-4 transition ${languageOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {languageOpen && (
+            <div className="mb-4 grid gap-1">
+              {languages.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => { setLanguageOpen(false); onLanguageChange(item.id); }}
+                  className={`flex w-full cursor-pointer items-center rounded-lg px-3 py-2 text-left text-sm font-bold transition hover:bg-indigo-600 hover:!text-white ${locale === item.id ? 'bg-indigo-600 !text-white' : 'app-text-soft'}`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <Link href="/#pricing" onClick={(event) => scrollToLandingSection(event, 'pricing')} className="mb-3 block px-1 pb-2 text-xs font-bold uppercase tracking-wide text-indigo-600">
             {pricingLabel}
           </Link>
-          <p className="px-1 pb-2 text-xs font-bold uppercase tracking-wide text-indigo-600">{industriesLabel}</p>
-          <div className="grid gap-1">
-            {businessTaxonomy.map((group) => (
-              <Link
-                key={group.slug}
-                href={`/industries/${group.slug}`}
-                className="rounded-lg px-3 py-2 text-sm font-bold app-text-soft hover:bg-[var(--soft)]"
-              >
-                {industryMenuLabel(group.slug, locale)}
-              </Link>
-            ))}
-          </div>
+          <Link href="/#faq" onClick={(event) => scrollToLandingSection(event, 'faq')} className="mb-3 block px-1 pb-2 text-xs font-bold uppercase tracking-wide text-indigo-600">
+            {aboutLabel}
+          </Link>
+          <button
+            type="button"
+            onClick={() => setIndustriesOpen((value) => !value)}
+            className="flex w-full cursor-pointer items-center justify-between rounded-lg px-1 pb-2 text-left text-xs font-bold uppercase tracking-wide text-indigo-600"
+            aria-expanded={industriesOpen}
+          >
+            {industriesLabel}
+            <ChevronDown className={`h-4 w-4 transition ${industriesOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {industriesOpen && (
+            <div className="grid gap-1">
+              {businessTaxonomy.map((group) => (
+                <Link
+                  key={group.slug}
+                  href={`/industries/${group.slug}`}
+                  className="cursor-pointer rounded-lg px-3 py-2 text-sm font-bold app-text-soft hover:bg-indigo-600 hover:!text-white"
+                >
+                  {industryMenuLabel(group.slug, locale)}
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

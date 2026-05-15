@@ -132,8 +132,8 @@ body {
 
 @media (min-width: 1600px) {
   .landing-hero-bg {
-    background-image: url('/images/hero.webp');
-    background-position: left bottom;
+    background-image: url(/images/hero.webp);
+    background-position: -20px 100%;
     background-repeat: no-repeat;
     background-size: auto 100%;
   }
