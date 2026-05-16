@@ -3,7 +3,7 @@ import { AlertModal, Badge, Button, Card, ConfirmationModal, DangerButton, Field
 import type { ActivityChartRow } from '@/Components/ActivityChart';
 import { PricingPlansGrid, VoicePlanKey } from '@/Components/PricingPlansGrid';
 import { Booking, Conversation, Location as SalonLocation, OfferedService, OnboardingChecklist, OnboardingStep, OverviewData, PageProps, Plan, Salon, Service, Staff, UsageSummary, User as AuthUser } from '@/types';
-import { AlertTriangle, Bell, Bot, Building2, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, CreditCard, Download, ExternalLink, FileText, Globe2, LayoutDashboard, List, LogOut, MapPin, Menu, MessageCircle, MessageSquare, MoreHorizontal, Pencil, Phone, Plus, QrCode, Save, Scissors, Search, Settings, Smartphone, Sparkles, Trash2, User, Users, X, XCircle } from 'lucide-react';
+import { AlertTriangle, Bell, Bot, Building2, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, CreditCard, Download, ExternalLink, FileText, Globe2, LayoutDashboard, List, Lock, LogOut, MapPin, Menu, MessageCircle, MessageSquare, MoreHorizontal, Pencil, Phone, Plus, QrCode, Save, Scissors, Search, Settings, Smartphone, Sparkles, Trash2, User, Users, X, XCircle } from 'lucide-react';
 import { SiWhatsapp } from 'react-icons/si';
 import { FormEvent, lazy, ReactNode, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
@@ -178,7 +178,7 @@ export default function DashboardIndex() {
   }
 
   return (
-    <div className="flex min-h-screen overflow-x-hidden app-bg">
+    <div className="flex min-h-screen overflow-x-hidden app-bg lg:h-screen lg:overflow-hidden">
       <Head title={title} />
       <DashboardSidebar salon={salon} section={section} user={auth.user} t={t} onboarding={onboarding} />
 
@@ -207,7 +207,7 @@ export default function DashboardIndex() {
         </div>
       )}
 
-      <main className="flex min-w-0 flex-1 flex-col lg:ml-72 lg:h-screen">
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col lg:ml-72 lg:h-screen">
         <header className={`relative z-10 shrink-0 flex items-center justify-between gap-3 border-b px-4 app-border app-shell sm:px-5 lg:px-8 ${section === 'conversations' ? 'min-h-14 py-2 sm:min-h-16 sm:py-3' : 'min-h-16 py-3'}`}>
           <div className="flex min-w-0 items-center gap-3">
             <button
@@ -229,7 +229,7 @@ export default function DashboardIndex() {
             <LanguageToggle locale={activeLocale} onChange={switchLanguage} />
           </div>
         </header>
-        <div className={`min-w-0 flex-1 overflow-x-hidden ${section === 'conversations' ? 'overflow-hidden' : 'overflow-y-auto p-5 lg:p-8'}`}>
+        <div className={`min-h-0 min-w-0 flex-1 overflow-x-hidden ${section === 'conversations' ? 'overflow-hidden' : 'overflow-y-auto p-5 lg:p-8'}`}>
           {section === 'overview' && <Overview salon={salon} overview={overview} onboarding={onboarding} />}
           {section === 'onboarding' && <OnboardingSetup onboarding={onboarding} />}
           {section === 'ai-settings' && <AiSettings salon={salon} />}
@@ -1209,10 +1209,10 @@ function IntentPill({ intent, compact = false, bookingStatus }: { intent: string
   };
   const statusTones: Record<string, string> = {
     pending: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
-    confirmed: 'bg-green-700 text-white dark:bg-green-700 dark:text-white',
-    programat: 'bg-green-700 text-white dark:bg-green-700 dark:text-white',
+    confirmed: 'bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300',
+    programat: 'bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300',
     cancelled: 'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300',
-    completed: 'bg-blue-600 text-white dark:bg-blue-600 dark:text-white',
+    completed: 'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300',
   };
   const statusLabels: Record<string, string> = {
     pending: t('statusPending'),
@@ -1228,9 +1228,10 @@ function IntentPill({ intent, compact = false, bookingStatus }: { intent: string
         {labels[intent] ?? t('intentUnknown')}
       </span>
       {intent === 'booking' && bookingStatus && (
-        <span className={`inline-flex items-center gap-1.5 justify-center rounded-md font-bold uppercase tracking-wide ${compact ? 'min-w-20 px-2 py-1 text-[10px]' : 'min-w-24 px-3 py-1 text-xs'} ${statusTones[bookingStatus] ?? statusTones.completed}`}>
+        <span className={`inline-flex items-center gap-1.5 justify-center rounded-md font-bold uppercase tracking-wide ${compact ? 'min-w-28 px-2 py-1 text-[10px]' : 'min-w-28 px-3 py-1 text-xs'} ${statusTones[bookingStatus] ?? statusTones.completed}`}>
           {bookingStatus === 'pending' && <span className="railway-lights shrink-0" aria-hidden="true" />}
           {bookingStatus === 'completed' && <Check className="h-3 w-3 shrink-0 stroke-[3]" />}
+          {bookingStatus === 'cancelled' && <X className="h-3 w-3 shrink-0 stroke-[3]" />}
           {statusLabels[bookingStatus] ?? bookingStatus}
         </span>
       )}
@@ -1257,9 +1258,10 @@ function StatusPill({ status, t, className = '' }: { status: string; t: Translat
   };
 
   return (
-    <span className={`inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-sm font-semibold ${tones[status] ?? tones.completed} ${className}`}>
+    <span className={`inline-flex min-w-28 items-center justify-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-sm font-semibold ${tones[status] ?? tones.completed} ${className}`}>
       {status === 'pending' && <span className="railway-lights shrink-0" aria-hidden="true" />}
       {status === 'completed' && <Check className="h-3 w-3 shrink-0 stroke-[3]" />}
+      {status === 'cancelled' && <X className="h-3 w-3 shrink-0 stroke-[3]" />}
       {labels[status] ?? status}
     </span>
   );
@@ -1633,8 +1635,8 @@ function Overview({ salon, overview, onboarding }: { salon: Salon; overview: Ove
         <Stat label={t('completedBookings')} value={metrics.completed_bookings} icon={CheckCircle2} tone="slate" />
       </div>
       <UsageOverviewCard summary={overview.usage} />
-      <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
-        <Card className="p-5">
+      <div className="grid items-stretch gap-6 xl:grid-cols-[1.6fr_1fr]">
+        <Card className="flex h-full flex-col p-5">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-xs font-bold uppercase tracking-wide app-text-muted">{t('activityReport')}</h2>
             <div className="flex flex-wrap items-center gap-2">
@@ -1669,8 +1671,8 @@ function Overview({ salon, overview, onboarding }: { salon: Salon; overview: Ove
               </div>
             </div>
           </div>
-          <Suspense fallback={<div className="h-72 rounded-lg app-panel-soft" aria-hidden="true" />}>
-            <ActivityChart data={chart} labels={activitySeriesLabels(t)} range={activityRange} title={t('activityReport')} />
+          <Suspense fallback={<div className="min-h-72 flex-1 rounded-lg app-panel-soft" aria-hidden="true" />}>
+            <ActivityChart data={chart} labels={activitySeriesLabels(t)} range={activityRange} title={t('activityReport')} className="min-h-72 flex-1" />
           </Suspense>
           <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs font-bold app-text-muted">
             <ActivityLegendItem color="--chart-phone" label={t('phoneCalls')} />
@@ -1680,43 +1682,20 @@ function Overview({ salon, overview, onboarding }: { salon: Salon; overview: Ove
             <ActivityLegendItem color="--chart-abandoned" label={t('intentAbandoned')} />
           </div>
         </Card>
-        <Card className="p-5">
+        <Card className="h-full p-5">
           <h2 className="mb-4 text-xs font-bold uppercase tracking-wide app-accent-text">{t('assistantLive')}</h2>
           <p className="text-2xl font-bold app-text">{t('bellaOnline', { name: assistantName })}</p>
           <p className="mt-2 text-sm app-text-soft">{t('overviewAiWorkSummary')}</p>
-          <div className="mt-6 rounded-lg app-soft-tint">
-            <p className="px-4 pt-4 pb-2 text-xs font-bold uppercase app-accent-text">{t('latestConversations')}</p>
-            {overview.latest_conversations.length === 0 ? (
-              <p className="px-4 pb-4 text-sm app-subtle-text">{t('noConversations')}</p>
-            ) : (
-              <ul className="divide-y app-border">
-                {overview.latest_conversations.map((conv) => (
-                  <li key={conv.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                    <span className="min-w-0 truncate text-sm app-subtle-text">{conversationTitle(conv, t)}</span>
-                    <IntentPill intent={conv.intent} compact bookingStatus={conv.booking?.status} />
-                  </li>
-                ))}
-              </ul>
-            )}
+          <div className="mt-6">
+            <p className="mb-3 text-xs font-bold uppercase tracking-wide app-accent-text">{t('latestConversations')}</p>
+            <OverviewConversationsTable conversations={overview.latest_conversations} t={t} />
           </div>
         </Card>
       </div>
-      <Card className="overflow-hidden">
-        <div className="border-b p-5 app-border">
-          <h2 className="text-lg font-bold app-text">{t('latestBookings')}</h2>
-        </div>
-        {overview.latest_bookings.length === 0 ? (
-          <div className="flex min-h-24 items-center justify-center p-6 text-sm app-text-muted">
-            {t('noRecentBooking')}
-          </div>
-        ) : (
-          <div className="divide-y app-border">
-            {overview.latest_bookings.map((booking) => (
-              <OverviewBookingRow key={booking.id} booking={booking} t={t} />
-            ))}
-          </div>
-        )}
-      </Card>
+      <section className="space-y-3">
+        <h2 className="text-lg font-bold app-text">{t('latestBookings')}</h2>
+        <OverviewBookingsTable bookings={overview.latest_bookings} t={t} />
+      </section>
     </div>
   );
 }
@@ -1725,22 +1704,144 @@ function UsageOverviewCard({ summary }: { summary: UsageSummary }) {
   const t = useT();
 
   return (
-    <Card className="p-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <UsageSummaryPanel
+      summary={summary}
+      action={(
+        <Link href="/dashboard/billing" className="inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-medium app-panel app-text-soft hover:bg-[var(--app-panel-soft)]">
+          {t('viewBilling')}
+        </Link>
+      )}
+    />
+  );
+}
+
+function UsageSummaryPanel({ summary, action, compact = false }: { summary: UsageSummary; action?: ReactNode; compact?: boolean }) {
+  const t = useT();
+  const items = [
+    {
+      key: 'conversations',
+      label: t('usageChatConversations'),
+      used: summary.usage.conversations,
+      limit: summary.limits.conversations,
+      icon: MessageSquare,
+      tone: 'indigo' as const,
+    },
+    {
+      key: 'whatsapp_conversations',
+      label: t('usageWhatsappConversations'),
+      used: summary.usage.whatsapp_conversations ?? 0,
+      limit: summary.limits.whatsapp_conversations ?? 0,
+      icon: SiWhatsapp,
+      tone: 'slate' as const,
+      locked: !planHasService(summary.plan, 'whatsapp_ai'),
+    },
+    {
+      key: 'phone_minutes',
+      label: t('phoneMinutes'),
+      used: summary.usage.phone_minutes ?? 0,
+      limit: summary.limits.phone_minutes ?? 0,
+      icon: Phone,
+      tone: 'slate' as const,
+      locked: !planHasService(summary.plan, 'phone_ai'),
+    },
+    {
+      key: 'ai_messages',
+      label: t('aiMessages'),
+      used: summary.usage.ai_messages,
+      limit: summary.limits.ai_messages,
+      icon: Sparkles,
+      tone: 'emerald' as const,
+    },
+    {
+      key: 'bookings',
+      label: t('bookings'),
+      used: summary.usage.bookings,
+      limit: summary.limits.bookings,
+      icon: Calendar,
+      tone: 'sky' as const,
+    },
+  ];
+
+  return (
+    <Card className={`${compact ? 'shrink-0 p-4' : 'p-5'}`}>
+      <div className={`flex flex-col lg:flex-row lg:items-center lg:justify-between ${compact ? 'gap-3' : 'gap-4'}`}>
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide app-text-muted">{t('usageThisMonth')}</p>
           <h2 className="mt-1 text-lg font-semibold app-text">{summary.plan.name} {t('plan')}</h2>
         </div>
-        <Link href="/dashboard/billing" className="inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-medium app-panel app-text-soft hover:bg-[var(--app-panel-soft)]">
-          {t('viewBilling')}
-        </Link>
+        {action}
       </div>
-      <div className="mt-5 grid gap-4 md:grid-cols-3">
-        <UsageBar label={t('conversations')} used={summary.usage.conversations} limit={summary.limits.conversations} />
-        <UsageBar label={t('aiMessages')} used={summary.usage.ai_messages} limit={summary.limits.ai_messages} />
-        <UsageBar label={t('bookings')} used={summary.usage.bookings} limit={summary.limits.bookings} />
+      <div className={`${compact ? 'mt-3 gap-3' : 'mt-5 gap-4'} grid md:grid-cols-2 xl:grid-cols-5`}>
+        {items.map((item) => <UsageRing key={item.key} compact={compact} {...item} />)}
       </div>
     </Card>
+  );
+}
+
+function UsageRing({ label, used, limit, icon: Icon, tone, compact = false, locked = false }: { label: string; used: number; limit: number | null; icon: any; tone: 'indigo' | 'emerald' | 'sky' | 'slate'; compact?: boolean; locked?: boolean }) {
+  const t = useT();
+  const percentage = limit && limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+  const size = compact ? 68 : 112;
+  const center = size / 2;
+  const radius = compact ? 27 : 46;
+  const stroke = compact ? 6 : 9;
+  const circumference = 2 * Math.PI * radius;
+  const dashOffset = circumference - (percentage / 100) * circumference;
+  const tones = {
+    indigo: {
+      stroke: 'stroke-indigo-600',
+      icon: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200',
+      text: 'text-indigo-700 dark:text-indigo-200',
+    },
+    emerald: {
+      stroke: 'stroke-emerald-600',
+      icon: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200',
+      text: 'text-emerald-700 dark:text-emerald-200',
+    },
+    sky: {
+      stroke: 'stroke-sky-600',
+      icon: 'bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-200',
+      text: 'text-sky-700 dark:text-sky-200',
+    },
+    slate: {
+      stroke: 'stroke-slate-400 dark:stroke-slate-500',
+      icon: 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400',
+      text: 'text-slate-500 dark:text-slate-400',
+    },
+  }[tone];
+
+  return (
+    <div className={`${compact ? 'min-h-24 flex-row gap-3 px-3 py-3 text-left' : 'min-h-44 flex-col gap-3 px-3 py-4 text-center'} flex items-center justify-between rounded-lg border app-border app-panel-soft`}>
+      <div className={`relative shrink-0 ${compact ? 'h-[68px] w-[68px]' : 'h-28 w-28'}`}>
+        <svg className={`-rotate-90 ${compact ? 'h-[68px] w-[68px]' : 'h-28 w-28'}`} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`${label}: ${used} / ${formatLimit(limit, t)}`}>
+          <circle cx={center} cy={center} r={radius} fill="none" strokeWidth={stroke} className="stroke-slate-200 dark:stroke-white/10" />
+          <circle
+            cx={center}
+            cy={center}
+            r={radius}
+            fill="none"
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={dashOffset}
+            className={`${tones.stroke} transition-[stroke-dashoffset] duration-300`}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className={`flex items-center justify-center rounded-lg ${compact ? 'h-7 w-7' : 'h-9 w-9'} ${tones.icon}`}>
+            <Icon className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
+          </span>
+          <span className={`${compact ? 'mt-0.5 text-[11px]' : 'mt-1 text-sm'} font-bold ${tones.text}`}>{percentage}%</span>
+        </div>
+      </div>
+      <div className="min-w-0">
+        <p className={`${compact ? 'text-xs leading-4' : 'min-h-10 text-sm leading-5'} flex items-center gap-1.5 font-bold app-text`}>
+          {locked && <Lock className="h-3.5 w-3.5 shrink-0 app-text-muted" aria-hidden="true" />}
+          <span className="min-w-0">{label}</span>
+        </p>
+        <p className={`${compact ? 'text-lg' : 'text-xl'} mt-1 font-bold app-text`}>{used} <span className="text-sm font-semibold app-text-muted">/ {formatLimit(limit, t)}</span></p>
+      </div>
+    </div>
   );
 }
 
@@ -1781,14 +1882,7 @@ function BillingPage({ billing, currentPlan }: { billing: { summary: UsageSummar
         </div>
       </Card>
 
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold app-text">{t('usageThisMonth')}</h2>
-        <div className="mt-5 grid gap-4 md:grid-cols-3">
-          <UsageBar label={t('conversations')} used={billing.summary.usage.conversations} limit={billing.summary.limits.conversations} />
-          <UsageBar label={t('aiMessages')} used={billing.summary.usage.ai_messages} limit={billing.summary.limits.ai_messages} />
-          <UsageBar label={t('bookings')} used={billing.summary.usage.bookings} limit={billing.summary.limits.bookings} />
-        </div>
-      </Card>
+      <UsageSummaryPanel summary={billing.summary} />
 
       <div className="flex justify-end">
         <div className="inline-flex rounded-lg border p-1 app-border app-panel" role="group" aria-label={t('price')}>
@@ -1862,45 +1956,71 @@ function canonicalPlanKey(key?: string | null) {
   return key ? aliases[key] ?? key : 'free';
 }
 
-function UsageBar({ label, used, limit }: { label: string; used: number; limit: number | null }) {
-  const t = useT();
-  const percentage = limit && limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 100;
-
-  return (
-    <div>
-      <div className="flex items-center justify-between gap-3 text-sm">
-        <span className="font-medium app-text">{label}</span>
-        <span className="app-text-muted">{used} / {formatLimit(limit, t)}</span>
-      </div>
-      <div className="mt-2 h-2 overflow-hidden rounded-md app-panel-soft">
-        <div className="h-full rounded-md bg-indigo-600 transition-all" style={{ width: `${percentage}%` }} />
-      </div>
-    </div>
-  );
-}
-
 function formatLimit(value: number | null, t: TranslateFn): string {
   if (value === null) return t('unlimited');
   return new Intl.NumberFormat('en-GB').format(value);
 }
 
-function OverviewBookingRow({ booking, t }: { booking: Booking; t: TranslateFn }) {
-  const staffLabel = bookingStaffLabel(booking);
+function OverviewConversationsTable({ conversations, t }: { conversations: Conversation[]; t: TranslateFn }) {
+  if (conversations.length === 0) {
+    return (
+      <div className="rounded-2xl border p-6 shadow-sm app-border app-panel">
+        <div className="flex min-h-24 items-center justify-center text-sm app-text-muted">{t('noConversations')}</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0">
-        <p className="truncate text-sm font-bold app-text">{booking.client_name}</p>
-        <p className="mt-1 truncate text-xs app-text-muted">
-          {[booking.service?.name, booking.location?.name].filter(Boolean).join(' \u2022 ') || t('appointment')}
-        </p>
-        {staffLabel && <p className="mt-1 truncate text-xs app-text-muted">{t('assignedStaff')}: {staffLabel}</p>}
+    <DashboardTable headers={[]} minWidth="560px">
+      {conversations.map((conversation, index) => (
+        <tr key={conversation.id} className={dashboardTableRowClass(index)}>
+          <td className="min-w-0 px-5 py-4 align-middle">
+            <p className="truncate text-sm font-semibold app-text">{conversationTitle(conversation, t)}</p>
+            <p className="mt-1 truncate text-xs app-text-muted">
+              {conversation.contact_phone || conversation.contact_email || conversation.contact_name || t('clientName')}
+            </p>
+          </td>
+          <td className="w-48 px-5 py-4 align-middle">
+            <div className="flex justify-end">
+              <IntentPill intent={conversation.intent} compact bookingStatus={conversation.booking?.status} />
+            </div>
+          </td>
+        </tr>
+      ))}
+    </DashboardTable>
+  );
+}
+
+function OverviewBookingsTable({ bookings, t }: { bookings: Booking[]; t: TranslateFn }) {
+  if (bookings.length === 0) {
+    return (
+      <div className="rounded-2xl border p-6 shadow-sm app-border app-panel">
+        <div className="flex min-h-24 items-center justify-center text-sm app-text-muted">{t('noRecentBooking')}</div>
       </div>
-      <div className="flex shrink-0 flex-wrap items-center gap-3">
-        <span className="text-xs font-bold app-text-muted">{formatBookingDay(booking.date)} {booking.time}</span>
-        <StatusPill status={booking.status} t={t} className="min-w-0 px-2 py-0.5 text-[10px]" />
-      </div>
-    </div>
+    );
+  }
+
+  return (
+    <DashboardTable headers={[]} minWidth="920px">
+      {bookings.map((booking, index) => (
+        <tr key={booking.id} className={dashboardTableRowClass(index)}>
+          <td className="w-56 px-5 py-4 align-top">
+            <p className="font-semibold app-text">{booking.client_name}</p>
+            <p className="mt-1 text-xs app-text-muted">{booking.client_phone || t('phoneMissingShort')}</p>
+          </td>
+          <td className="w-56 whitespace-nowrap px-5 py-4 align-top">
+            <p className="text-sm font-semibold app-text">{formatBookingDay(booking.date)}</p>
+            <p className="mt-1 text-xs font-bold app-text-muted">{bookingTimeRange(booking.time, booking.service?.duration)}</p>
+          </td>
+          <td className="px-5 py-4 align-top">
+            <StatusPill status={booking.status} t={t} />
+          </td>
+          <td className="min-w-72 px-5 py-4 align-top app-text-soft">
+            <BookingDetailsCell booking={booking} t={t} />
+          </td>
+        </tr>
+      ))}
+    </DashboardTable>
   );
 }
 
@@ -3712,15 +3832,17 @@ function DashboardTable({ headers, children, minWidth = '920px' }: { headers: Re
     <div className="overflow-hidden rounded-2xl border shadow-sm app-border app-panel">
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left text-sm" style={{ minWidth }}>
-          <thead className="app-panel-soft">
-            <tr className="border-b app-border">
-              {headers.map((header, index) => (
-                <th key={index} className="whitespace-nowrap px-5 py-4 text-xs font-semibold uppercase tracking-wide app-text-muted">
-                  {header}
-                </th>
-              ))}
-            </tr>
-          </thead>
+          {headers.length > 0 && (
+            <thead className="app-panel-soft">
+              <tr className="border-b app-border">
+                {headers.map((header, index) => (
+                  <th key={index} className="whitespace-nowrap px-5 py-4 text-xs font-semibold uppercase tracking-wide app-text-muted">
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+          )}
           <tbody>{children}</tbody>
         </table>
       </div>
@@ -4201,11 +4323,30 @@ function formatBookingGroupDate(date: string, t: TranslateFn) {
 function bookingDetailsLine(booking: Salon['bookings'][number], t: TranslateFn) {
   return [
     booking.service?.name || (booking.service_id ? `${t('service')} #${booking.service_id}` : null),
-    bookingStaffLabel(booking),
     booking.service?.type,
     booking.service?.price ? `${booking.service.price} RON` : null,
     booking.location?.name,
   ].filter(Boolean).join(' • ');
+}
+
+function BookingDetailsCell({ booking, t }: { booking: Salon['bookings'][number]; t: TranslateFn }) {
+  const detail = bookingDetailsLine(booking, t);
+  const staffLabel = bookingStaffLabel(booking);
+
+  if (!detail && !staffLabel) {
+    return <span>-</span>;
+  }
+
+  return (
+    <div className="space-y-1">
+      {detail && <p>{detail}</p>}
+      {staffLabel && (
+        <p className="text-xs font-semibold app-text-muted">
+          {t('assignedStaff')}: {staffLabel}
+        </p>
+      )}
+    </div>
+  );
 }
 
 function BookingsDayCards({
@@ -4254,8 +4395,6 @@ function BookingsDayCards({
     >
       {groups.flatMap((group) => group.bookings.map((booking, bookingIndex) => {
         const currentIndex = rowIndex++;
-        const detail = bookingDetailsLine(booking, t);
-
         return (
           <tr key={booking.id} className={dashboardTableRowClass(currentIndex)}>
             <td className="w-48 px-5 py-4 align-top text-sm font-semibold app-text">
@@ -4269,7 +4408,9 @@ function BookingsDayCards({
             </td>
             <td className="px-5 py-4 align-top font-semibold app-text">{booking.client_name}</td>
             <td className="whitespace-nowrap px-5 py-4 align-top app-text-soft">{booking.client_phone || t('phoneMissingShort')}</td>
-            <td className="min-w-72 px-5 py-4 align-top app-text-soft">{detail || '-'}</td>
+            <td className="min-w-72 px-5 py-4 align-top app-text-soft">
+              <BookingDetailsCell booking={booking} t={t} />
+            </td>
             <td className="w-14 px-5 py-4 align-top">
               <RowActionsMenu label={t('actions')}>
                 {(close) => (

@@ -195,11 +195,15 @@ export type UsageSummary = {
     conversations: number;
     ai_messages: number;
     bookings: number;
+    whatsapp_conversations?: number;
+    phone_minutes?: number;
   };
   limits: {
     conversations: number | null;
     ai_messages: number | null;
     bookings: number | null;
+    whatsapp_conversations?: number | null;
+    phone_minutes?: number | null;
   };
 };
 

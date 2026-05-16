@@ -32,6 +32,8 @@ class UsageLimitService
             'conversations' => (int) ($totals['conversation_started'] ?? 0),
             'ai_messages' => (int) ($totals['ai_message'] ?? 0),
             'bookings' => (int) ($totals['booking_created'] ?? 0),
+            'whatsapp_conversations' => (int) ($totals['whatsapp_conversation'] ?? 0),
+            'phone_minutes' => (int) ($totals['phone_minute'] ?? 0),
         ];
     }
 
@@ -99,6 +101,8 @@ class UsageLimitService
                 'conversations' => $limits['monthly_conversations'],
                 'ai_messages' => $limits['monthly_ai_messages'],
                 'bookings' => $limits['monthly_bookings'],
+                'whatsapp_conversations' => $limits['monthly_whatsapp_messages'] ?? 0,
+                'phone_minutes' => $limits['monthly_phone_minutes'] ?? 0,
             ],
         ];
     }

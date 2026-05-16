@@ -46,6 +46,9 @@ class BillingUsageTest extends TestCase
         $this->assertSame(50, config('yougo_plans.free.monthly_conversations'));
         $this->assertSame(100, config('yougo_plans.free.monthly_ai_messages'));
         $this->assertSame(10, config('yougo_plans.free.monthly_bookings'));
+        $this->assertSame(0, config('yougo_plans.free.monthly_whatsapp_messages'));
+        $this->assertSame(0, config('yougo_plans.free.monthly_phone_minutes'));
+        $this->assertTrue(config('yougo_plans.free.email_notifications_enabled'));
 
         $this->assertSame('149 RON/lună', config('yougo_plans.website_chat.price_label'));
         $this->assertSame('299 RON/lună', config('yougo_plans.chat_whatsapp.price_label'));
@@ -151,6 +154,8 @@ class BillingUsageTest extends TestCase
         $summary = app(UsageLimitService::class)->usageSummary($salon);
 
         $this->assertSame(1, $summary['usage']['conversations']);
+        $this->assertSame(0, $summary['usage']['whatsapp_conversations']);
+        $this->assertSame(0, $summary['usage']['phone_minutes']);
     }
 
     public function test_old_plan_keys_alias_to_new_limits_and_new_limits_are_used(): void
@@ -398,7 +403,8 @@ class BillingUsageTest extends TestCase
         $this->assertStringContainsString('servicesForPlan', $pricingGrid);
         $this->assertStringNotContainsString('Chat + Voice', $landing);
         $this->assertStringNotContainsString('Chat + Voice', $translations);
-        $this->assertStringNotContainsString("t('phoneMinutes')", $dashboard);
+        $this->assertStringContainsString("t('phoneMinutes')", $dashboard);
+        $this->assertStringContainsString('usageWhatsappConversations', $dashboard);
 
         foreach (['planDescription_website_chat', 'planDescription_chat_whatsapp', 'planDescription_voice_starter', 'planDescription_voice_growth', 'planDescription_voice_pro'] as $key) {
             $this->assertStringContainsString($key, $translations);

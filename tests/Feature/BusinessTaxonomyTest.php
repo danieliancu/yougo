@@ -42,7 +42,7 @@ class BusinessTaxonomyTest extends TestCase
         $this->assertSame('rental', $user->salon->refresh()->business_type);
     }
 
-    public function test_free_plan_cannot_enable_paid_email_notification_settings(): void
+    public function test_free_plan_can_enable_booking_email_notification_settings(): void
     {
         $user = User::factory()->create();
         $user->salon()->create([
@@ -58,8 +58,8 @@ class BusinessTaxonomyTest extends TestCase
         ]))->assertRedirect();
 
         $salon = $user->salon->refresh();
-        $this->assertFalse($salon->email_notifications);
-        $this->assertFalse($salon->booking_confirmations);
+        $this->assertTrue($salon->email_notifications);
+        $this->assertTrue($salon->booking_confirmations);
     }
 
     public function test_missed_call_alerts_require_available_phone_ai(): void

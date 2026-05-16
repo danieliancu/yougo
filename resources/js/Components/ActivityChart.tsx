@@ -15,6 +15,7 @@ type Props = {
   labels: Record<string, string>;
   range: 'week' | 'month';
   title: string;
+  className?: string;
 };
 
 const series = [
@@ -25,9 +26,9 @@ const series = [
   { key: 'abandoned', color: 'var(--chart-abandoned)' },
 ] as const;
 
-export default function ActivityChart({ data, labels, range, title }: Props) {
+export default function ActivityChart({ data, labels, range, title, className = 'h-72' }: Props) {
   return (
-    <div className="h-72" role="img" aria-label={title}>
+    <div className={className} role="img" aria-label={title}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--app-border)" />

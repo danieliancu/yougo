@@ -14,10 +14,12 @@ return [
         'monthly_conversations' => 50,
         'monthly_ai_messages' => 100,
         'monthly_bookings' => 10,
+        'monthly_whatsapp_messages' => 0,
+        'monthly_phone_minutes' => 0,
         'widgets_enabled' => true,
         'whatsapp_enabled' => false,
         'phone_enabled' => false,
-        'email_notifications_enabled' => false,
+        'email_notifications_enabled' => true,
         'service_keys' => [
             'website_chat',
         ],
