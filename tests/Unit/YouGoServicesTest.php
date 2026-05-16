@@ -55,4 +55,20 @@ class YouGoServicesTest extends TestCase
 
         YouGoServices::validatePlans();
     }
+
+    public function test_service_entitlements_do_not_require_legacy_plan_fields(): void
+    {
+        config([
+            'yougo_plans.free.widgets_enabled' => false,
+            'yougo_plans.free.whatsapp_enabled' => true,
+            'yougo_plans.free.phone_enabled' => true,
+            'yougo_plans.free.channels' => [],
+            'yougo_plans.free.features' => [],
+        ]);
+
+        $this->assertTrue(YouGoServices::planHasWebsiteChat('free'));
+        $this->assertFalse(YouGoServices::planHasWhatsappAi('free'));
+        $this->assertFalse(YouGoServices::planHasPhoneAi('free'));
+        $this->assertSame(['website_chat'], collect(YouGoServices::servicesForPlan('free'))->pluck('key')->all());
+    }
 }

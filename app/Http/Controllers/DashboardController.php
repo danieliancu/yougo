@@ -15,7 +15,7 @@ class DashboardController extends Controller
 {
     public function __invoke(Request $request, DashboardDataService $dashboardData, OnboardingChecklistService $onboardingChecklist, UsageLimitService $usageLimitService, string $section = 'overview'): Response
     {
-        $allowed = ['overview', 'onboarding', 'ai-settings', 'conversations', 'chat-audio', 'voice-calls', 'whatsapp', 'locations', 'staff', 'services', 'bookings', 'widget', 'billing', 'settings'];
+        $allowed = ['overview', 'onboarding', 'ai-settings', 'conversations', 'voice-calls', 'whatsapp', 'locations', 'staff', 'services', 'bookings', 'widget', 'billing', 'settings'];
         abort_unless(in_array($section, $allowed, true), 404);
 
         $salon = $request->user()->salon()->firstOrCreate([], [

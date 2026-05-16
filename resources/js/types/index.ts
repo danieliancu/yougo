@@ -151,8 +151,11 @@ export type Plan = {
   monthly_bookings: number | null;
   monthly_whatsapp_messages?: number | null;
   monthly_phone_minutes?: number | null;
+  /** @deprecated Compatibility payload only. Use service_keys/services for service entitlement. */
   widgets_enabled: boolean;
+  /** @deprecated Compatibility payload only. Use service_keys/services for service entitlement. */
   whatsapp_enabled?: boolean;
+  /** @deprecated Compatibility payload only. Use service_keys/services for service entitlement. */
   phone_enabled?: boolean;
   ai_bookings_enabled?: boolean;
   email_notifications_enabled?: boolean;
@@ -164,7 +167,9 @@ export type Plan = {
   description?: string;
   short_description_ro?: string;
   short_description_en?: string;
+  /** @deprecated Compatibility payload only. Use services for commercial service display. */
   channels?: string[];
+  /** @deprecated Compatibility payload only. Do not use for service entitlement. */
   features?: string[];
   limitations?: string[];
   recommended?: boolean;

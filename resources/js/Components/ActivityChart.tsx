@@ -5,7 +5,7 @@ export type ActivityChartRow = {
   label: string;
   phoneDone: number;
   chatWhatsDone: number;
-  chatAudioDone: number;
+  websiteChatDone: number;
   inProgress: number;
   abandoned: number;
 };
@@ -20,7 +20,7 @@ type Props = {
 const series = [
   { key: 'phoneDone', color: 'var(--chart-phone)' },
   { key: 'chatWhatsDone', color: 'var(--chart-whatsapp)' },
-  { key: 'chatAudioDone', color: 'var(--chart-chat-audio)' },
+  { key: 'websiteChatDone', color: 'var(--chart-website-chat)' },
   { key: 'inProgress', color: 'var(--chart-progress)' },
   { key: 'abandoned', color: 'var(--chart-abandoned)' },
 ] as const;

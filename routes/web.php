@@ -41,7 +41,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::redirect('/dashboard/chat-audio', '/dashboard/widget')->name('dashboard.chat-audio.redirect');
     Route::get('/dashboard/{section}', DashboardController::class)
-        ->whereIn('section', ['overview', 'onboarding', 'ai-settings', 'conversations', 'chat-audio', 'voice-calls', 'whatsapp', 'locations', 'staff', 'services', 'bookings', 'widget', 'billing', 'settings'])
+        ->whereIn('section', ['overview', 'onboarding', 'ai-settings', 'conversations', 'voice-calls', 'whatsapp', 'locations', 'staff', 'services', 'bookings', 'widget', 'billing', 'settings'])
         ->name('dashboard.section');
 
     Route::post('/onboarding/skip', [OnboardingController::class, 'skip'])->name('onboarding.skip');

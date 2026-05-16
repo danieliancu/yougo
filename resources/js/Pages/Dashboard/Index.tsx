@@ -13,7 +13,7 @@ import { integrationStatusLabel, planHasService, serviceEntitlementLabel, servic
 const ActivityChart = lazy(() => import('@/Components/ActivityChart'));
 
 type Props = PageProps<{
-  section: 'overview' | 'onboarding' | 'ai-settings' | 'conversations' | 'chat-audio' | 'voice-calls' | 'whatsapp' | 'locations' | 'staff' | 'services' | 'bookings' | 'widget' | 'billing' | 'settings';
+  section: 'overview' | 'onboarding' | 'ai-settings' | 'conversations' | 'voice-calls' | 'whatsapp' | 'locations' | 'staff' | 'services' | 'bookings' | 'widget' | 'billing' | 'settings';
   salon: Salon;
   overview: OverviewData;
   onboarding: OnboardingChecklist;
@@ -105,14 +105,13 @@ export default function DashboardIndex() {
     onboarding: t('onboardingPageHelper'),
     'ai-settings': t('aiSettingsSubtitle'),
     conversations: t('conversationSubtitle'),
-    'chat-audio': t('chatAudioSubtitle'),
     'voice-calls': t('voiceCallsSubtitle'),
     whatsapp: t('whatsappSubtitle'),
     locations: t('locationsSubtitle'),
     staff: t('staffSubtitle'),
     services: t('servicesSubtitle'),
     bookings: t('bookingsSubtitle'),
-    widget: t('chatAudioSubtitle'),
+    widget: t('websiteChatSubtitle'),
     billing: t('billingSubtitle'),
     settings: t('settingsSubtitle'),
   };
@@ -123,7 +122,6 @@ export default function DashboardIndex() {
 
   const searchSections: Partial<Record<Props['section'], string>> = {
     conversations: t('searchConversations'),
-    'chat-audio': t('searchByPhoneEmailOrContent'),
     'voice-calls': t('searchByPhoneOrTranscript'),
     whatsapp: t('searchWhatsappConversations'),
     services: t('searchServices'),
@@ -236,7 +234,6 @@ export default function DashboardIndex() {
           {section === 'onboarding' && <OnboardingSetup onboarding={onboarding} />}
           {section === 'ai-settings' && <AiSettings salon={salon} />}
           {section === 'conversations' && <Conversations salon={salon} query={query} overview={overview} />}
-          {section === 'chat-audio' && <ChatAudio salon={salon} query={query} />}
           {section === 'voice-calls' && <VoiceCalls query={query} />}
           {section === 'whatsapp' && <WhatsAppConversations query={query} />}
           {section === 'locations' && <Locations salon={salon} />}
@@ -609,7 +606,7 @@ function WidgetSettings({ salon, query }: { salon: Salon; query: string }) {
         <SecondaryButton
           type="button"
           disabled={conversations.length === 0}
-          onClick={() => exportConversationsCsv(conversations, 'chat-audio-conversations', salon.timezone)}
+          onClick={() => exportConversationsCsv(conversations, 'website-chat-conversations', salon.timezone)}
         >
           <Download className="h-4 w-4" />
           {t('exportCsv')}
@@ -1414,7 +1411,7 @@ function buildActivityChart(conversations: Conversation[], range: 'week' | 'mont
       label: labels[index],
       phoneDone: 0,
       chatWhatsDone: 0,
-      chatAudioDone: 0,
+      websiteChatDone: 0,
       inProgress: 0,
       abandoned: 0,
     };
@@ -1447,7 +1444,7 @@ function buildActivityChart(conversations: Conversation[], range: 'week' | 'mont
         return;
       }
 
-      row.chatAudioDone += 1;
+      row.websiteChatDone += 1;
     });
 
   return rows;
@@ -1468,7 +1465,7 @@ function activitySeriesLabels(t: TranslateFn): Record<string, string> {
   return {
     phoneDone: t('phoneCalls'),
     chatWhatsDone: t('chatWhats'),
-    chatAudioDone: t('chatAudio'),
+    websiteChatDone: t('websiteChat'),
     inProgress: t('inProgress'),
     abandoned: t('intentAbandoned'),
   };
@@ -1678,7 +1675,7 @@ function Overview({ salon, overview, onboarding }: { salon: Salon; overview: Ove
           <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs font-bold app-text-muted">
             <ActivityLegendItem color="--chart-phone" label={t('phoneCalls')} />
             <ActivityLegendItem color="--chart-whatsapp" label={t('chatWhats')} />
-            <ActivityLegendItem color="--chart-chat-audio" label={t('chatAudio')} />
+            <ActivityLegendItem color="--chart-website-chat" label={t('websiteChat')} />
             <ActivityLegendItem color="--chart-progress" label={t('inProgress')} />
             <ActivityLegendItem color="--chart-abandoned" label={t('intentAbandoned')} />
           </div>
@@ -3609,91 +3606,6 @@ function StaffPicker({ staffOptions, selectedStaff, onChange, emptyLabel }: { st
   );
 }
 
-function filterChatAudioConversations(conversations: Conversation[], query: string) {
-  return conversations.filter((conversation) => {
-    const haystack = [
-      conversation.contact_name,
-      conversation.contact_phone,
-      conversation.contact_email,
-      conversation.summary,
-      conversation.messages.at(-1)?.content,
-      conversation.channel,
-    ].filter(Boolean).join(' ').toLowerCase();
-
-    return haystack.includes(query.trim().toLowerCase());
-  });
-}
-
-function chatAudioStats(conversations: Conversation[]) {
-  return {
-    total: conversations.length,
-    completed: conversations.filter((conversation) => conversation.status === 'completed').length,
-    abandoned: conversations.filter((conversation) => conversation.intent === 'abandoned').length,
-  };
-}
-
-function ChatAudio({ salon, query }: { salon: Salon; query: string }) {
-  const t = useT();
-  const conversations = filterChatAudioConversations(salon.conversations, query);
-  const stats = chatAudioStats(salon.conversations);
-
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-end">
-        <SecondaryButton
-          type="button"
-          disabled={conversations.length === 0}
-          onClick={() => exportConversationsCsv(conversations, 'chat-audio-conversations', salon.timezone)}
-        >
-          <Download className="h-4 w-4" />
-          {t('exportCsv')}
-        </SecondaryButton>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <ChannelStat icon={MessageSquare} value={stats.total} label={t('totalChat')} tone="blue" />
-        <ChannelStat icon={CheckCircle2} value={stats.completed} label={t('completedChats')} tone="green" />
-        <ChannelStat icon={XCircle} value={stats.abandoned} label={t('abandonedChats')} tone="slate" />
-      </div>
-
-      <Card className="min-h-40 overflow-hidden">
-        <div className="border-b p-5 app-border">
-          <h2 className="text-lg font-bold app-text">{t('recentConversations')}</h2>
-        </div>
-        {conversations.length === 0 ? (
-          <div className="flex min-h-24 items-center justify-center p-6 text-sm app-text-muted">
-            {t('noConversations')}
-          </div>
-        ) : (
-          <div className="divide-y app-border">
-            {conversations.slice(0, 12).map((conversation) => {
-              const Icon = conversation.channel === 'voice' ? Phone : MessageSquare;
-              const lastMessage = conversation.messages.at(-1)?.content ?? t('noSummary');
-
-              return (
-                <div key={conversation.id} className="flex items-center justify-between gap-4 p-5">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-300">
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-bold app-text">{conversationTitle(conversation, t)}</p>
-                      <p className="truncate text-xs app-text-muted">{lastMessage}</p>
-                    </div>
-                  </div>
-                  <div className="hidden shrink-0 sm:block">
-                    <IntentPill intent={conversation.intent} compact bookingStatus={conversation.booking?.status} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </Card>
-    </div>
-  );
-}
-
 function VoiceCalls({ query: _query }: { query: string }) {
   const t = useT();
 
@@ -3828,13 +3740,20 @@ function dashboardTableRowClass(index: number) {
 
 function RowActionsMenu({ label, children }: { label: string; children: (close: () => void) => ReactNode }) {
   const [open, setOpen] = useState(false);
-  const [direction, setDirection] = useState<'down' | 'up'>('down');
+  const [position, setPosition] = useState({ left: 0, top: 0 });
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     function onClickOutside(event: MouseEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        ref.current
+        && !ref.current.contains(target)
+        && menuRef.current
+        && !menuRef.current.contains(target)
+      ) {
         setOpen(false);
       }
     }
@@ -3843,14 +3762,47 @@ function RowActionsMenu({ label, children }: { label: string; children: (close: 
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+
+    function closeMenu() {
+      setOpen(false);
+    }
+
+    window.addEventListener('resize', closeMenu);
+    window.addEventListener('scroll', closeMenu, true);
+
+    return () => {
+      window.removeEventListener('resize', closeMenu);
+      window.removeEventListener('scroll', closeMenu, true);
+    };
+  }, [open]);
+
+  function updatePosition() {
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const menuWidth = 192;
+    const menuHeight = 224;
+    const gap = 8;
+    const left = Math.min(
+      Math.max(16, rect.right - menuWidth),
+      window.innerWidth - menuWidth - 16,
+    );
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const top = spaceBelow < menuHeight && rect.top > menuHeight
+      ? rect.top - menuHeight - gap
+      : rect.bottom + gap;
+
+    setPosition({
+      left,
+      top: Math.max(16, Math.min(top, window.innerHeight - menuHeight - 16)),
+    });
+  }
+
   function toggleOpen() {
     if (!open) {
-      const rect = buttonRef.current?.getBoundingClientRect();
-      if (rect) {
-        const menuHeight = 224;
-        const spaceBelow = window.innerHeight - rect.bottom;
-        setDirection(spaceBelow < menuHeight && rect.top > menuHeight ? 'up' : 'down');
-      }
+      updatePosition();
     }
 
     setOpen((value) => !value);
@@ -3871,7 +3823,11 @@ function RowActionsMenu({ label, children }: { label: string; children: (close: 
         <MoreHorizontal className="h-4 w-4" />
       </button>
       {open && (
-        <div className={`absolute right-0 z-50 min-w-44 rounded-lg border p-1 shadow-xl app-border app-panel ${direction === 'up' ? 'bottom-10' : 'top-10'}`}>
+        <div
+          ref={menuRef}
+          className="fixed z-50 w-48 rounded-lg border p-1 shadow-xl app-border app-panel"
+          style={{ left: position.left, top: position.top }}
+        >
           {children(() => setOpen(false))}
         </div>
       )}

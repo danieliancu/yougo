@@ -42,7 +42,7 @@ textarea {
   --app-focus: rgba(79, 70, 229, 0.18);
   --chart-phone: #2563eb;
   --chart-whatsapp: #16a34a;
-  --chart-chat-audio: #7c3aed;
+  --chart-website-chat: #7c3aed;
   --chart-progress: #f59e0b;
   --chart-abandoned: #94a3b8;
 }
@@ -66,7 +66,7 @@ textarea {
   --app-focus: rgba(99, 102, 241, 0.24);
   --chart-phone: #60a5fa;
   --chart-whatsapp: #34d399;
-  --chart-chat-audio: #a78bfa;
+  --chart-website-chat: #a78bfa;
   --chart-progress: #fbbf24;
   --chart-abandoned: #94a3b8;
 }

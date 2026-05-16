@@ -71,3 +71,10 @@ New code must not use those fields to decide whether a service exists or whether
 - Test dashboard integrations render from catalog data.
 - Test landing pricing uses `service_keys`.
 - Test planned/live statuses display correctly.
+
+## 13. Current Compatibility Notes
+
+- `widgets_enabled`, `whatsapp_enabled`, `phone_enabled`, `channels`, and `features` remain in `config/yougo_plans.php` only to preserve older payload shape and avoid breaking consumers during the transition. New code may not use them for service availability, service display, or plan entitlement decisions. Remove them only after all consumers and tests no longer depend on their presence.
+- `/dashboard/chat-audio` remains as a compatibility redirect to `/dashboard/widget`. New navigation and controller sections must not link to or render a `chat-audio` dashboard surface.
+- Historical `voice_input_used` migrations remain to preserve migration history. They do not imply website voice input support.
+- Website Chat is text-only. Browser microphone APIs, `MediaRecorder`, speech recognition, transcribe routes, and `Chat + Voice` labels must stay out of public website chat.
