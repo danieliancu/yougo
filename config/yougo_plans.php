@@ -12,6 +12,9 @@ return [
         'widgets_enabled' => true,
         'whatsapp_enabled' => false,
         'phone_enabled' => false,
+        'service_keys' => [
+            'website_chat',
+        ],
         'channels' => [
             'Chat',
         ],
@@ -41,6 +44,9 @@ return [
         'phone_enabled' => false,
         'ai_bookings_enabled' => true,
         'recommended' => false,
+        'service_keys' => [
+            'website_chat',
+        ],
         'channels' => [
             'Chat',
         ],
@@ -68,6 +74,10 @@ return [
         'phone_enabled' => false,
         'ai_bookings_enabled' => true,
         'recommended' => false,
+        'service_keys' => [
+            'website_chat',
+            'whatsapp_ai',
+        ],
         'channels' => [
             'Chat',
             'WhatsApp',
@@ -97,6 +107,11 @@ return [
         'phone_enabled' => true,
         'ai_bookings_enabled' => true,
         'recommended' => true,
+        'service_keys' => [
+            'website_chat',
+            'whatsapp_ai',
+            'phone_ai',
+        ],
         'channels' => [
             'Chat',
             'WhatsApp',
@@ -128,6 +143,11 @@ return [
         'phone_enabled' => true,
         'ai_bookings_enabled' => true,
         'recommended' => false,
+        'service_keys' => [
+            'website_chat',
+            'whatsapp_ai',
+            'phone_ai',
+        ],
         'channels' => [
             'Chat',
             'WhatsApp',
@@ -159,6 +179,11 @@ return [
         'phone_enabled' => true,
         'ai_bookings_enabled' => true,
         'recommended' => false,
+        'service_keys' => [
+            'website_chat',
+            'whatsapp_ai',
+            'phone_ai',
+        ],
         'channels' => [
             'Chat',
             'WhatsApp',

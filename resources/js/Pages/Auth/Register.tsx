@@ -37,23 +37,23 @@ export default function Register() {
 
         <div className="space-y-5 border-t pt-5 app-border">
           <div>
-            <h2 className="text-sm font-bold app-text">Business setup</h2>
+            <h2 className="text-sm font-bold app-text">{t('businessSetup')}</h2>
             <p className="mt-1 text-sm app-text-muted">
-              Reservation and lead-based businesses are coming soon. For now, YouGo supports appointment-based setup.
+              {t('appointmentSetupOnly')}
             </p>
           </div>
-          <Field label="Business name" error={form.errors.business_name}>
+          <Field label={t('businessName')} error={form.errors.business_name}>
             <Input value={form.data.business_name} onChange={(event) => form.setData('business_name', event.target.value)} autoComplete="organization" />
           </Field>
-          <Field label="Business type" error={form.errors.business_type}>
+          <Field label={t('businessType')} error={form.errors.business_type}>
             <select
               value={form.data.business_type}
               onChange={(event) => form.setData('business_type', event.target.value)}
               className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 app-panel app-text focus:ring-[var(--app-focus)]"
             >
-              <option value="">Select business type</option>
+              <option value="">{t('selectBusinessType')}</option>
               {businessTaxonomy.map((option) => (
-                <option key={option.slug} value={option.slug}>{option.label}</option>
+                <option key={option.slug} value={option.slug}>{t(`businessType_${option.slug}`)}</option>
               ))}
             </select>
           </Field>

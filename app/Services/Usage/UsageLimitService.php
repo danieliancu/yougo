@@ -58,7 +58,27 @@ class UsageLimitService
 
     public function plans(): array
     {
+        $this->assertPlanServiceKeysExist();
+
         return array_values(config('yougo_plans', []));
+    }
+
+    public function services(): array
+    {
+        return array_values(config('yougo_services', []));
+    }
+
+    private function assertPlanServiceKeysExist(): void
+    {
+        $serviceKeys = array_keys(config('yougo_services', []));
+
+        foreach (config('yougo_plans', []) as $planKey => $plan) {
+            foreach ($plan['service_keys'] ?? [] as $serviceKey) {
+                if (! in_array($serviceKey, $serviceKeys, true)) {
+                    throw new \RuntimeException("Unknown service key [{$serviceKey}] configured on plan [{$planKey}].");
+                }
+            }
+        }
     }
 
     public function canStartConversation(Salon $salon): bool

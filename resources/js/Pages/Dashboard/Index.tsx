@@ -2,7 +2,7 @@
 import { AlertModal, Badge, Button, Card, ConfirmationModal, DangerButton, Field, Input, SecondaryButton, ThemeToggle } from '@/Components/Ui';
 import type { ActivityChartRow } from '@/Components/ActivityChart';
 import { PricingPlansGrid, VoicePlanKey } from '@/Components/PricingPlansGrid';
-import { Booking, Conversation, Location as SalonLocation, OnboardingChecklist, OnboardingStep, OverviewData, PageProps, Plan, Salon, Service, Staff, UsageSummary, User as AuthUser } from '@/types';
+import { Booking, Conversation, Location as SalonLocation, OfferedService, OnboardingChecklist, OnboardingStep, OverviewData, PageProps, Plan, Salon, Service, Staff, UsageSummary, User as AuthUser } from '@/types';
 import { AlertTriangle, Bell, Bot, Building2, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, CreditCard, Download, ExternalLink, FileText, Globe2, LayoutDashboard, List, LogOut, MapPin, Menu, MessageCircle, MessageSquare, MoreHorizontal, Pencil, Phone, Plus, QrCode, Save, Scissors, Search, Settings, Smartphone, Sparkles, Trash2, User, Users, X, XCircle } from 'lucide-react';
 import { SiWhatsapp } from 'react-icons/si';
 import { FormEvent, lazy, ReactNode, Suspense, useEffect, useMemo, useRef, useState } from 'react';
@@ -19,6 +19,7 @@ type Props = PageProps<{
   billing: {
     summary: UsageSummary;
     plans: Plan[];
+    services: OfferedService[];
   };
   appUrl: string;
 }>;
@@ -720,7 +721,8 @@ function SettingsPage({ salon }: { salon: Salon }) {
   const { auth, billing } = usePage<Props>().props;
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
   const initialBusinessType = normalizeBusinessTypeSlug(salon.business_type) || 'salon-beauty';
-  const currentPlan = billing.plans.find((plan) => plan.key === (salon.plan ?? 'free'));
+  const currentPlanKey = canonicalPlanKey(salon.plan);
+  const currentPlan = billing.plans.find((plan) => plan.key === currentPlanKey);
   const paidEmailSettingsAvailable = (salon.plan ?? 'free') !== 'free';
   const missedCallAlertsAvailable = Boolean(currentPlan?.phone_enabled);
   const form = useForm({
@@ -840,8 +842,18 @@ function SettingsPage({ salon }: { salon: Salon }) {
 
         <SettingsPanel icon={Bot} title={t('integrations')} subtitle={t('integrationsSubtitle')}>
           <div className="divide-y divide-slate-800">
-            <IntegrationRow icon={Bot} title={t('voiceAi')} subtitle={t('automatedCalls')} />
-            <IntegrationRow icon={MessageCircle} title={t('chat')} subtitle={t('websiteAssistant')} />
+            {billing.services.map((service) => (
+              <IntegrationRow
+                key={service.key}
+                icon={serviceIcon(service.icon)}
+                title={t(service.title_key)}
+                subtitle={t(service.subtitle_key)}
+                entitlementStatus={(currentPlan?.service_keys ?? []).includes(service.key) ? t('integrationEntitlementActive') : t('integrationEntitlementUpgrade')}
+                implementationStatus={service.implementation_status === 'live' ? t('integrationImplementationLive') : t('integrationImplementationPlanned')}
+                entitlementTone={(currentPlan?.service_keys ?? []).includes(service.key) ? 'active' : 'upgrade'}
+                implementationTone={service.implementation_status === 'live' ? 'live' : 'planned'}
+              />
+            ))}
           </div>
         </SettingsPanel>
 
@@ -931,10 +943,39 @@ function ToggleRow({ title, subtitle, checked, onChange, disabled = false, helpe
   );
 }
 
-function IntegrationRow({ icon: Icon, title, subtitle }: { icon: any; title: string; subtitle: string }) {
-  const t = useT();
+function serviceIcon(icon: string) {
+  if (icon === 'whatsapp') return SiWhatsapp;
+  if (icon === 'phone') return Phone;
+
+  return MessageCircle;
+}
+
+function IntegrationRow({
+  icon: Icon,
+  title,
+  subtitle,
+  entitlementStatus,
+  implementationStatus,
+  entitlementTone,
+  implementationTone,
+}: {
+  icon: any;
+  title: string;
+  subtitle: string;
+  entitlementStatus: string;
+  implementationStatus: string;
+  entitlementTone: 'active' | 'upgrade';
+  implementationTone: 'live' | 'planned';
+}) {
+  const entitlementClass = entitlementTone === 'active'
+    ? 'bg-green-100 text-green-800'
+    : 'bg-amber-100 text-amber-900';
+  const implementationClass = implementationTone === 'live'
+    ? 'bg-green-100 text-green-800'
+    : 'bg-slate-700 text-slate-100';
+
   return (
-    <div className="flex items-center justify-between gap-4 py-5">
+    <div className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-4">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 text-slate-950">
           <Icon className="h-5 w-5" />
@@ -944,7 +985,10 @@ function IntegrationRow({ icon: Icon, title, subtitle }: { icon: any; title: str
           <p className="text-sm app-text-muted">{subtitle}</p>
         </div>
       </div>
-      <span className="rounded-md bg-green-100 px-3 py-1 text-xs font-bold text-green-800">{t('connected')}</span>
+      <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+        <span className={`rounded-md px-3 py-1 text-xs font-bold ${entitlementClass}`}>{entitlementStatus}</span>
+        <span className={`rounded-md px-3 py-1 text-xs font-bold ${implementationClass}`}>{implementationStatus}</span>
+      </div>
     </div>
   );
 }
@@ -1701,7 +1745,7 @@ function UsageOverviewCard({ summary }: { summary: UsageSummary }) {
   );
 }
 
-function BillingPage({ billing, currentPlan }: { billing: { summary: UsageSummary; plans: Plan[] }; currentPlan: string }) {
+function BillingPage({ billing, currentPlan }: { billing: { summary: UsageSummary; plans: Plan[]; services: OfferedService[] }; currentPlan: string }) {
   const t = useT();
   const canonicalCurrentPlan = canonicalPlanKey(currentPlan);
   const [selectedPlan, setSelectedPlan] = useState(canonicalCurrentPlan);
@@ -1770,6 +1814,7 @@ function BillingPage({ billing, currentPlan }: { billing: { summary: UsageSummar
 
       <PricingPlansGrid
         plans={billing.plans}
+        services={billing.services}
         billingCycle={billingCycle}
         selectedVoicePlan={selectedVoicePlan}
         onSelectedVoicePlanChange={setSelectedVoicePlan}

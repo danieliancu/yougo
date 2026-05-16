@@ -6,10 +6,10 @@ import { ChatShell } from '@/Components/ChatShell';
 import { PricingPlansGrid } from '@/Components/PricingPlansGrid';
 import { PublicFooter, PublicHeader, PublicLocale } from '@/Components/PublicChrome';
 import { translate } from '@/i18n';
-import { PageProps, Plan } from '@/types';
+import { OfferedService, PageProps, Plan } from '@/types';
 
 export default function Landing() {
-  const { auth, plans = [] } = usePage<PageProps<{ plans: Plan[] }>>().props;
+  const { auth, plans = [], services = [] } = usePage<PageProps<{ plans: Plan[]; services: OfferedService[] }>>().props;
 
   const [locale, setLocale] = useState<PublicLocale>(() => {
     if (typeof window === 'undefined') return 'ro';
@@ -84,7 +84,7 @@ export default function Landing() {
         </p>
       </section>
       <div id="pricing">
-        <PricingSection plans={plans} t={t} authUser={Boolean(auth.user)} locale={locale} />
+        <PricingSection plans={plans} services={services} t={t} authUser={Boolean(auth.user)} locale={locale} />
       </div>
       <FaqSection t={t} />
       <PublicFooter t={t} />
@@ -139,7 +139,7 @@ function FaqSection({ t }: { t: (key: string, params?: Record<string, string | n
 type BillingCycle = 'monthly' | 'annual';
 type VoicePlanKey = 'voice_starter' | 'voice_growth' | 'voice_pro';
 
-function PricingSection({ plans, t, authUser }: { plans: Plan[]; t: (key: string, params?: Record<string, string | number>) => string; authUser: boolean; locale: PublicLocale }) {
+function PricingSection({ plans, services, t, authUser }: { plans: Plan[]; services: OfferedService[]; t: (key: string, params?: Record<string, string | number>) => string; authUser: boolean; locale: PublicLocale }) {
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
   const [selectedVoicePlan, setSelectedVoicePlan] = useState<VoicePlanKey>('voice_starter');
 
@@ -168,6 +168,7 @@ function PricingSection({ plans, t, authUser }: { plans: Plan[]; t: (key: string
 
       <PricingPlansGrid
         plans={plans}
+        services={services}
         billingCycle={billingCycle}
         selectedVoicePlan={selectedVoicePlan}
         onSelectedVoicePlanChange={setSelectedVoicePlan}

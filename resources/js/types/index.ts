@@ -167,6 +167,15 @@ export type Plan = {
   features?: string[];
   limitations?: string[];
   recommended?: boolean;
+  service_keys?: string[];
+};
+
+export type OfferedService = {
+  key: 'website_chat' | 'whatsapp_ai' | 'phone_ai' | string;
+  title_key: string;
+  subtitle_key: string;
+  icon: 'message-circle' | 'whatsapp' | 'phone' | string;
+  implementation_status: 'live' | 'planned' | string;
 };
 
 export type UsageSummary = {

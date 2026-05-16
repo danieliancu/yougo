@@ -20,6 +20,7 @@ use Inertia\Inertia;
 
 Route::get('/', fn () => Inertia::render('Landing', [
     'plans' => array_values(config('yougo_plans', [])),
+    'services' => array_values(config('yougo_services', [])),
 ]))->name('home');
 Route::get('/industries/{businessTypeSlug}', [IndustryController::class, 'show'])->name('industries.show');
 Route::get('/industries/{businessTypeSlug}/{industrySlug}', [IndustryController::class, 'redirectLegacy'])->name('industries.legacy');

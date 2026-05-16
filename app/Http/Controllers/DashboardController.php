@@ -73,6 +73,7 @@ class DashboardController extends Controller
             'billing' => [
                 'summary' => $usageLimitService->usageSummary($salon),
                 'plans' => $usageLimitService->plans(),
+                'services' => $usageLimitService->services(),
             ],
             'appUrl' => $request->getSchemeAndHttpHost(),
         ]);

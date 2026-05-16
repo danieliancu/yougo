@@ -1,6 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { Check } from 'lucide-react';
-import { Plan } from '@/types';
+import { OfferedService, Plan } from '@/types';
 
 export type BillingCycle = 'monthly' | 'annual';
 export type PublicPlanKey = 'free' | 'website_chat' | 'chat_whatsapp';
@@ -16,8 +16,10 @@ export function PricingPlansGrid({
   showCtas = true,
   authUser = false,
   currentPlanKey,
+  services,
 }: {
   plans: Plan[];
+  services: OfferedService[];
   billingCycle: BillingCycle;
   selectedVoicePlan: VoicePlanKey;
   onSelectedVoicePlanChange: (plan: VoicePlanKey) => void;
@@ -41,7 +43,7 @@ export function PricingPlansGrid({
             plan={plan}
             fallbackName={t(`planName_${key}`)}
             subtitle={t(`pricingSubtitle_${key}`)}
-            highlights={pricingHighlights(key, plan, t)}
+            highlights={pricingHighlights(plan, services, t)}
             usage={usageLines(plan, t)}
             ctaLabel={pricingCtaLabel(key, t)}
             href={pricingHref(authUser)}
@@ -81,7 +83,7 @@ export function PricingPlansGrid({
                 </button>
               ))}
             </div>
-            <FeatureList items={[t('phoneAi'), t('websiteChat'), t('whatsapp'), t('aiBookings'), t('emailBookingNotifications'), t('dashboardAccess')]} />
+            <FeatureList items={pricingHighlights(selectedVoice, services, t)} />
             {showCtas && (
               <Link href={pricingHref(authUser)} className="mt-auto inline-flex h-11 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-bold text-white shadow-sm hover:bg-indigo-700">
                 {voiceCtaLabel(selectedVoicePlan, t)}
@@ -223,21 +225,24 @@ function pricingHref(authUser: boolean) {
   return authUser ? '/dashboard/billing' : '/register';
 }
 
-function pricingHighlights(key: PublicPlanKey, plan: Plan | undefined, t: TranslateFn) {
-  if (key === 'free') {
-    return [
-      t('websiteChat'),
-      `${formatLandingLimit(plan?.monthly_bookings ?? 10, t)} ${t('aiBookings')}`,
-      `${formatLandingLimit(plan?.monthly_conversations ?? 50, t)} ${t('chatConversations')}`,
-      t('dashboardAccess'),
-    ];
-  }
+function pricingHighlights(plan: Plan | undefined, services: OfferedService[], t: TranslateFn) {
+  if (! plan) return [t('pricingPlanUnavailable')];
 
-  if (key === 'chat_whatsapp') {
-    return [t('websiteChat'), t('whatsapp'), t('aiBookings'), t('emailBookingNotifications'), t('dashboardAccess')];
-  }
+  return [
+    ...planServiceLabels(plan, services, t),
+    t('aiBookings'),
+    t('emailBookingNotifications'),
+    t('dashboardAccess'),
+  ];
+}
 
-  return [t('websiteChat'), t('aiBookings'), t('availabilityChecks'), t('emailBookingNotifications'), t('dashboardAccess')];
+function planServiceLabels(plan: Plan, services: OfferedService[], t: TranslateFn) {
+  const serviceKeys = plan.service_keys ?? [];
+
+  return serviceKeys
+    .map((key) => services.find((service) => service.key === key))
+    .filter(Boolean)
+    .map((service) => t(service!.title_key));
 }
 
 function usageLines(plan: Plan | undefined, t: TranslateFn) {
