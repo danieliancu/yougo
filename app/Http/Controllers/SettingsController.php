@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Salon;
 use App\Support\BusinessTaxonomy;
+use App\Support\YouGoServices;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -44,9 +45,9 @@ class SettingsController extends Controller
             $data['logo_path'] = $request->file('logo')->store('logos', 'public');
         }
 
-        $currentPlan = $salon->plan ?: 'free';
-        $isFreePlan = $currentPlan === 'free';
-        $phoneEnabled = (bool) config("yougo_plans.{$currentPlan}.phone_enabled", false);
+        $currentPlan = YouGoServices::planKey($salon->plan);
+        $emailNotificationsAvailable = (bool) config("yougo_plans.{$currentPlan}.email_notifications_enabled", false);
+        $phoneAlertsAvailable = YouGoServices::planHasPhoneAi($currentPlan) && YouGoServices::isServiceLive(YouGoServices::PHONE_AI);
 
         $salon->update([
             'name' => $data['business_name'],
@@ -58,9 +59,9 @@ class SettingsController extends Controller
             'website' => $data['website'] ?? null,
             'business_phone' => $data['business_phone'] ?? null,
             'notification_email' => $data['notification_email'] ?? null,
-            'email_notifications' => $isFreePlan ? false : $request->boolean('email_notifications'),
-            'missed_call_alerts' => $phoneEnabled ? $request->boolean('missed_call_alerts') : false,
-            'booking_confirmations' => $isFreePlan ? false : $request->boolean('booking_confirmations'),
+            'email_notifications' => $emailNotificationsAvailable ? $request->boolean('email_notifications') : false,
+            'missed_call_alerts' => $phoneAlertsAvailable ? $request->boolean('missed_call_alerts') : false,
+            'booking_confirmations' => $emailNotificationsAvailable ? $request->boolean('booking_confirmations') : false,
             'display_language' => $data['display_language'],
             'date_format' => $data['date_format'],
         ]);

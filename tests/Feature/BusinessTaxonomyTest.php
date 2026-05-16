@@ -62,7 +62,7 @@ class BusinessTaxonomyTest extends TestCase
         $this->assertFalse($salon->booking_confirmations);
     }
 
-    public function test_missed_call_alerts_require_phone_enabled_plan(): void
+    public function test_missed_call_alerts_require_available_phone_ai(): void
     {
         $user = User::factory()->create();
         $user->salon()->create([
@@ -79,7 +79,7 @@ class BusinessTaxonomyTest extends TestCase
         $this->assertFalse($user->salon->refresh()->missed_call_alerts);
     }
 
-    public function test_missed_call_alerts_can_be_enabled_on_phone_plan(): void
+    public function test_missed_call_alerts_stay_disabled_while_phone_ai_is_planned(): void
     {
         $user = User::factory()->create();
         $user->salon()->create([
@@ -93,7 +93,7 @@ class BusinessTaxonomyTest extends TestCase
             'missed_call_alerts' => true,
         ]))->assertRedirect();
 
-        $this->assertTrue($user->salon->refresh()->missed_call_alerts);
+        $this->assertFalse($user->salon->refresh()->missed_call_alerts);
     }
 
     public function test_public_business_type_page_loads(): void

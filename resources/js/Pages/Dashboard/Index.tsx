@@ -8,6 +8,7 @@ import { SiWhatsapp } from 'react-icons/si';
 import { FormEvent, lazy, ReactNode, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { businessTaxonomy, findBusinessType, normalizeBusinessTypeSlug } from '@/data/businessTaxonomy';
+import { integrationStatusLabel, planHasService, serviceEntitlementLabel, serviceIsLive, serviceStatusLabel, serviceByKey } from '@/lib/yougoServices';
 
 const ActivityChart = lazy(() => import('@/Components/ActivityChart'));
 
@@ -723,8 +724,9 @@ function SettingsPage({ salon }: { salon: Salon }) {
   const initialBusinessType = normalizeBusinessTypeSlug(salon.business_type) || 'salon-beauty';
   const currentPlanKey = canonicalPlanKey(salon.plan);
   const currentPlan = billing.plans.find((plan) => plan.key === currentPlanKey);
-  const paidEmailSettingsAvailable = (salon.plan ?? 'free') !== 'free';
-  const missedCallAlertsAvailable = Boolean(currentPlan?.phone_enabled);
+  const paidEmailSettingsAvailable = Boolean(currentPlan?.email_notifications_enabled);
+  const phoneAiService = serviceByKey(billing.services, 'phone_ai');
+  const missedCallAlertsAvailable = planHasService(currentPlan, 'phone_ai') && serviceIsLive(phoneAiService);
   const form = useForm({
     name: auth.user?.name ?? '',
     business_name: salon.name ?? '',
@@ -848,10 +850,10 @@ function SettingsPage({ salon }: { salon: Salon }) {
                 icon={serviceIcon(service.icon)}
                 title={t(service.title_key)}
                 subtitle={t(service.subtitle_key)}
-                entitlementStatus={(currentPlan?.service_keys ?? []).includes(service.key) ? t('integrationEntitlementActive') : t('integrationEntitlementUpgrade')}
-                implementationStatus={service.implementation_status === 'live' ? t('integrationImplementationLive') : t('integrationImplementationPlanned')}
-                entitlementTone={(currentPlan?.service_keys ?? []).includes(service.key) ? 'active' : 'upgrade'}
-                implementationTone={service.implementation_status === 'live' ? 'live' : 'planned'}
+                status={integrationStatusLabel(service, currentPlan, t)}
+                entitlementStatus={serviceEntitlementLabel(service, currentPlan, t)}
+                implementationStatus={serviceStatusLabel(service, t)}
+                statusTone={service.implementation_status === 'live' && planHasService(currentPlan, service.key) ? 'active' : service.implementation_status === 'live' ? 'upgrade' : 'planned'}
               />
             ))}
           </div>
@@ -954,25 +956,24 @@ function IntegrationRow({
   icon: Icon,
   title,
   subtitle,
+  status,
   entitlementStatus,
   implementationStatus,
-  entitlementTone,
-  implementationTone,
+  statusTone,
 }: {
   icon: any;
   title: string;
   subtitle: string;
+  status: string;
   entitlementStatus: string;
   implementationStatus: string;
-  entitlementTone: 'active' | 'upgrade';
-  implementationTone: 'live' | 'planned';
+  statusTone: 'active' | 'upgrade' | 'planned';
 }) {
-  const entitlementClass = entitlementTone === 'active'
+  const statusClass = statusTone === 'active'
     ? 'bg-green-100 text-green-800'
-    : 'bg-amber-100 text-amber-900';
-  const implementationClass = implementationTone === 'live'
-    ? 'bg-green-100 text-green-800'
-    : 'bg-slate-700 text-slate-100';
+    : statusTone === 'upgrade'
+      ? 'bg-amber-100 text-amber-900'
+      : 'bg-slate-700 text-slate-100';
 
   return (
     <div className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
@@ -986,8 +987,9 @@ function IntegrationRow({
         </div>
       </div>
       <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
-        <span className={`rounded-md px-3 py-1 text-xs font-bold ${entitlementClass}`}>{entitlementStatus}</span>
-        <span className={`rounded-md px-3 py-1 text-xs font-bold ${implementationClass}`}>{implementationStatus}</span>
+        <span className={`rounded-md px-3 py-1 text-xs font-bold ${statusClass}`}>{status}</span>
+        <span className="rounded-md bg-[var(--app-panel-soft)] px-3 py-1 text-xs font-bold app-text-soft">{entitlementStatus}</span>
+        <span className="rounded-md bg-[var(--app-panel-soft)] px-3 py-1 text-xs font-bold app-text-soft">{implementationStatus}</span>
       </div>
     </div>
   );

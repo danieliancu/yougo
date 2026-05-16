@@ -1,11 +1,14 @@
 import { Link } from '@inertiajs/react';
-import { Check } from 'lucide-react';
+import { Check, MessageCircle, Phone } from 'lucide-react';
+import { SiWhatsapp } from 'react-icons/si';
 import { OfferedService, Plan } from '@/types';
+import { servicesForPlan, serviceIsPlanned } from '@/lib/yougoServices';
 
 export type BillingCycle = 'monthly' | 'annual';
 export type PublicPlanKey = 'free' | 'website_chat' | 'chat_whatsapp';
 export type VoicePlanKey = 'voice_starter' | 'voice_growth' | 'voice_pro';
 type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
+type FeatureItem = { key: string; label: string; subtitle?: string; planned?: boolean; icon?: any };
 
 export function PricingPlansGrid({
   plans,
@@ -83,7 +86,7 @@ export function PricingPlansGrid({
                 </button>
               ))}
             </div>
-            <FeatureList items={pricingHighlights(selectedVoice, services, t)} />
+            <FeatureList items={pricingHighlights(selectedVoice, services, t)} t={t} />
             {showCtas && (
               <Link href={pricingHref(authUser)} className="mt-auto inline-flex h-11 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-bold text-white shadow-sm hover:bg-indigo-700">
                 {voiceCtaLabel(selectedVoicePlan, t)}
@@ -110,7 +113,7 @@ function PricingCard({ plan, fallbackName, subtitle, highlights, usage, ctaLabel
         <>
           <PriceBlock plan={plan} billingCycle={billingCycle} t={t} />
           <UsageList items={usage} />
-          <FeatureList items={highlights} />
+          <FeatureList items={highlights} t={t} />
           {showCta && (
             <Link href={href} className="mt-auto inline-flex h-11 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-bold text-white shadow-sm hover:bg-indigo-700">
               {ctaLabel}
@@ -140,15 +143,23 @@ function UsageList({ items }: { items: string[] }) {
   );
 }
 
-function FeatureList({ items }: { items: string[] }) {
+function FeatureList({ items, t }: { items: FeatureItem[]; t: TranslateFn }) {
   return (
     <ul className="mt-5 mb-5 grid gap-3 text-sm font-medium app-text-soft">
-      {items.map((item) => (
-        <li key={item} className="flex gap-2">
-          <Check className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
-          <span>{item}</span>
-        </li>
-      ))}
+      {items.map((item) => {
+        const Icon = item.icon ?? Check;
+
+        return (
+          <li key={item.key} className="flex items-start gap-2">
+            <Icon className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
+            <span className="min-w-0">
+              {item.label}
+              {item.planned && <span className="ml-2 inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-700 dark:bg-slate-700 dark:text-slate-100">{t('integrationImplementationPlanned')}</span>}
+              {item.subtitle && <span className="mt-0.5 block text-xs leading-5 app-text-muted">{item.subtitle}</span>}
+            </span>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -225,24 +236,33 @@ function pricingHref(authUser: boolean) {
   return authUser ? '/dashboard/billing' : '/register';
 }
 
-function pricingHighlights(plan: Plan | undefined, services: OfferedService[], t: TranslateFn) {
-  if (! plan) return [t('pricingPlanUnavailable')];
+function pricingHighlights(plan: Plan | undefined, services: OfferedService[], t: TranslateFn): FeatureItem[] {
+  if (! plan) return [{ key: 'missing-plan', label: t('pricingPlanUnavailable') }];
 
   return [
-    ...planServiceLabels(plan, services, t),
-    t('aiBookings'),
-    t('emailBookingNotifications'),
-    t('dashboardAccess'),
+    ...planServiceItems(plan, services, t),
+    { key: 'aiBookings', label: t('aiBookings') },
+    { key: 'emailBookingNotifications', label: t('emailBookingNotifications') },
+    { key: 'dashboardAccess', label: t('dashboardAccess') },
   ];
 }
 
-function planServiceLabels(plan: Plan, services: OfferedService[], t: TranslateFn) {
-  const serviceKeys = plan.service_keys ?? [];
+function planServiceItems(plan: Plan, services: OfferedService[], t: TranslateFn): FeatureItem[] {
+  return servicesForPlan(services, plan)
+    .map((service) => ({
+      key: service.key,
+      label: t(service.title_key),
+      subtitle: t(service.subtitle_key),
+      planned: serviceIsPlanned(service),
+      icon: serviceIcon(service.icon),
+    }));
+}
 
-  return serviceKeys
-    .map((key) => services.find((service) => service.key === key))
-    .filter(Boolean)
-    .map((service) => t(service!.title_key));
+function serviceIcon(icon: string) {
+  if (icon === 'whatsapp') return SiWhatsapp;
+  if (icon === 'phone') return Phone;
+
+  return MessageCircle;
 }
 
 function usageLines(plan: Plan | undefined, t: TranslateFn) {
@@ -253,7 +273,7 @@ function usageLines(plan: Plan | undefined, t: TranslateFn) {
     `${formatLandingLimit(plan.monthly_bookings, t)} ${t('aiBookings')}`,
   ];
 
-  if (plan.whatsapp_enabled) {
+  if (plan.service_keys?.includes('whatsapp_ai')) {
     parts.push(`${formatLandingLimit(plan.monthly_whatsapp_messages ?? null, t)} ${t('whatsappMessages')}`);
   }
 

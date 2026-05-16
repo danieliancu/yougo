@@ -4,16 +4,12 @@ namespace App\Services\Usage;
 
 use App\Models\Salon;
 use App\Services\Assistant\AssistantMessageLocalizer;
+use App\Support\YouGoServices;
 use Illuminate\Support\Carbon;
 
 class UsageLimitService
 {
     public const LIMIT_MESSAGE_EN = "You've reached your plan limit for this month. Please upgrade your plan or contact the business directly.";
-    private const PLAN_ALIASES = [
-        'connect' => 'chat_whatsapp',
-        'voice' => 'voice_starter',
-        'enterprise' => 'voice_pro',
-    ];
     public const LIMIT_MESSAGE_RO = 'Ai atins limita planului pentru această lună. Te rugăm să faci upgrade sau să contactezi direct businessul.';
 
     public function __construct(private readonly AssistantMessageLocalizer $messageLocalizer)
@@ -41,44 +37,30 @@ class UsageLimitService
 
     public function getPlanLimits(Salon $salon): array
     {
-        $plans = config('yougo_plans', []);
         $key = $this->canonicalPlanKey($salon->plan);
+        $plans = config('yougo_plans', []);
 
-        return $plans[$key] ?? $plans['free'];
+        $plan = $plans[$key] ?? $plans['free'];
+
+        return [
+            ...$plan,
+            'services' => YouGoServices::servicesForPlan($plan),
+        ];
     }
 
     public function canonicalPlanKey(?string $key): string
     {
-        if (! $key) {
-            return 'free';
-        }
-
-        return self::PLAN_ALIASES[$key] ?? $key;
+        return YouGoServices::planKey($key);
     }
 
     public function plans(): array
     {
-        $this->assertPlanServiceKeysExist();
-
-        return array_values(config('yougo_plans', []));
+        return YouGoServices::plans();
     }
 
     public function services(): array
     {
-        return array_values(config('yougo_services', []));
-    }
-
-    private function assertPlanServiceKeysExist(): void
-    {
-        $serviceKeys = array_keys(config('yougo_services', []));
-
-        foreach (config('yougo_plans', []) as $planKey => $plan) {
-            foreach ($plan['service_keys'] ?? [] as $serviceKey) {
-                if (! in_array($serviceKey, $serviceKeys, true)) {
-                    throw new \RuntimeException("Unknown service key [{$serviceKey}] configured on plan [{$planKey}].");
-                }
-            }
-        }
+        return YouGoServices::all();
     }
 
     public function canStartConversation(Salon $salon): bool

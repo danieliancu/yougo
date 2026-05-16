@@ -1,5 +1,10 @@
 <?php
 
+// Service availability is defined canonically by service_keys and
+// config/yougo_services.php. The legacy widgets_enabled, whatsapp_enabled,
+// phone_enabled, channels and features fields remain for compatibility only;
+// new service UI or entitlement logic must use App\Support\YouGoServices.
+
 return [
     'free' => [
         'key' => 'free',
@@ -12,6 +17,7 @@ return [
         'widgets_enabled' => true,
         'whatsapp_enabled' => false,
         'phone_enabled' => false,
+        'email_notifications_enabled' => false,
         'service_keys' => [
             'website_chat',
         ],
@@ -43,6 +49,7 @@ return [
         'whatsapp_enabled' => false,
         'phone_enabled' => false,
         'ai_bookings_enabled' => true,
+        'email_notifications_enabled' => true,
         'recommended' => false,
         'service_keys' => [
             'website_chat',
@@ -73,6 +80,7 @@ return [
         'whatsapp_enabled' => true,
         'phone_enabled' => false,
         'ai_bookings_enabled' => true,
+        'email_notifications_enabled' => true,
         'recommended' => false,
         'service_keys' => [
             'website_chat',
@@ -106,6 +114,7 @@ return [
         'whatsapp_enabled' => true,
         'phone_enabled' => true,
         'ai_bookings_enabled' => true,
+        'email_notifications_enabled' => true,
         'recommended' => true,
         'service_keys' => [
             'website_chat',
@@ -142,6 +151,7 @@ return [
         'whatsapp_enabled' => true,
         'phone_enabled' => true,
         'ai_bookings_enabled' => true,
+        'email_notifications_enabled' => true,
         'recommended' => false,
         'service_keys' => [
             'website_chat',
@@ -178,6 +188,7 @@ return [
         'whatsapp_enabled' => true,
         'phone_enabled' => true,
         'ai_bookings_enabled' => true,
+        'email_notifications_enabled' => true,
         'recommended' => false,
         'service_keys' => [
             'website_chat',

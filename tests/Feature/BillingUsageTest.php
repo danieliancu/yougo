@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\Booking\BookingCreator;
 use App\Services\Usage\UsageLimitService;
 use App\Services\Usage\UsageTracker;
+use App\Support\YouGoServices;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
@@ -40,8 +41,7 @@ class BillingUsageTest extends TestCase
         $this->assertArrayNotHasKey('connect', config('yougo_plans'));
         $this->assertArrayNotHasKey('voice', config('yougo_plans'));
         $this->assertArrayNotHasKey('enterprise', config('yougo_plans'));
-        $this->assertContains('AI booking requests', config('yougo_plans.free.features'));
-        $this->assertContains('Dashboard access', config('yougo_plans.free.features'));
+        $this->assertSame(['website_chat'], config('yougo_plans.free.service_keys'));
         $this->assertSame('0 RON', config('yougo_plans.free.price_label'));
         $this->assertSame(50, config('yougo_plans.free.monthly_conversations'));
         $this->assertSame(100, config('yougo_plans.free.monthly_ai_messages'));
@@ -61,14 +61,13 @@ class BillingUsageTest extends TestCase
 
         foreach (['website_chat', 'chat_whatsapp', 'voice_starter', 'voice_growth', 'voice_pro'] as $key) {
             $this->assertTrue(config("yougo_plans.{$key}.ai_bookings_enabled"));
-            $this->assertContains('Programări AI', config("yougo_plans.{$key}.features"));
         }
 
-        $this->assertFalse(config('yougo_plans.website_chat.phone_enabled'));
-        $this->assertFalse(config('yougo_plans.chat_whatsapp.phone_enabled'));
-        $this->assertTrue(config('yougo_plans.voice_starter.phone_enabled'));
-        $this->assertTrue(config('yougo_plans.voice_growth.phone_enabled'));
-        $this->assertTrue(config('yougo_plans.voice_pro.phone_enabled'));
+        $this->assertFalse(YouGoServices::planHasPhoneAi('website_chat'));
+        $this->assertFalse(YouGoServices::planHasPhoneAi('chat_whatsapp'));
+        $this->assertTrue(YouGoServices::planHasPhoneAi('voice_starter'));
+        $this->assertTrue(YouGoServices::planHasPhoneAi('voice_growth'));
+        $this->assertTrue(YouGoServices::planHasPhoneAi('voice_pro'));
     }
 
     public function test_temporary_plan_selector_validates_and_updates_plan(): void
@@ -311,8 +310,12 @@ class BillingUsageTest extends TestCase
                 ->where('billing.plans.1.key', 'website_chat')
                 ->where('billing.plans.2.key', 'chat_whatsapp')
                 ->where('billing.plans.3.key', 'voice_starter')
+                ->where('billing.plans.3.services.2.key', 'phone_ai')
                 ->where('billing.plans.4.key', 'voice_growth')
                 ->where('billing.plans.5.key', 'voice_pro')
+                ->where('billing.services.0.key', 'website_chat')
+                ->where('billing.services.1.key', 'whatsapp_ai')
+                ->where('billing.services.2.key', 'phone_ai')
             );
 
         $this->actingAs($user)->get('/dashboard')
@@ -330,11 +333,15 @@ class BillingUsageTest extends TestCase
                 ->where('plans.1.key', 'website_chat')
                 ->where('plans.1.price_label', '149 RON/lună')
                 ->where('plans.2.key', 'chat_whatsapp')
+                ->where('plans.2.services.1.key', 'whatsapp_ai')
                 ->where('plans.3.key', 'voice_starter')
                 ->where('plans.3.recommended', true)
                 ->where('plans.3.phone_minutes_label', '300 min')
+                ->where('plans.3.services.2.key', 'phone_ai')
                 ->where('plans.4.key', 'voice_growth')
                 ->where('plans.5.key', 'voice_pro')
+                ->where('services.0.key', 'website_chat')
+                ->where('services.1.implementation_status', 'planned')
             );
     }
 
@@ -345,13 +352,20 @@ class BillingUsageTest extends TestCase
         $pricingGrid = file_get_contents(resource_path('js/Components/PricingPlansGrid.tsx'));
         $translations = file_get_contents(resource_path('js/i18n.ts'));
 
-        foreach (['price', 'websiteChat', 'whatsapp', 'phoneAi', 'aiBookings'] as $key) {
+        foreach (['price', 'service_keys', 'title_key', 'subtitle_key', 'serviceIsPlanned', 'aiBookings'] as $key) {
             $this->assertStringContainsString($key, $pricingGrid);
+        }
+
+        foreach (['serviceWebsiteChatShort', 'serviceWhatsappAiShort', 'servicePhoneAiShort'] as $key) {
             $this->assertStringContainsString($key, $translations);
         }
 
         $this->assertStringContainsString('PricingPlansGrid', $landing);
         $this->assertStringContainsString('PricingPlansGrid', $dashboard);
+        $this->assertStringContainsString('billing.services.map', $dashboard);
+        $this->assertStringContainsString('integrationStatusLabel', $dashboard);
+        $this->assertStringNotContainsString('integrationSms', $dashboard);
+        $this->assertStringNotContainsString('integrationPayments', $dashboard);
 
         foreach (['free', 'website_chat', 'chat_whatsapp', 'voice_starter', 'voice_growth', 'voice_pro'] as $key) {
             $this->assertStringContainsString($key, $pricingGrid);
@@ -380,6 +394,8 @@ class BillingUsageTest extends TestCase
         $this->assertStringContainsString('Voice Pro', $translations);
         $this->assertStringContainsString('Phone AI', $translations);
         $this->assertStringContainsString('Telefon AI', $translations);
+        $this->assertStringContainsString('integrationImplementationPlanned', $pricingGrid);
+        $this->assertStringContainsString('servicesForPlan', $pricingGrid);
         $this->assertStringNotContainsString('Chat + Voice', $landing);
         $this->assertStringNotContainsString('Chat + Voice', $translations);
         $this->assertStringNotContainsString("t('phoneMinutes')", $dashboard);

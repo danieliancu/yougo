@@ -15,12 +15,13 @@ use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\WidgetController;
+use App\Support\YouGoServices;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', fn () => Inertia::render('Landing', [
-    'plans' => array_values(config('yougo_plans', [])),
-    'services' => array_values(config('yougo_services', [])),
+    'plans' => YouGoServices::plans(),
+    'services' => YouGoServices::all(),
 ]))->name('home');
 Route::get('/industries/{businessTypeSlug}', [IndustryController::class, 'show'])->name('industries.show');
 Route::get('/industries/{businessTypeSlug}/{industrySlug}', [IndustryController::class, 'redirectLegacy'])->name('industries.legacy');

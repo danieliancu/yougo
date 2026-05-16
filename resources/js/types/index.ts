@@ -155,6 +155,7 @@ export type Plan = {
   whatsapp_enabled?: boolean;
   phone_enabled?: boolean;
   ai_bookings_enabled?: boolean;
+  email_notifications_enabled?: boolean;
   phone_billing_label?: string | null;
   phone_minute_price_label?: string | null;
   phone_minutes_label?: string | null;
@@ -168,14 +169,19 @@ export type Plan = {
   limitations?: string[];
   recommended?: boolean;
   service_keys?: string[];
+  services?: OfferedService[];
 };
 
 export type OfferedService = {
   key: 'website_chat' | 'whatsapp_ai' | 'phone_ai' | string;
   title_key: string;
   subtitle_key: string;
+  short_label_key: string;
   icon: 'message-circle' | 'whatsapp' | 'phone' | string;
   implementation_status: 'live' | 'planned' | string;
+  category: 'channel' | string;
+  entitlement_key: string;
+  sort_order: number;
 };
 
 export type UsageSummary = {
