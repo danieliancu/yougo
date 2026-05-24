@@ -573,8 +573,8 @@ function WidgetSettings({ salon, query }: { salon: Salon; query: string }) {
   const embedCode = `<script async src="${appUrl}/widget/${salon.widget_key}.js"></script>`;
   const [domainsText, setDomainsText] = useState((salon.widget_allowed_domains ?? []).join('\n'));
   const [copied, setCopied] = useState(false);
-  const conversations = filterChatAudioConversations(salon.conversations, query);
-  const stats = chatAudioStats(salon.conversations);
+  const conversations = filterWebsiteChatConversations(salon.conversations, query);
+  const stats = websiteChatStats(conversations);
   const form = useForm({
     widget_enabled: Boolean(salon.widget_enabled ?? true),
     widget_allowed_domains: salon.widget_allowed_domains ?? [],
@@ -714,6 +714,34 @@ function WidgetSettings({ salon, query }: { salon: Salon; query: string }) {
   );
 }
 
+function filterWebsiteChatConversations(conversations: Conversation[], query: string) {
+  const normalizedQuery = query.trim().toLowerCase();
+
+  return conversations
+    .filter((conversation) => conversation.channel === 'chat' || conversation.channel === 'web_widget')
+    .filter((conversation) => {
+      if (!normalizedQuery) return true;
+
+      return [
+        conversation.contact_name,
+        conversation.contact_phone,
+        conversation.contact_email,
+        conversation.summary,
+        conversation.intent,
+        conversation.status,
+        ...conversation.messages.map((message) => message.content),
+      ].filter(Boolean).some((value) => String(value).toLowerCase().includes(normalizedQuery));
+    });
+}
+
+function websiteChatStats(conversations: Conversation[]) {
+  return {
+    total: conversations.length,
+    completed: conversations.filter((conversation) => conversation.status === 'completed').length,
+    abandoned: conversations.filter((conversation) => conversation.intent === 'abandoned').length,
+  };
+}
+
 function SettingsPage({ salon }: { salon: Salon }) {
   const t = useT();
   const { auth, billing } = usePage<Props>().props;
@@ -749,8 +777,8 @@ function SettingsPage({ salon }: { salon: Salon }) {
         email_notifications: paidEmailSettingsAvailable ? data.email_notifications : false,
         booking_confirmations: paidEmailSettingsAvailable ? data.booking_confirmations : false,
         missed_call_alerts: missedCallAlertsAvailable ? data.missed_call_alerts : false,
-      }))
-      .post('/settings', { forceFormData: true, preserveScroll: true });
+      }));
+    form.post('/settings', { forceFormData: true, preserveScroll: true });
   }
 
   return (
@@ -1772,7 +1800,7 @@ function UsageSummaryPanel({ summary, action, compact = false }: { summary: Usag
         {action}
       </div>
       <div className={`${compact ? 'mt-3 gap-3' : 'mt-5 gap-4'} grid md:grid-cols-2 xl:grid-cols-5`}>
-        {items.map((item) => <UsageRing key={item.key} compact={compact} {...item} />)}
+        {items.map(({ key, ...item }) => <UsageRing key={key} compact={compact} {...item} />)}
       </div>
     </Card>
   );
