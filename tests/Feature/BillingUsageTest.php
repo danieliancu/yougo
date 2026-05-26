@@ -389,6 +389,21 @@ class BillingUsageTest extends TestCase
         $this->assertStringContainsString('/register', $landing);
         $this->assertStringContainsString('/dashboard/billing', $pricingGrid);
         $this->assertStringContainsString('goDashboard', $landing);
+        $this->assertStringContainsString('HowItWorksSection', $landing);
+        $this->assertStringContainsString('YouGoBenefitsSection', $landing);
+        $this->assertStringContainsString('homepageHowTitle', $landing);
+        $this->assertStringContainsString('yougoBenefitsTitle', $landing);
+        $this->assertStringContainsString('/images/background-section.png', $landing);
+        $this->assertStringContainsString('Cum funcționează', $translations);
+        $this->assertStringContainsString('How it works', $translations);
+        $this->assertStringContainsString('What YouGo does for you', $translations);
+        foreach (['yougoBenefitsAnswerTitle', 'yougoBenefitsAvailabilityTitle', 'yougoBenefitsBookingTitle', 'yougoBenefitsEmailTitle'] as $key) {
+            $this->assertStringContainsString($key, $translations);
+        }
+        $this->assertLessThan(strpos($landing, '<HowItWorksSection'), strpos($landing, "t('featuresHelpCta')"));
+        $this->assertLessThan(strpos($landing, '<YouGoBenefitsSection'), strpos($landing, '<HowItWorksSection'));
+        $this->assertLessThan(strpos($landing, '<div id="pricing">'), strpos($landing, '<YouGoBenefitsSection'));
+        $this->assertLessThan(strpos($landing, '<div id="pricing">'), strpos($landing, '<HowItWorksSection'));
         $this->assertLessThan(strpos($landing, '<FaqSection'), strpos($landing, '<div id="pricing">'));
         $this->assertStringContainsString('Quickly compare the included channels and monthly limits. Start with website chat', $translations);
         $this->assertStringContainsString('Compară rapid canalele incluse și limitele lunare. Începi cu chat pe site', $translations);

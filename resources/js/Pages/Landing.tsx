@@ -1,6 +1,26 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { MessageCircle, Minus, Phone, Plug, Plus, Send } from 'lucide-react';
+import {
+  ArrowRight,
+  CalendarCheck,
+  CalendarPlus,
+  Clock,
+  Mail,
+  LayoutDashboard,
+  MapPin,
+  MessageCircle,
+  MessageSquare,
+  Minus,
+  Phone,
+  Plug,
+  Plus,
+  Scissors,
+  Send,
+  Settings,
+  Users,
+  XCircle,
+} from 'lucide-react';
 import { SiWhatsapp } from 'react-icons/si';
+import type React from 'react';
 import { useEffect, useState } from 'react';
 import { ChatShell } from '@/Components/ChatShell';
 import { PricingPlansGrid } from '@/Components/PricingPlansGrid';
@@ -19,6 +39,11 @@ export default function Landing() {
   function switchLang(lang: PublicLocale) {
     setLocale(lang);
     localStorage.setItem('yougo-lang', lang);
+  }
+
+  function scrollToHowItWorks(event: React.MouseEvent<HTMLAnchorElement>) {
+    event.preventDefault();
+    document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   const t = (key: string, params?: Record<string, string | number>) => translate(locale, key, params);
@@ -46,7 +71,7 @@ export default function Landing() {
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link href={auth.user ? '/dashboard' : '/register'} className="rounded-lg bg-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-indigo-700">{auth.user ? t('goDashboard') : t('startFree')}</Link>
-                <button type="button" className="rounded-lg border border-slate-950 bg-transparent px-5 py-3 text-sm font-bold text-slate-950 hover:bg-slate-950 hover:text-white dark:border-white dark:text-white dark:hover:bg-white dark:hover:text-slate-950">{t('howItWorks')}</button>
+                <a href="#how-it-works" onClick={scrollToHowItWorks} className="rounded-lg border border-slate-950 bg-transparent px-5 py-3 text-sm font-bold text-slate-950 hover:bg-slate-950 hover:text-white dark:border-white dark:text-white dark:hover:bg-white dark:hover:text-slate-950">{t('howItWorks')}</a>
               </div>
             </div>
 
@@ -55,7 +80,7 @@ export default function Landing() {
         </section>
       </div>
 
-      <section className="mx-auto max-w-6xl px-6 pb-20 mt-8">
+      <section className="mx-auto max-w-6xl px-6">
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           <div className="flex flex-col items-center rounded-2xl p-8 text-center">
             <MessageCircle className="mb-5 h-14 w-14 text-indigo-500" />
@@ -78,17 +103,248 @@ export default function Landing() {
             <p className="mt-2 text-sm app-text-soft">{t('feature4Desc')}</p>
           </div>
         </div>
-        <p className="mt-10 text-center text-sm app-text-soft">
-          {t('featuresHelpText')}{' '}
-          <a href="tel:08767657556" className="font-bold text-indigo-600 hover:underline">{t('featuresHelpCta')}</a>
-        </p>
       </section>
-      <div id="pricing">
+      <section
+        className="mt-6 relative overflow-hidden bg-blue-700 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: "url('/images/background-section.png')" }}
+      >
+        <div className="absolute inset-0 bg-blue-950/10 dark:bg-slate-950/20" aria-hidden="true" />
+        <div className="relative mx-auto max-w-6xl px-6 py-6 text-center">
+          <p className="text-lg font-bold text-white">
+            {t('featuresHelpText')}{' '}
+            <a href="tel:08767657556" className="text-white underline decoration-white/60 underline-offset-4 hover:decoration-white">{t('featuresHelpCta')}</a>
+          </p>
+        </div>
+      </section>
+      <HowItWorksSection t={t} />
+      <YouGoBenefitsSection t={t} />
+      <div id="pricing" className="mt-12">
         <PricingSection plans={plans} services={services} t={t} authUser={Boolean(auth.user)} locale={locale} />
       </div>
       <FaqSection t={t} />
       <PublicFooter t={t} />
     </main>
+  );
+}
+
+type LandingTranslator = (key: string, params?: Record<string, string | number>) => string;
+type MiniMenuItem = {
+  icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
+  label: string;
+};
+type MiniStatItem = {
+  icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
+  label: string;
+  tone: 'blue' | 'green' | 'purple' | 'slate';
+};
+type BenefitItem = {
+  icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
+  title: string;
+  text: string;
+};
+
+function HowItWorksSection({ t }: { t: LandingTranslator }) {
+  const steps = [
+    {
+      number: '01',
+      title: t('homepageHowStep1Title'),
+      text: t('homepageHowStep1Text'),
+      mockup: (
+        <MiniMenuMockup
+          items={[
+            { icon: LayoutDashboard, label: t('homepageHowStep1Item1') },
+            { icon: Settings, label: t('homepageHowStep1Item2') },
+            { icon: CalendarCheck, label: t('homepageHowStep1Item3') },
+          ]}
+        />
+      ),
+    },
+    {
+      number: '02',
+      title: t('homepageHowStep2Title'),
+      text: t('homepageHowStep2Text'),
+      mockup: (
+        <MiniMenuMockup
+          items={[
+            { icon: Scissors, label: t('homepageHowStep2Item1') },
+            { icon: Users, label: t('homepageHowStep2Item2') },
+            { icon: MapPin, label: t('homepageHowStep2Item3') },
+          ]}
+        />
+      ),
+    },
+    {
+      number: '03',
+      title: t('homepageHowStep3Title'),
+      text: t('homepageHowStep3Text'),
+      mockup: (
+        <MiniStatsMockup
+          stats={[
+            { icon: MessageSquare, label: t('homepageHowStep3Stat1'), tone: 'blue' },
+            { icon: Clock, label: t('homepageHowStep3Stat2'), tone: 'purple' },
+            { icon: MessageCircle, label: t('homepageHowStep3Stat3'), tone: 'green' },
+            { icon: XCircle, label: t('homepageHowStep3Stat4'), tone: 'slate' },
+          ]}
+          chatLabel={t('chatVoice')}
+          whatsappLabel={t('carouselWhatsapp')}
+          phoneLabel={t('phone')}
+        />
+      ),
+    },
+  ];
+
+  return (
+    <section id="how-it-works" className="scroll-mt-24 mx-auto max-w-6xl px-6 pb-24 mt-12">
+      <div className="max-w-3xl">
+        <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">{t('homepageHowEyebrow')}</p>
+        <h2 className="text-3xl font-bold app-text md:text-4xl">{t('homepageHowTitle')}</h2>
+        <p className="mt-2 text-base leading-7 app-text-soft text-sm">{t('homepageHowSubtitle')}</p>
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_32px_minmax(0,1fr)_32px_minmax(0,1fr)] lg:gap-3 lg:items-stretch">
+        {steps.map((step, index) => (
+          <div key={step.number} className="contents">
+            <HowItWorksCard {...step} />
+            {index < steps.length - 1 && <StepArrow />}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function HowItWorksCard({ number, title, text, mockup }: { number: string; title: string; text: string; mockup: React.ReactNode }) {
+  return (
+    <article className="flex h-full flex-col rounded-3xl border p-6 shadow-sm app-border app-panel">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-6xl font-bold leading-none text-indigo-300/70 dark:text-indigo-300/30" aria-hidden="true">{number}</p>
+          <h3 className="mt-5 text-xl font-bold leading-7 app-text">{title}</h3>
+        </div>
+      </div>
+      <p className="mt-3 min-h-[4.5rem] text-sm leading-6 app-text-soft">{text}</p>
+      <div className="mt-6 flex flex-1 items-end">{mockup}</div>
+    </article>
+  );
+}
+
+function MiniMenuMockup({ items }: { items: MiniMenuItem[] }) {
+  return (
+    <div className="w-full rounded-2xl border p-3 app-border app-panel-soft">
+      <div className="mb-3 flex items-center gap-1.5" aria-hidden="true">
+        <span className="h-2 w-2 rounded-full bg-indigo-300/80" />
+        <span className="h-2 w-2 rounded-full bg-slate-300 dark:bg-slate-600" />
+        <span className="h-2 w-2 rounded-full bg-slate-200 dark:bg-slate-700" />
+      </div>
+      <div className="space-y-2">
+        {items.map(({ icon: Icon, label }, index) => (
+          <div
+            key={label}
+            className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${
+              index === 0
+                ? 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-400/20 dark:bg-indigo-400/10 dark:text-indigo-200'
+                : 'app-border app-panel app-text-soft'
+            }`}
+          >
+            <Icon className="h-4 w-4 shrink-0" aria-hidden />
+            <span className="min-w-0 truncate text-sm font-semibold">{label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MiniStatsMockup({ stats, chatLabel, whatsappLabel, phoneLabel }: { stats: MiniStatItem[]; chatLabel: string; whatsappLabel: string; phoneLabel: string }) {
+  const tones = {
+    blue: 'text-blue-600 dark:text-blue-300',
+    green: 'text-emerald-600 dark:text-emerald-300',
+    purple: 'text-purple-600 dark:text-purple-300',
+    slate: 'text-slate-700 dark:text-slate-300',
+  };
+
+  return (
+    <div className="flex min-h-[188px] w-full flex-col justify-between rounded-2xl border p-3 app-border app-panel-soft">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+        {stats.map(({ icon: Icon, label, tone }) => (
+          <div key={label} className="flex min-h-10 items-start gap-1.5 rounded-xl border px-3 py-2 app-border app-panel">
+            <Icon className={`h-4 w-4 shrink-0 ${tones[tone]}`} aria-hidden />
+            <p className="min-w-0 text-[10.5px] font-bold leading-4 app-text">{label}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-2 grid grid-cols-3 gap-2">
+        <div className="flex h-9 items-center justify-center rounded-xl border border-indigo-600 bg-indigo-600 text-white shadow-sm shadow-indigo-600/20 dark:border-indigo-400 dark:bg-indigo-500" aria-label={chatLabel}>
+          <MessageCircle className="h-5 w-5 fill-current" aria-hidden />
+        </div>
+        <div className="flex h-9 items-center justify-center rounded-xl border app-border app-panel app-text-muted" aria-label={whatsappLabel}>
+          <SiWhatsapp className="h-4 w-4" aria-hidden />
+        </div>
+        <div className="flex h-9 items-center justify-center rounded-xl border app-border app-panel app-text-muted" aria-label={phoneLabel}>
+          <Phone className="h-4 w-4" aria-hidden />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StepArrow() {
+  return (
+    <div className="hidden items-center justify-center lg:flex" aria-hidden="true">
+      <div className="flex h-8 w-8 items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-400 dark:border-indigo-300/20 dark:bg-indigo-300/10 dark:text-indigo-300/60">
+        <ArrowRight className="h-4 w-4" />
+      </div>
+    </div>
+  );
+}
+
+function YouGoBenefitsSection({ t }: { t: LandingTranslator }) {
+  const benefits: BenefitItem[] = [
+    {
+      icon: MessageCircle,
+      title: t('yougoBenefitsAnswerTitle'),
+      text: t('yougoBenefitsAnswerText'),
+    },
+    {
+      icon: Clock,
+      title: t('yougoBenefitsAvailabilityTitle'),
+      text: t('yougoBenefitsAvailabilityText'),
+    },
+    {
+      icon: CalendarPlus,
+      title: t('yougoBenefitsBookingTitle'),
+      text: t('yougoBenefitsBookingText'),
+    },
+    {
+      icon: Mail,
+      title: t('yougoBenefitsEmailTitle'),
+      text: t('yougoBenefitsEmailText'),
+    },
+  ];
+
+  return (
+    <section
+      className="relative overflow-hidden bg-blue-700 bg-cover bg-center bg-no-repeat"
+      style={{ backgroundImage: "url('/images/background-section.png')" }}
+    >
+      <div className="absolute inset-0 bg-blue-950/10 dark:bg-slate-950/20" aria-hidden="true" />
+      <div className="relative mx-auto max-w-6xl px-6 py-20 md:py-24">
+        <div className="mx-auto max-w-3xl text-center">
+          <h2 className="text-3xl font-bold text-white md:text-4xl">{t('yougoBenefitsTitle')}</h2>
+          <p className="text-base leading-7 text-blue-100">{t('yougoBenefitsSubtitle')}</p>
+        </div>
+
+        <div className="mx-auto mt-10 grid max-w-[780px] gap-5 sm:grid-cols-2">
+          {benefits.map(({ icon: Icon, title, text }) => (
+            <article key={title} className="min-h-48 rounded-2xl border border-white/70 bg-white/95 p-7 text-slate-950 shadow-xl shadow-blue-950/15 backdrop-blur-sm dark:border-white/15 dark:bg-slate-950/90 dark:text-white">
+              <Icon className="h-10 w-10 text-indigo-600 dark:text-blue-300" aria-hidden />
+              <h3 className="mt-6 text-xl font-bold leading-7">{title}</h3>
+              <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-200">{text}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
