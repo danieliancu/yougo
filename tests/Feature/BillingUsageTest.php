@@ -402,9 +402,9 @@ class BillingUsageTest extends TestCase
         }
         $this->assertLessThan(strpos($landing, '<HowItWorksSection'), strpos($landing, "t('featuresHelpCta')"));
         $this->assertLessThan(strpos($landing, '<YouGoBenefitsSection'), strpos($landing, '<HowItWorksSection'));
-        $this->assertLessThan(strpos($landing, '<div id="pricing">'), strpos($landing, '<YouGoBenefitsSection'));
-        $this->assertLessThan(strpos($landing, '<div id="pricing">'), strpos($landing, '<HowItWorksSection'));
-        $this->assertLessThan(strpos($landing, '<FaqSection'), strpos($landing, '<div id="pricing">'));
+        $this->assertLessThan(strpos($landing, 'id="pricing"'), strpos($landing, '<YouGoBenefitsSection'));
+        $this->assertLessThan(strpos($landing, 'id="pricing"'), strpos($landing, '<HowItWorksSection'));
+        $this->assertLessThan(strpos($landing, '<FaqSection'), strpos($landing, 'id="pricing"'));
         $this->assertStringContainsString('Quickly compare the included channels and monthly limits. Start with website chat', $translations);
         $this->assertStringContainsString('Compară rapid canalele incluse și limitele lunare. Începi cu chat pe site', $translations);
         $this->assertStringNotContainsString('pricingChannelTitle', $landing);

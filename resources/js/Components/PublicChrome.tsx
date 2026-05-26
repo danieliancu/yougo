@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { ChevronDown, Lock, Menu, X } from 'lucide-react';
+import { ChevronDown, Lock, Menu, User, X } from 'lucide-react';
 import { type MouseEvent, useState } from 'react';
 import { ThemeToggle } from '@/Components/Ui';
 import { businessTaxonomy } from '@/data/businessTaxonomy';
@@ -53,6 +53,14 @@ export function PublicHeader({ authUserName, locale, onLanguageChange, startLabe
       </div>
       <div className="flex items-center gap-2 md:hidden">
         <ThemeToggle />
+        <Link
+          href={authUserName ? '/dashboard' : '/login'}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border app-border app-text-soft hover:bg-[var(--soft)]"
+          aria-label={authUserName ? (locale === 'ro' ? 'Deschide dashboard' : 'Open dashboard') : (locale === 'ro' ? 'Autentificare' : 'Login')}
+          title={authUserName ? (locale === 'ro' ? 'Dashboard' : 'Dashboard') : (locale === 'ro' ? 'Autentificare' : 'Login')}
+        >
+          <User className="h-4 w-4" aria-hidden="true" />
+        </Link>
         <MobileLandingMenu
           locale={locale}
           onLanguageChange={onLanguageChange}

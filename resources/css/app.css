@@ -439,3 +439,27 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+
+
+
+
+.hero-title {
+  max-width: 48rem; /* max-w-3xl */
+  font-size: 38px; /* în loc de text-5xl pe mobil */
+  line-height: 1.1;
+  font-weight: 700; /* font-bold */
+  letter-spacing: -0.025em; /* tracking-tight */
+}
+
+@media (min-width: 640px) {
+  .hero-title {
+    font-size: 44px;
+  }
+}
+
+@media (min-width: 768px) {
+  .hero-title {
+    font-size: 60px;
+  }
+}

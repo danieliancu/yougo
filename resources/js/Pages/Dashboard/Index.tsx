@@ -2,6 +2,7 @@
 import { AlertModal, Badge, Button, Card, ConfirmationModal, DangerButton, Field, Input, SecondaryButton, ThemeToggle } from '@/Components/Ui';
 import type { ActivityChartRow } from '@/Components/ActivityChart';
 import { PricingPlansGrid, VoicePlanKey } from '@/Components/PricingPlansGrid';
+import { YouGoCopilot } from '@/Components/YouGoCopilot';
 import { Booking, Conversation, Location as SalonLocation, OfferedService, OnboardingChecklist, OnboardingStep, OverviewData, PageProps, Plan, Salon, Service, Staff, UsageSummary, User as AuthUser } from '@/types';
 import { AlertTriangle, Bell, Bot, Building2, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, CreditCard, Download, ExternalLink, FileText, Globe2, LayoutDashboard, List, Lock, LogOut, MapPin, Menu, MessageCircle, MessageSquare, MoreHorizontal, Pencil, Phone, Plus, QrCode, Save, Scissors, Search, Settings, Smartphone, Sparkles, Trash2, User, Users, X, XCircle } from 'lucide-react';
 import { SiWhatsapp } from 'react-icons/si';
@@ -26,6 +27,7 @@ type Props = PageProps<{
 }>;
 
 type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
+type DateRange = { start: string; end: string };
 
 const TABLE_PILL_CLASS = 'inline-flex items-center justify-center whitespace-nowrap rounded-md font-semibold uppercase tracking-wide min-w-28 px-2 py-1 text-[10px]';
 
@@ -245,6 +247,16 @@ export default function DashboardIndex() {
           {section === 'settings' && <SettingsPage salon={salon} />}
         </div>
       </main>
+      <YouGoCopilot
+        locale={activeLocale}
+        context={{
+          surface: 'dashboard',
+          authenticated: Boolean(auth.user),
+          current_section: section,
+          plan_key: salon.plan ?? 'free',
+          business_name: salon.name,
+        }}
+      />
     </div>
   );
 }
@@ -3561,6 +3573,155 @@ function DateFilterHeader({ label, dates, selected, onChange, t }: { label: stri
   );
 }
 
+function ArchiveDateRangeHeader({ label, availableDates, range, onChange, t }: { label: string; availableDates: string[]; range: DateRange; onChange: (next: DateRange) => void; t: TranslateFn }) {
+  const { locale } = usePage<{ locale?: string }>().props;
+  const dateLocale = locale === 'en' ? 'en-GB' : 'ro-RO';
+  const [open, setOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [position, setPosition] = useState({ left: 0, top: 0 });
+  const anchorDate = range.start || availableDates.at(-1) || toDateKey(new Date());
+  const [visibleMonth, setVisibleMonth] = useState(() => monthFromDateKey(anchorDate));
+  const active = Boolean(range.start || range.end);
+  const monthStart = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);
+  const firstDayOffset = (monthStart.getDay() + 6) % 7;
+  const daysInMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0).getDate();
+  const cells = Array.from({ length: firstDayOffset + daysInMonth }, (_, index) => index < firstDayOffset ? null : index - firstDayOffset + 1);
+  const monthLabel = new Intl.DateTimeFormat(dateLocale, { month: 'long', year: 'numeric' }).format(visibleMonth);
+  const weekDays = Array.from({ length: 7 }, (_, index) => (
+    new Intl.DateTimeFormat(dateLocale, { weekday: 'short' }).format(new Date(2024, 0, index + 1))
+  ));
+
+  function changeMonth(offset: number) {
+    setVisibleMonth((month) => new Date(month.getFullYear(), month.getMonth() + offset, 1));
+  }
+
+  function toggleOpen() {
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (rect) {
+      const panelWidth = 320;
+      setPosition({
+        left: Math.max(16, Math.min(rect.left, window.innerWidth - panelWidth - 16)),
+        top: rect.bottom + 8,
+      });
+    }
+
+    setOpen((value) => !value);
+  }
+
+  function selectDate(date: string) {
+    if (!range.start || (range.start && range.end)) {
+      onChange({ start: date, end: '' });
+      return;
+    }
+
+    if (date < range.start) {
+      onChange({ start: date, end: range.start });
+      setOpen(false);
+      return;
+    }
+
+    onChange({ start: range.start, end: date });
+    setOpen(false);
+  }
+
+  function reset() {
+    onChange({ start: '', end: '' });
+    setOpen(false);
+  }
+
+  function isSelected(date: string) {
+    return date === range.start || date === range.end;
+  }
+
+  function isInRange(date: string) {
+    return Boolean(range.start && range.end && date > range.start && date < range.end);
+  }
+
+  if (availableDates.length === 0) {
+    return <span>{label.toLocaleUpperCase()}</span>;
+  }
+
+  return (
+    <div className="inline-block">
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={toggleOpen}
+        className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 transition hover:bg-white/10 ${active ? 'text-indigo-400' : ''}`}
+      >
+        {label.toLocaleUpperCase()}
+        <ChevronDown className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <>
+        <span className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+        <div className="fixed z-50 w-80 rounded-lg border p-3 shadow-lg app-border app-panel normal-case tracking-normal" style={{ left: position.left, top: position.top }}>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold capitalize app-text">{monthLabel}</p>
+              {active && (
+                <p className="mt-0.5 text-[11px] font-medium app-text-muted">
+                  {range.start ? formatCompactDate(range.start, dateLocale) : ''}
+                  {range.end ? ` - ${formatCompactDate(range.end, dateLocale)}` : ''}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              <button type="button" aria-label={t('previousMonth')} onClick={() => changeMonth(-1)} className="flex h-8 w-8 items-center justify-center rounded-md border app-panel app-text-soft hover:bg-[var(--app-panel-soft)]">
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button type="button" aria-label={t('nextMonth')} onClick={() => changeMonth(1)} className="flex h-8 w-8 items-center justify-center rounded-md border app-panel app-text-soft hover:bg-[var(--app-panel-soft)]">
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-bold uppercase app-text-muted">
+            {weekDays.map((day) => <div key={day} className="py-1">{day}</div>)}
+          </div>
+          <div className="mt-1 grid grid-cols-7 gap-1">
+            {cells.map((day, index) => {
+              if (!day) return <span key={`empty-${index}`} className="h-8" />;
+
+              const dateKey = `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+              const selected = isSelected(dateKey);
+              const inRange = isInRange(dateKey);
+
+              return (
+                <button
+                  key={dateKey}
+                  type="button"
+                  onClick={() => selectDate(dateKey)}
+                  className={`flex h-8 items-center justify-center rounded-md text-xs font-bold transition ${
+                    selected
+                      ? 'bg-indigo-600 text-white'
+                      : inRange
+                        ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-200'
+                        : 'app-text-soft hover:bg-[var(--app-panel-soft)]'
+                  }`}
+                >
+                  {day}
+                </button>
+              );
+            })}
+          </div>
+
+          {active && (
+            <button
+              type="button"
+              onClick={reset}
+              className="mt-3 flex w-full cursor-pointer items-center justify-center rounded-md px-3 py-2 text-xs font-bold text-indigo-600 transition hover:bg-[var(--app-panel-soft)]"
+            >
+              {t('clearSelection')}
+            </button>
+          )}
+        </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function CategoryPicker({ categories, selected, onChange, emptyLabel }: { categories: string[]; selected: string; onChange: (category: string) => void; emptyLabel: string }) {
   if (categories.length === 0) {
     return <p className="text-sm app-text-muted">{emptyLabel}</p>;
@@ -4012,6 +4173,7 @@ function Bookings({ salon, query }: { salon: Salon; query: string }) {
   const [isAddingBooking, setIsAddingBooking] = useState(false);
   const [bookingCategory, setBookingCategory] = useState('');
   const [selectedBookingDates, setSelectedBookingDates] = useState<string[]>([]);
+  const [archiveDateRange, setArchiveDateRange] = useState<DateRange>({ start: '', end: '' });
   const [confirmation, setConfirmation] = useState<{ title: string; message: string; tone?: 'danger' | 'neutral'; confirmLabel?: string; onConfirm: () => void } | null>(null);
   const editForm = useForm({
     client_name: '',
@@ -4056,11 +4218,18 @@ function Bookings({ salon, query }: { salon: Salon; query: string }) {
   useEffect(() => {
     setSelectedBookingDates((current) => current.filter((date) => bookingDateOptions.includes(date)));
   }, [bookingDateOptions]);
-  const visibleBookings = useMemo(() => (
-    selectedBookingDates.length === 0
+  const visibleBookings = useMemo(() => {
+    if (view === 'archive' && (archiveDateRange.start || archiveDateRange.end)) {
+      return visibleBookingsBase.filter((booking) => (
+        (!archiveDateRange.start || booking.date >= archiveDateRange.start)
+        && (!archiveDateRange.end || booking.date <= archiveDateRange.end)
+      ));
+    }
+
+    return selectedBookingDates.length === 0
       ? visibleBookingsBase
-      : visibleBookingsBase.filter((booking) => selectedBookingDates.includes(booking.date))
-  ), [selectedBookingDates, visibleBookingsBase]);
+      : visibleBookingsBase.filter((booking) => selectedBookingDates.includes(booking.date));
+  }, [archiveDateRange, selectedBookingDates, visibleBookingsBase, view]);
   const groupedBookings = useMemo(() => groupBookingsByDay(visibleBookings), [visibleBookings]);
   const bookingCategoryOptions = useMemo(
     () => Array.from(new Set([
@@ -4279,6 +4448,15 @@ function Bookings({ salon, query }: { salon: Salon; query: string }) {
           dateOptions={bookingDateOptions}
           selectedDates={selectedBookingDates}
           onDateChange={setSelectedBookingDates}
+          dateHeader={view === 'archive' ? (
+            <ArchiveDateRangeHeader
+              label={t('date')}
+              availableDates={bookingDateOptions}
+              range={archiveDateRange}
+              onChange={setArchiveDateRange}
+              t={t}
+            />
+          ) : undefined}
           t={t}
           onEdit={startEditBooking}
           onConfirm={(booking) => router.put(`/bookings/${booking.id}`, { status: 'confirmed' }, { preserveScroll: true })}
@@ -4348,6 +4526,18 @@ function formatBookingGroupDate(date: string, t: TranslateFn) {
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
 
+function monthFromDateKey(date: string) {
+  const [year, month] = date.split('-').map(Number);
+  return new Date(year || new Date().getFullYear(), (month || 1) - 1, 1);
+}
+
+function formatCompactDate(date: string, locale: string) {
+  return new Intl.DateTimeFormat(locale, {
+    day: '2-digit',
+    month: 'short',
+  }).format(new Date(`${date}T00:00:00`));
+}
+
 function bookingDetailsLine(booking: Salon['bookings'][number], t: TranslateFn) {
   return [
     booking.service?.name || (booking.service_id ? `${t('service')} #${booking.service_id}` : null),
@@ -4382,6 +4572,7 @@ function BookingsDayCards({
   dateOptions,
   selectedDates,
   onDateChange,
+  dateHeader,
   t,
   onEdit,
   onConfirm,
@@ -4392,17 +4583,32 @@ function BookingsDayCards({
   dateOptions: string[];
   selectedDates: string[];
   onDateChange: (next: string[]) => void;
+  dateHeader?: ReactNode;
   t: TranslateFn;
   onEdit: (booking: Salon['bookings'][number]) => void;
   onConfirm: (booking: Salon['bookings'][number]) => void;
   onCancel: (booking: Salon['bookings'][number]) => void;
   onDelete: (booking: Salon['bookings'][number]) => void;
 }) {
+  const tableHeaders = [
+    dateHeader ?? <DateFilterHeader label={t('date')} dates={dateOptions} selected={selectedDates} onChange={onDateChange} t={t} />,
+    <DashboardTableHeaderLabel>{t('time')}</DashboardTableHeaderLabel>,
+    <DashboardTableHeaderLabel>{t('status')}</DashboardTableHeaderLabel>,
+    <DashboardTableHeaderLabel>{t('name')}</DashboardTableHeaderLabel>,
+    <DashboardTableHeaderLabel>{t('phone')}</DashboardTableHeaderLabel>,
+    <DashboardTableHeaderLabel>{t('details')}</DashboardTableHeaderLabel>,
+    <span className="sr-only">{t('actions')}</span>,
+  ];
+
   if (groups.length === 0) {
     return (
-      <div className="rounded-2xl border p-6 app-border app-panel">
-        <div className="flex min-h-24 items-center justify-center text-sm app-text-muted">{t('noBookingsFound')}</div>
-      </div>
+      <DashboardTable headers={tableHeaders} minWidth="1040px">
+        <tr>
+          <td colSpan={7} className="px-5 py-8 text-center text-sm app-text-muted">
+            {t('noBookingsFound')}
+          </td>
+        </tr>
+      </DashboardTable>
     );
   }
 
@@ -4410,15 +4616,7 @@ function BookingsDayCards({
 
   return (
     <DashboardTable
-      headers={[
-        <DateFilterHeader label={t('date')} dates={dateOptions} selected={selectedDates} onChange={onDateChange} t={t} />,
-        <DashboardTableHeaderLabel>{t('time')}</DashboardTableHeaderLabel>,
-        <DashboardTableHeaderLabel>{t('status')}</DashboardTableHeaderLabel>,
-        <DashboardTableHeaderLabel>{t('name')}</DashboardTableHeaderLabel>,
-        <DashboardTableHeaderLabel>{t('phone')}</DashboardTableHeaderLabel>,
-        <DashboardTableHeaderLabel>{t('details')}</DashboardTableHeaderLabel>,
-        <span className="sr-only">{t('actions')}</span>,
-      ]}
+      headers={tableHeaders}
       minWidth="1040px"
     >
       {groups.flatMap((group) => group.bookings.map((booking, bookingIndex) => {

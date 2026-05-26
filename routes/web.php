@@ -11,6 +11,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\IndustryController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\OnboardingController;
+use App\Http\Controllers\PublicYouGoAssistantController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\StaffController;
@@ -25,6 +26,10 @@ Route::get('/', fn () => Inertia::render('Landing', [
 ]))->name('home');
 Route::get('/industries/{businessTypeSlug}', [IndustryController::class, 'show'])->name('industries.show');
 Route::get('/industries/{businessTypeSlug}/{industrySlug}', [IndustryController::class, 'redirectLegacy'])->name('industries.legacy');
+Route::post('/yougo-assistant/chat', [PublicYouGoAssistantController::class, 'chat'])
+    ->middleware('throttle:20,1')
+    ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class)
+    ->name('yougo-assistant.chat');
 
 Route::middleware('guest')->group(function () {
     Route::get('/register', [RegisteredUserController::class, 'create'])->name('register');

@@ -2,6 +2,7 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import { Bot, CalendarCheck, ClipboardList, HelpCircle, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { PublicFooter, PublicHeader, PublicLocale } from '@/Components/PublicChrome';
+import { PublicYouGoChat } from '@/Components/PublicYouGoChat';
 import { BusinessType } from '@/data/businessTaxonomy';
 import { translate } from '@/i18n';
 import { PageProps } from '@/types';
@@ -53,7 +54,7 @@ export default function IndustryShow() {
           <section className="mx-auto grid max-w-6xl gap-10 px-6 py-14 lg:grid-cols-[1fr_0.9fr] lg:items-center">
             <div>
               <p className="mb-4 inline-flex rounded-md bg-indigo-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-indigo-700">{businessType.label}</p>
-              <h1 className="max-w-3xl text-5xl font-bold tracking-tight app-text md:text-6xl">{content.title}</h1>
+              <h1 className="hero-title">{content.title}</h1>
               <p className="mt-6 max-w-2xl text-lg leading-8 app-text-soft">{content.pageFocus}</p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link href="/register" className="rounded-lg bg-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-indigo-700">{t('start')}</Link>
@@ -122,6 +123,7 @@ export default function IndustryShow() {
         </div>
       </section>
       <PublicFooter t={t} />
+      <PublicYouGoChat locale={locale} authenticated={Boolean(auth.user)} />
     </main>
   );
 }

@@ -25,6 +25,7 @@ import { useEffect, useState } from 'react';
 import { ChatShell } from '@/Components/ChatShell';
 import { PricingPlansGrid } from '@/Components/PricingPlansGrid';
 import { PublicFooter, PublicHeader, PublicLocale } from '@/Components/PublicChrome';
+import { PublicYouGoChat } from '@/Components/PublicYouGoChat';
 import { translate } from '@/i18n';
 import { OfferedService, PageProps, Plan } from '@/types';
 
@@ -65,7 +66,7 @@ export default function Landing() {
           <div className="mx-auto grid max-w-6xl gap-10 px-6 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
             <div>
               <p className="mb-4 inline-flex rounded-md bg-indigo-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-indigo-700">{t('landingTitle')}</p>
-              <h1 className="max-w-3xl text-5xl font-bold tracking-tight app-text md:text-6xl">{t('landingHeadline')}</h1>
+              <h1 className="hero-title">{t('landingHeadline')}</h1>
               <p className="mt-6 max-w-2xl text-lg leading-8 app-text-soft">
                 {t('landingCopy')}
               </p>
@@ -123,6 +124,7 @@ export default function Landing() {
       </div>
       <FaqSection t={t} />
       <PublicFooter t={t} />
+      <PublicYouGoChat locale={locale} authenticated={Boolean(auth.user)} />
     </main>
   );
 }
@@ -267,9 +269,9 @@ function MiniStatsMockup({ stats, chatLabel, whatsappLabel, phoneLabel }: { stat
     <div className="flex min-h-[188px] w-full flex-col justify-between rounded-2xl border p-3 app-border app-panel-soft">
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
         {stats.map(({ icon: Icon, label, tone }) => (
-          <div key={label} className="flex min-h-10 items-start gap-1.5 rounded-xl border px-3 py-2 app-border app-panel">
+          <div key={label} className="flex min-h-10 items-center gap-1.5 rounded-xl border px-3 py-2 app-border app-panel sm:items-start">
             <Icon className={`h-4 w-4 shrink-0 ${tones[tone]}`} aria-hidden />
-            <p className="min-w-0 text-[10.5px] font-bold leading-4 app-text">{label}</p>
+            <p className="min-w-0 text-sm font-bold leading-4 app-text sm:text-[10.5px]">{label}</p>
           </div>
         ))}
       </div>
