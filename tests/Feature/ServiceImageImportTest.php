@@ -268,6 +268,7 @@ JSON,
 
         $service = $salon->services()->where('name', 'Tuns dama')->firstOrFail();
         $this->assertSame('120', $service->price);
+        $this->assertSame('RON', $service->currency);
         $this->assertSame('Coafor', $service->type);
         $this->assertSame(45, $service->duration);
         $this->assertSame([$location->id], $service->location_ids);

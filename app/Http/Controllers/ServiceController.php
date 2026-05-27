@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Service;
+use App\Support\BusinessLocalization;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,6 +21,7 @@ class ServiceController extends Controller
             'staff' => ['nullable', 'array'],
             'staff.*' => ['nullable', 'string', 'max:255'],
             'price' => ['required', 'string', 'max:255'],
+            'currency' => ['nullable', 'string', 'max:10'],
             'duration' => ['required', 'integer', 'min:5', 'max:1440'],
             'max_concurrent_bookings' => ['nullable', 'integer', 'min:1', 'max:100'],
             'location_ids' => ['nullable', 'array'],
@@ -31,6 +33,7 @@ class ServiceController extends Controller
         if ($request->has('staff')) {
             $data['staff'] = $this->normalizeStaff($data['staff'] ?? []);
         }
+        $data['currency'] = BusinessLocalization::normalizeServiceCurrency($data['currency'] ?? null, $salon->country);
 
         $salon->services()->create($data);
 
@@ -47,6 +50,7 @@ class ServiceController extends Controller
             'staff' => ['nullable', 'array'],
             'staff.*' => ['nullable', 'string', 'max:255'],
             'price' => ['required', 'string', 'max:255'],
+            'currency' => ['nullable', 'string', 'max:10'],
             'duration' => ['required', 'integer', 'min:5', 'max:1440'],
             'max_concurrent_bookings' => ['nullable', 'integer', 'min:1', 'max:100'],
             'location_ids' => ['nullable', 'array'],
@@ -57,6 +61,9 @@ class ServiceController extends Controller
         $this->validateLocations($request, $data['location_ids']);
         if ($request->has('staff')) {
             $data['staff'] = $this->normalizeStaff($data['staff'] ?? []);
+        }
+        if ($request->has('currency')) {
+            $data['currency'] = BusinessLocalization::normalizeServiceCurrency($data['currency'] ?? null, $request->user()->salon?->country);
         }
 
         $service->update($data);

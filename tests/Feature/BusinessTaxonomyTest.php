@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\Salon;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -77,6 +79,71 @@ class BusinessTaxonomyTest extends TestCase
         $salon = $user->salon->refresh();
         $this->assertTrue($salon->email_notifications);
         $this->assertTrue($salon->booking_confirmations);
+    }
+
+    public function test_settings_uploads_business_logo_and_persists_path(): void
+    {
+        Storage::fake('public');
+
+        $user = User::factory()->create();
+        $user->salon()->create([
+            'name' => 'Studio',
+            'plan' => 'free',
+            'business_type' => 'salon-beauty',
+            'mode' => Salon::MODE_APPOINTMENT,
+        ]);
+
+        $this->actingAs($user)->from('/dashboard/settings')->post('/settings', $this->validSettingsPayload([
+            'logo' => UploadedFile::fake()->image('logo.png', 256, 256),
+        ]))->assertRedirect();
+
+        $salon = $user->salon->refresh();
+
+        $this->assertNotNull($salon->logo_path);
+        $this->assertStringStartsWith('logos/', $salon->logo_path);
+        Storage::disk('public')->assertExists($salon->logo_path);
+    }
+
+    public function test_settings_derives_localization_from_country(): void
+    {
+        $user = User::factory()->create();
+        $user->salon()->create([
+            'name' => 'Studio',
+            'plan' => 'free',
+            'business_type' => 'salon-beauty',
+            'mode' => Salon::MODE_APPOINTMENT,
+        ]);
+
+        $this->actingAs($user)->from('/dashboard/settings')->post('/settings', $this->validSettingsPayload([
+            'country' => 'UK',
+            'timezone' => 'Europe/London',
+            'date_format' => 'dd/mm/yyyy',
+        ]))->assertRedirect();
+
+        $salon = $user->salon->refresh();
+
+        $this->assertSame('GB', $salon->country);
+        $this->assertSame('GBP', $salon->currency);
+        $this->assertSame('+44', $salon->phone_prefix);
+        $this->assertSame('Europe/London', $salon->timezone);
+        $this->assertSame('dd/mm/yyyy', $salon->date_format);
+    }
+
+    public function test_settings_rejects_unsupported_timezone_and_date_format(): void
+    {
+        $user = User::factory()->create();
+        $user->salon()->create([
+            'name' => 'Studio',
+            'business_type' => 'salon-beauty',
+            'mode' => Salon::MODE_APPOINTMENT,
+        ]);
+
+        $this->actingAs($user)->from('/dashboard/settings')->post('/settings', $this->validSettingsPayload([
+            'timezone' => 'America/New_York',
+            'date_format' => 'mm-dd-yyyy',
+        ]))
+            ->assertRedirect('/dashboard/settings')
+            ->assertSessionHasErrors(['timezone', 'date_format']);
     }
 
     public function test_missed_call_alerts_require_available_phone_ai(): void
@@ -157,6 +224,31 @@ class BusinessTaxonomyTest extends TestCase
         $this->actingAs($user)->get('/dashboard')->assertOk();
     }
 
+    public function test_dashboard_settings_receives_localization_options(): void
+    {
+        $user = User::factory()->create();
+        $user->salon()->create([
+            'name' => 'Studio',
+            'business_type' => 'salon-beauty',
+            'country' => null,
+            'currency' => null,
+            'phone_prefix' => null,
+            'mode' => Salon::MODE_APPOINTMENT,
+        ]);
+
+        $this->actingAs($user)->get('/dashboard/settings')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Dashboard/Index')
+                ->where('localization.countries.0.code', 'RO')
+                ->where('localization.countries.0.currency', 'RON')
+                ->where('localization.countries.1.code', 'GB')
+                ->where('localization.countries.1.phone_prefix', '+44')
+                ->where('localization.timezones.0', 'Europe/Bucharest')
+                ->where('localization.date_formats.0', 'dd.mm.yyyy')
+            );
+    }
+
     private function validSettingsPayload(array $overrides = []): array
     {
         return array_merge([
@@ -172,7 +264,7 @@ class BusinessTaxonomyTest extends TestCase
             'missed_call_alerts' => false,
             'booking_confirmations' => true,
             'display_language' => 'en',
-            'date_format' => 'DD/MM/YYYY',
+            'date_format' => 'dd/mm/yyyy',
         ], $overrides);
     }
 }

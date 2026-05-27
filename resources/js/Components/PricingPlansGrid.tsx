@@ -253,6 +253,7 @@ function planServiceItems(plan: Plan, services: OfferedService[], t: TranslateFn
     .map((service) => ({
       key: service.key,
       label: t(service.title_key),
+      subtitle: t(service.subtitle_key),
       planned: serviceIsPlanned(service),
       icon: serviceIcon(service.icon),
     }));

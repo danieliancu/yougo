@@ -37,6 +37,7 @@ export type Service = {
   type?: string | null;
   staff?: string[] | null;
   price: string | number;
+  currency?: string | null;
   duration: number;
   max_concurrent_bookings?: number | null;
   location_ids?: number[] | null;
@@ -113,6 +114,8 @@ export type Salon = {
   onboarding_completed_at?: string | null;
   onboarding_skipped_at?: string | null;
   country?: string | null;
+  currency?: string | null;
+  phone_prefix?: string | null;
   website?: string | null;
   business_phone?: string | null;
   notification_email?: string | null;

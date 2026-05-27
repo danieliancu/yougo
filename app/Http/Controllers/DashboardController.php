@@ -6,6 +6,7 @@ use App\Models\Salon;
 use App\Services\Dashboard\DashboardDataService;
 use App\Services\Onboarding\OnboardingChecklistService;
 use App\Services\Usage\UsageLimitService;
+use App\Support\BusinessLocalization;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -22,6 +23,7 @@ class DashboardController extends Controller
             'name' => "{$request->user()->name}'s Salon",
         ]);
         $salon->ensureWidgetKey();
+        $this->ensureLocalizationDefaults($salon);
         $now = Carbon::now($salon->timezone ?: config('app.timezone'));
 
         $salon->bookings()
@@ -75,7 +77,52 @@ class DashboardController extends Controller
                 'plans' => $usageLimitService->plans(),
                 'services' => $usageLimitService->services(),
             ],
+            'localization' => [
+                'countries' => BusinessLocalization::countryOptions($request->user()?->salon?->display_language ?? config('app.locale', 'ro')),
+                'timezones' => BusinessLocalization::timezoneOptions(),
+                'date_formats' => BusinessLocalization::allDateFormats(),
+                'service_currencies' => BusinessLocalization::serviceCurrencyOptions($salon->country),
+                'defaults' => [
+                    'country' => BusinessLocalization::normalizeCountry($salon->country),
+                    'currency' => BusinessLocalization::currencyFor($salon->country),
+                    'phone_prefix' => BusinessLocalization::phonePrefixFor($salon->country),
+                    'timezone' => BusinessLocalization::timezoneFor($salon->country),
+                    'date_format' => BusinessLocalization::dateFormatFor($salon->country),
+                    'default_language' => BusinessLocalization::defaultLanguageFor($salon->country),
+                ],
+            ],
             'appUrl' => $request->getSchemeAndHttpHost(),
         ]);
+    }
+
+    private function ensureLocalizationDefaults(Salon $salon): void
+    {
+        $country = BusinessLocalization::normalizeCountry($salon->country);
+        $updates = [];
+
+        if (! filled($salon->country)) {
+            $updates['country'] = $country;
+        }
+
+        if (! filled($salon->timezone)) {
+            $updates['timezone'] = BusinessLocalization::timezoneFor($country);
+        }
+
+        if (! filled($salon->currency)) {
+            $updates['currency'] = BusinessLocalization::currencyFor($country);
+        }
+
+        if (! filled($salon->phone_prefix)) {
+            $updates['phone_prefix'] = BusinessLocalization::phonePrefixFor($country);
+        }
+
+        if (! filled($salon->date_format)) {
+            $updates['date_format'] = BusinessLocalization::dateFormatFor($country);
+        }
+
+        if ($updates !== []) {
+            $salon->forceFill($updates)->save();
+            $salon->refresh();
+        }
     }
 }

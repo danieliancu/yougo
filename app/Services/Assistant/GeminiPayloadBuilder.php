@@ -4,6 +4,7 @@ namespace App\Services\Assistant;
 
 use App\Models\Conversation;
 use App\Models\Salon;
+use App\Support\BusinessLocalization;
 use App\Services\Modes\Appointment\AppointmentPromptContextBuilder;
 use App\Services\Modes\Appointment\AppointmentToolDefinitions;
 use App\Support\BusinessTaxonomy;
@@ -100,12 +101,19 @@ class GeminiPayloadBuilder
 
     private function businessDetails(Salon $salon): string
     {
+        $country = BusinessLocalization::normalizeCountry($salon->country);
+
         return collect([
             "nume business: {$salon->name}",
             $salon->website ? "website: {$salon->website}" : null,
             $salon->business_phone ? "telefon business: {$salon->business_phone}" : null,
             $salon->notification_email ? "email: {$salon->notification_email}" : null,
-            $salon->country ? "tara: {$salon->country}" : null,
+            "tara: {$country}",
+            "moneda: ".($salon->currency ?: BusinessLocalization::currencyFor($country)),
+            "prefix telefon: ".($salon->phone_prefix ?: BusinessLocalization::phonePrefixFor($country)),
+            "fus orar: ".($salon->timezone ?: BusinessLocalization::timezoneFor($country)),
+            "format data: ".BusinessLocalization::normalizeDateFormat($salon->date_format, $country),
+            "limba implicita tara: ".BusinessLocalization::defaultLanguageFor($country),
             "mod business: {$this->businessMode($salon)}",
             $salon->business_type ? "tip business: {$salon->business_type}" : null,
             $salon->display_language ? "limba preferata in dashboard: {$this->languageName($salon->display_language)}" : null,

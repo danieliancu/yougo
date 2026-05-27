@@ -77,7 +77,7 @@ class AiBookingNotificationTest extends TestCase
         $this->assertNull($booking->refresh()->notification_sent_at);
     }
 
-    public function test_does_not_send_booking_notification_on_free_plan(): void
+    public function test_sends_booking_notification_on_free_plan_when_settings_allow_it(): void
     {
         Mail::fake();
         [, $booking] = $this->createAiBooking([
@@ -89,8 +89,8 @@ class AiBookingNotificationTest extends TestCase
 
         app(BookingNotificationService::class)->sendAiBookingNotification($booking);
 
-        Mail::assertNothingSent();
-        $this->assertNull($booking->refresh()->notification_sent_at);
+        Mail::assertSent(NewAiBookingMail::class, fn ($mail) => $mail->hasTo('owner@example.com'));
+        $this->assertNotNull($booking->refresh()->notification_sent_at);
     }
 
     public function test_does_not_send_duplicate_notification_when_already_sent(): void

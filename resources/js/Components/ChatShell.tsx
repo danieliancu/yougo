@@ -1,4 +1,4 @@
-import { ReactNode, RefObject } from 'react';
+import { CSSProperties, ReactNode, RefObject } from 'react';
 import { MessageCircle } from 'lucide-react';
 
 type ChatShellProps = {
@@ -11,6 +11,8 @@ type ChatShellProps = {
   className?: string;
   heightClassName?: string;
   headerClassName?: string;
+  headerStyle?: CSSProperties;
+  avatarStyle?: CSSProperties;
   bodyClassName?: string;
   footerClassName?: string;
 };
@@ -25,13 +27,15 @@ export function ChatShell({
   className = '',
   heightClassName = 'h-[500px]',
   headerClassName = '',
+  headerStyle,
+  avatarStyle,
   bodyClassName = '',
   footerClassName = '',
 }: ChatShellProps) {
   return (
     <div className={`flex ${heightClassName} w-full max-w-[500px] flex-col overflow-hidden rounded-2xl border ${className}`}>
-      <div className={`flex items-center gap-3 border-b p-4 ${headerClassName}`}>
-        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600 text-white">
+      <div className={`flex items-center gap-3 border-b p-4 ${headerClassName}`} style={headerStyle}>
+        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600 text-white" style={avatarStyle}>
           <MessageCircle className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">

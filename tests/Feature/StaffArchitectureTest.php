@@ -293,6 +293,7 @@ class StaffArchitectureTest extends TestCase
             'name' => 'New Service',
             'type' => '',
             'price' => '200',
+            'currency' => 'GBP',
             'duration' => 60,
             'location_ids' => [$location->id],
             'notes' => '',
@@ -302,6 +303,7 @@ class StaffArchitectureTest extends TestCase
 
         $service = $salon->services()->where('name', 'New Service')->firstOrFail();
         $this->assertSame([], $service->staff ?? []);
+        $this->assertSame('GBP', $service->currency);
     }
 
     public function test_gemini_payload_includes_new_staff_data_when_available(): void

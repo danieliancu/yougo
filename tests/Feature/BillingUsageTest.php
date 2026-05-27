@@ -367,7 +367,7 @@ class BillingUsageTest extends TestCase
 
         $this->assertStringContainsString('PricingPlansGrid', $landing);
         $this->assertStringContainsString('PricingPlansGrid', $dashboard);
-        $this->assertStringContainsString('billing.services.map', $dashboard);
+        $this->assertStringContainsString('PlanServicesOverview', $dashboard);
         $this->assertStringContainsString('integrationStatusLabel', $dashboard);
         $this->assertStringNotContainsString('integrationSms', $dashboard);
         $this->assertStringNotContainsString('integrationPayments', $dashboard);
@@ -432,6 +432,35 @@ class BillingUsageTest extends TestCase
         $this->assertStringNotContainsString('>Nu<', $landing);
         $this->assertStringNotContainsString('>Yes<', $landing);
         $this->assertStringNotContainsString('>No<', $landing);
+    }
+
+    public function test_plan_service_entitlements_live_in_billing_not_settings(): void
+    {
+        $dashboard = file_get_contents(resource_path('js/Pages/Dashboard/Index.tsx'));
+        $translations = file_get_contents(resource_path('js/i18n.ts'));
+        $docs = file_get_contents(base_path('docs/features/billing-and-plan-services.md'));
+
+        $settingsStart = strpos($dashboard, 'function SettingsPage');
+        $settingsEnd = strpos($dashboard, 'function SettingsPanel');
+        $billingStart = strpos($dashboard, 'function BillingPage');
+        $billingEnd = strpos($dashboard, 'function isVoicePlanKey');
+
+        $this->assertIsInt($settingsStart);
+        $this->assertIsInt($settingsEnd);
+        $this->assertIsInt($billingStart);
+        $this->assertIsInt($billingEnd);
+
+        $settingsSource = substr($dashboard, $settingsStart, $settingsEnd - $settingsStart);
+        $billingSource = substr($dashboard, $billingStart, $billingEnd - $billingStart);
+
+        $this->assertStringNotContainsString("t('integrations')", $settingsSource);
+        $this->assertStringNotContainsString('IntegrationRow', $settingsSource);
+        $this->assertStringContainsString('PlanServicesOverview', $billingSource);
+        $this->assertStringContainsString('includedServicesTitle', $translations);
+        $this->assertStringContainsString('Included services and channels', $translations);
+        $this->assertStringContainsString('Servicii si canale incluse', $translations);
+        $this->assertStringContainsString('Dashboard -> Billing', $docs);
+        $this->assertStringContainsString('not Settings', $docs);
     }
 
     private function createSalon(array $attributes = []): Salon

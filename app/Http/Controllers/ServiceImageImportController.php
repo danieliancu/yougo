@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\ServiceImport\ServiceImageImportService;
+use App\Support\BusinessLocalization;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -95,6 +96,7 @@ class ServiceImageImportController extends Controller
                 'name' => $name,
                 'type' => $category,
                 'price' => isset($service['price']) && $service['price'] !== null ? (string) $service['price'] : '',
+                'currency' => BusinessLocalization::normalizeServiceCurrency($salon->currency, $salon->country),
                 'duration' => $service['duration_minutes'] ?? 30,
                 'location_ids' => $defaultLocationIds,
                 'notes' => $notes,

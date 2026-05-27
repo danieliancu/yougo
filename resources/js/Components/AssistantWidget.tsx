@@ -273,6 +273,8 @@ export function AssistantWidget({
     }
   }
 
+  const resolvedPrimaryColor = primaryColor || '#2563eb';
+
   return (
     <ChatShell
       title={name}
@@ -280,7 +282,9 @@ export function AssistantWidget({
       bodyRef={scrollRef}
       heightClassName={compact ? 'h-screen min-h-screen rounded-none' : 'h-[min(680px,calc(100vh-8rem))] min-h-[520px]'}
       className="border-[var(--app-border)] bg-[var(--app-shell)]"
-      headerClassName="border-[var(--app-border)] bg-gradient-to-r from-blue-500/15 to-blue-900/15 dark:from-blue-500/25 dark:to-blue-900/25"
+      headerClassName="border-transparent"
+      headerStyle={{ backgroundColor: resolvedPrimaryColor }}
+      avatarStyle={{ backgroundColor: resolvedPrimaryColor, boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.35)' }}
       bodyClassName="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4"
       footerClassName="border-t border-[var(--app-border)] p-4"
       action={
@@ -326,7 +330,7 @@ export function AssistantWidget({
             <button
               type="submit"
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white transition disabled:cursor-not-allowed disabled:opacity-50"
-              style={{ backgroundColor: primaryColor || '#2563eb' }}
+              style={{ backgroundColor: resolvedPrimaryColor }}
               disabled={!input.trim() || loading}
             >
               <Send className="h-4 w-4" />
@@ -337,7 +341,10 @@ export function AssistantWidget({
     >
       {messages.map((message, index) => (
         <div key={index} className={`flex ${message.role === 'assistant' ? 'justify-start' : 'justify-end'}`}>
-          <div className={`max-w-[86%] rounded-xl px-3 py-2 text-sm font-medium shadow-sm sm:max-w-[82%] ${message.role === 'assistant' ? 'rounded-tl-none app-panel-soft app-text' : 'rounded-tr-none chat-bubble-user'}`}>
+          <div
+            className={`max-w-[86%] rounded-xl px-3 py-2 text-sm font-medium shadow-sm sm:max-w-[82%] ${message.role === 'assistant' ? 'rounded-tl-none app-panel-soft app-text' : 'rounded-tr-none chat-bubble-user'}`}
+            style={message.role === 'user' ? { backgroundColor: resolvedPrimaryColor } : undefined}
+          >
             <p className="whitespace-pre-wrap leading-6"><InlineMarkdown text={message.content} /></p>
             <div className="mt-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide opacity-60">
               {message.role === 'assistant' ? <Sparkles className="h-3 w-3" /> : <User className="h-3 w-3" />}

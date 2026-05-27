@@ -56,6 +56,45 @@ class AssistantPromptTest extends TestCase
         $this->assertStringContainsString('nu reapela checkAvailability doar pentru aceasta clarificare', $instruction);
     }
 
+    public function test_prompt_includes_business_localization_context(): void
+    {
+        $salon = $this->createSalon([
+            'country' => 'GB',
+            'currency' => 'GBP',
+            'phone_prefix' => '+44',
+            'timezone' => 'Europe/London',
+            'date_format' => 'dd/mm/yyyy',
+        ]);
+
+        $payload = $this->buildPayload($salon);
+        $instruction = $payload['systemInstruction']['parts'][0]['text'];
+
+        $this->assertStringContainsString('tara: GB', $instruction);
+        $this->assertStringContainsString('moneda: GBP', $instruction);
+        $this->assertStringContainsString('prefix telefon: +44', $instruction);
+        $this->assertStringContainsString('fus orar: Europe/London', $instruction);
+        $this->assertStringContainsString('format data: dd/mm/yyyy', $instruction);
+    }
+
+    public function test_prompt_formats_service_prices_with_business_currency(): void
+    {
+        $salon = $this->createSalon([
+            'country' => 'GB',
+            'currency' => 'GBP',
+        ]);
+        $salon->services()->create([
+            'name' => 'Consultation',
+            'price' => '120',
+            'currency' => 'USD',
+            'duration' => 30,
+        ]);
+
+        $payload = $this->buildPayload($salon);
+        $instruction = $payload['systemInstruction']['parts'][0]['text'];
+
+        $this->assertStringContainsString('pret sau tarif: $120', $instruction);
+    }
+
     public function test_payload_includes_current_booking_status_from_database(): void
     {
         $salon = $this->createSalon();

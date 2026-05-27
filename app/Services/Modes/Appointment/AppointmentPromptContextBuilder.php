@@ -4,6 +4,7 @@ namespace App\Services\Modes\Appointment;
 
 use App\Models\Salon;
 use App\Models\Service;
+use App\Support\BusinessLocalization;
 
 class AppointmentPromptContextBuilder
 {
@@ -56,7 +57,7 @@ class AppointmentPromptContextBuilder
     private function serviceDetails(Salon $salon): string
     {
         return $salon->services
-            ->map(function ($service) {
+            ->map(function ($service) use ($salon) {
                 $locationIds = ! empty($service->location_ids) ? implode(',', $service->location_ids) : 'toate locatiile';
                 $staff = $this->serviceStaffDetails($service);
 
@@ -64,7 +65,7 @@ class AppointmentPromptContextBuilder
                     "ID {$service->id}: {$service->name}",
                     $service->type ? "categorie: {$service->type}" : null,
                     $staff ? "staff: {$staff}" : null,
-                    filled($service->price) ? "pret sau tarif: {$service->price}" : null,
+                    filled($service->price) ? "pret sau tarif: ".BusinessLocalization::formatServicePrice($service->price, $salon, $service->currency) : null,
                     $service->duration ? "durata: {$service->duration} minute" : null,
                     $service->max_concurrent_bookings ? "capacitate maxima simultana serviciu: {$service->max_concurrent_bookings}" : "capacitate maxima simultana serviciu: implicit 1",
                     "disponibil la locatiile ID: {$locationIds}",
@@ -147,6 +148,6 @@ class AppointmentPromptContextBuilder
 
     private function knowledgeRules(): string
     {
-        return 'Daca nu exista servicii configurate, poti raspunde in continuare folosind detaliile business, locatiile, programul, categoriile si staff-ul. Nu inventa niciodata servicii, preturi, durate, categorii, oameni sau locatii care nu exista in configurare. Pretul unui serviciu poate fi suma fixa, interval sau tarif de tip pret/ora; foloseste exact textul configurat, fara sa il rescrii sau sa adaugi automat RON daca nu este deja in valoare. Daca utilizatorul intreaba cine se ocupa de o categorie sau de un serviciu, foloseste campul de staff al serviciului daca exista, iar daca nu exista servicii poti mentiona doar lista generala de staff configurata. Daca utilizatorul intreaba ce servicii exista intr-o categorie, raspunde doar cu serviciile configurate in acea categorie; daca nu exista servicii configurate pentru categoria respectiva, spune clar asta.';
+        return 'Daca nu exista servicii configurate, poti raspunde in continuare folosind detaliile business, locatiile, programul, categoriile si staff-ul. Nu inventa niciodata servicii, preturi, durate, categorii, oameni sau locatii care nu exista in configurare. Pretul unui serviciu poate fi suma fixa, interval sau tarif de tip pret/ora; foloseste moneda businessului din context si nu inventa taxe sau reguli fiscale. Daca utilizatorul intreaba cine se ocupa de o categorie sau de un serviciu, foloseste campul de staff al serviciului daca exista, iar daca nu exista servicii poti mentiona doar lista generala de staff configurata. Daca utilizatorul intreaba ce servicii exista intr-o categorie, raspunde doar cu serviciile configurate in acea categorie; daca nu exista servicii configurate pentru categoria respectiva, spune clar asta.';
     }
 }

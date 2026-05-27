@@ -13,7 +13,7 @@
 <p><strong>Serviciu:</strong> {{ $service?->name ?: '-' }}</p>
 <p><strong>Locatie:</strong> {{ $location?->name ?: '-' }}</p>
 <p><strong>Membru echipa:</strong> {{ $staff?->name ?: collect($booking->staff ?? [])->filter()->implode(', ') ?: '-' }}</p>
-<p><strong>Data:</strong> {{ optional($booking->date)->format('Y-m-d') }}</p>
+<p><strong>Data:</strong> {{ \App\Support\BusinessLocalization::formatDate($booking->date, $salon) }}</p>
 <p><strong>Ora:</strong> {{ $booking->time }}</p>
 <p><strong>Status:</strong> pending</p>
 <p><strong>Sursa:</strong> AI assistant</p>

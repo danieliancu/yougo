@@ -37,6 +37,8 @@ class Salon extends Model
         'onboarding_completed_at',
         'onboarding_skipped_at',
         'country',
+        'currency',
+        'phone_prefix',
         'website',
         'business_phone',
         'notification_email',

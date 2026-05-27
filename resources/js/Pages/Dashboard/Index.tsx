@@ -14,6 +14,36 @@ import { preferredLocale, rememberLocale } from '@/lib/localePreference';
 
 const ActivityChart = lazy(() => import('@/Components/ActivityChart'));
 
+type LocalizationCountryOption = {
+  code: string;
+  label: string;
+  currency: string;
+  phone_prefix: string;
+  default_timezone: string;
+  default_language: string;
+  date_formats: string[];
+  default_date_format: string;
+  time_format: string;
+};
+type CurrencyOption = {
+  code: string;
+  label: string;
+};
+type LocalizationProps = {
+  countries: LocalizationCountryOption[];
+  timezones: string[];
+  date_formats: string[];
+  service_currencies: CurrencyOption[];
+  defaults: {
+    country: string;
+    currency: string;
+    phone_prefix: string;
+    timezone: string;
+    date_format: string;
+    default_language: string;
+  };
+};
+
 type Props = PageProps<{
   section: 'overview' | 'onboarding' | 'ai-settings' | 'conversations' | 'voice-calls' | 'whatsapp' | 'locations' | 'staff' | 'services' | 'bookings' | 'widget' | 'billing' | 'settings';
   salon: Salon;
@@ -24,6 +54,7 @@ type Props = PageProps<{
     plans: Plan[];
     services: OfferedService[];
   };
+  localization: LocalizationProps;
   appUrl: string;
 }>;
 
@@ -108,7 +139,7 @@ const defaultOpenGroups = navGroupIds.reduce((groups, id) => ({
 
 export default function DashboardIndex() {
   const t = useT();
-  const { auth, salon, section, locale, overview, onboarding, billing } = usePage<Props>().props;
+  const { auth, salon, section, locale, overview, onboarding, billing, localization } = usePage<Props>().props;
   const titleKey = section === 'locations'
     ? 'salonLocations'
     : nav.find((item) => item.id === section)?.label ?? section;
@@ -175,9 +206,9 @@ export default function DashboardIndex() {
     router.post('/settings', {
       name: auth.user.name,
       business_name: salon.name,
-      timezone: salon.timezone ?? 'Europe/London',
+      timezone: salon.timezone ?? localization.defaults.timezone,
       business_type: normalizeBusinessTypeSlug(salon.business_type) || 'salon-beauty',
-      country: salon.country ?? '',
+      country: salon.country ?? localization.defaults.country,
       website: salon.website ?? '',
       business_phone: salon.business_phone ?? '',
       notification_email: salon.notification_email ?? '',
@@ -185,7 +216,7 @@ export default function DashboardIndex() {
       missed_call_alerts: Boolean(salon.missed_call_alerts ?? true),
       booking_confirmations: Boolean(salon.booking_confirmations ?? true),
       display_language: displayLanguage,
-      date_format: salon.date_format ?? 'DD/MM/YYYY',
+      date_format: salon.date_format ?? localization.defaults.date_format,
     }, {
       preserveScroll: true,
     });
@@ -766,11 +797,77 @@ function websiteChatStats(conversations: Conversation[]) {
   };
 }
 
+function normalizeLocalizationCountry(country: string | null | undefined, localization: LocalizationProps) {
+  const normalized = (country || localization.defaults.country || 'RO').toUpperCase() === 'UK'
+    ? 'GB'
+    : (country || localization.defaults.country || 'RO').toUpperCase();
+
+  return localization.countries.some((option) => option.code === normalized)
+    ? normalized
+    : localization.defaults.country;
+}
+
+function normalizeDateFormatForUi(dateFormat?: string | null) {
+  const normalized = dateFormat?.trim().toLowerCase();
+
+  if (!normalized) return null;
+  if (normalized === 'dd.mm.yyyy.' || normalized === 'dd.mm.yyyy') return 'dd.mm.yyyy';
+  if (normalized === 'dd/mm/yyyy' || normalized === 'dd-mm-yyyy') return 'dd/mm/yyyy';
+  if (normalized === 'yyyy-mm-dd' || normalized === 'yyyy/mm/dd') return 'yyyy-mm-dd';
+
+  return normalized;
+}
+
+function dateFormatExample(dateFormat: string) {
+  if (dateFormat === 'yyyy-mm-dd') return '2026-05-27';
+  if (dateFormat === 'dd/mm/yyyy') return '27/05/2026';
+
+  return '27.05.2026';
+}
+
+function businessPhoneForInput(phone: string | null | undefined, prefix: string) {
+  const value = (phone ?? '').trim();
+  if (!value || !prefix) return value;
+
+  return value.startsWith(prefix)
+    ? value.slice(prefix.length).trimStart()
+    : value;
+}
+
+function businessPhoneForSubmit(phone: string, prefix: string) {
+  const value = phone.trim();
+  if (!value) return '';
+  if (!prefix || value.startsWith('+')) return value;
+
+  return `${prefix} ${value}`;
+}
+
+function defaultServiceCurrency(salon: Pick<Salon, 'currency' | 'country'>) {
+  const normalizedCountry = (salon.country || '').toUpperCase() === 'UK' ? 'GB' : (salon.country || '').toUpperCase();
+
+  return (salon.currency || (normalizedCountry === 'GB' ? 'GBP' : 'RON')).toUpperCase();
+}
+
+function serviceCurrencyOptions(localization: LocalizationProps, salon: Pick<Salon, 'currency' | 'country'>) {
+  const fallback = defaultServiceCurrency(salon);
+  const options = localization.service_currencies.length > 0
+    ? localization.service_currencies
+    : [fallback, 'EUR', 'GBP', 'USD'].map((code) => ({ code, label: code }));
+
+  return Array.from(new Map([
+    ...options,
+    { code: fallback, label: fallback },
+  ].map((option) => [option.code, option])).values());
+}
+
 function SettingsPage({ salon }: { salon: Salon }) {
   const t = useT();
-  const { auth, billing } = usePage<Props>().props;
+  const { auth, billing, localization } = usePage<Props>().props;
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
   const initialBusinessType = normalizeBusinessTypeSlug(salon.business_type) || 'salon-beauty';
+  const initialCountry = normalizeLocalizationCountry(salon.country, localization);
+  const initialCountryOption = localization.countries.find((country) => country.code === initialCountry) ?? localization.countries[0];
   const currentPlanKey = canonicalPlanKey(salon.plan);
   const currentPlan = billing.plans.find((plan) => plan.key === currentPlanKey);
   const paidEmailSettingsAvailable = Boolean(currentPlan?.email_notifications_enabled);
@@ -779,30 +876,70 @@ function SettingsPage({ salon }: { salon: Salon }) {
   const form = useForm({
     name: auth.user?.name ?? '',
     business_name: salon.name ?? '',
-    timezone: salon.timezone ?? 'Europe/London',
+    timezone: salon.timezone ?? initialCountryOption?.default_timezone ?? localization.defaults.timezone,
     business_type: initialBusinessType,
-    country: salon.country ?? '',
+    country: initialCountry,
+    currency: salon.currency ?? initialCountryOption?.currency ?? localization.defaults.currency,
+    phone_prefix: salon.phone_prefix ?? initialCountryOption?.phone_prefix ?? localization.defaults.phone_prefix,
     website: salon.website ?? '',
-    business_phone: salon.business_phone ?? '',
+    business_phone: businessPhoneForInput(salon.business_phone, salon.phone_prefix ?? initialCountryOption?.phone_prefix ?? localization.defaults.phone_prefix),
     notification_email: salon.notification_email ?? '',
     email_notifications: paidEmailSettingsAvailable ? (salon.email_notifications ?? true) : false,
     missed_call_alerts: missedCallAlertsAvailable ? (salon.missed_call_alerts ?? true) : false,
     booking_confirmations: paidEmailSettingsAvailable ? (salon.booking_confirmations ?? true) : false,
     display_language: salon.display_language ?? 'ro',
-    date_format: salon.date_format ?? 'DD/MM/YYYY',
+    date_format: normalizeDateFormatForUi(salon.date_format) ?? initialCountryOption?.default_date_format ?? localization.defaults.date_format,
     logo: null as File | null,
   });
+  const logoUrl = logoPreviewUrl ?? (salon.logo_path ? `/storage/${salon.logo_path}` : null);
+  const selectedCountry = localization.countries.find((country) => country.code === form.data.country) ?? initialCountryOption;
+  const dateFormatOptions = Array.from(new Set([
+    ...(selectedCountry?.date_formats ?? localization.date_formats),
+    form.data.date_format,
+  ].filter(Boolean)));
+  const timezoneOptions = Array.from(new Set([
+    ...localization.timezones,
+    form.data.timezone,
+  ].filter(Boolean)));
+
+  useEffect(() => {
+    if (!form.data.logo) {
+      setLogoPreviewUrl(null);
+      return;
+    }
+
+    const nextLogoPreviewUrl = URL.createObjectURL(form.data.logo);
+    setLogoPreviewUrl(nextLogoPreviewUrl);
+
+    return () => URL.revokeObjectURL(nextLogoPreviewUrl);
+  }, [form.data.logo]);
 
   function submit(event: FormEvent) {
     event.preventDefault();
     form
       .transform((data) => ({
         ...data,
+        business_phone: businessPhoneForSubmit(data.business_phone, data.phone_prefix),
         email_notifications: paidEmailSettingsAvailable ? data.email_notifications : false,
         booking_confirmations: paidEmailSettingsAvailable ? data.booking_confirmations : false,
         missed_call_alerts: missedCallAlertsAvailable ? data.missed_call_alerts : false,
       }));
     form.post('/settings', { forceFormData: true, preserveScroll: true });
+  }
+
+  function updateCountry(countryCode: string) {
+    const country = localization.countries.find((option) => option.code === countryCode) ?? localization.countries[0];
+
+    if (!country) return;
+
+    form.setData({
+      ...form.data,
+      country: country.code,
+      currency: country.currency,
+      phone_prefix: country.phone_prefix,
+      timezone: country.default_timezone,
+      date_format: country.default_date_format,
+    });
   }
 
   return (
@@ -819,31 +956,73 @@ function SettingsPage({ salon }: { salon: Salon }) {
           </div>
         </SettingsPanel>
 
+        <SettingsPanel icon={Globe2} title={t('languageRegion')} subtitle={t('languageRegionSubtitle')}>
+          <p className="mb-5 text-sm text-sky-300">{t('localizationHelp')}</p>
+          <div className="grid gap-4 md:grid-cols-2">
+            <DarkField label={t('country')} error={form.errors.country}>
+              <DarkSelect value={form.data.country} onChange={(event) => updateCountry(event.target.value)}>
+                {localization.countries.map((country) => (
+                  <option key={country.code} value={country.code}>{country.label}</option>
+                ))}
+              </DarkSelect>
+            </DarkField>
+            <DarkField label={t('timezone')} error={form.errors.timezone}>
+              <DarkSelect value={form.data.timezone} onChange={(event) => form.setData('timezone', event.target.value)}>
+                {timezoneOptions.map((timezone) => (
+                  <option key={timezone} value={timezone}>{timezone}</option>
+                ))}
+              </DarkSelect>
+            </DarkField>
+            <DarkField label={t('dateFormat')} error={form.errors.date_format}>
+              <DarkSelect value={form.data.date_format} onChange={(event) => form.setData('date_format', event.target.value)}>
+                {dateFormatOptions.map((dateFormat) => (
+                  <option key={dateFormat} value={dateFormat}>{dateFormatExample(dateFormat)}</option>
+                ))}
+              </DarkSelect>
+            </DarkField>
+            <DarkField label={t('currency')}>
+              <DarkInput value={form.data.currency} disabled />
+            </DarkField>
+            <DarkField label={t('phonePrefix')}>
+              <DarkInput value={form.data.phone_prefix} disabled />
+            </DarkField>
+            <DarkField label={t('displayLanguage')} error={form.errors.display_language}>
+              <DarkSelect value={form.data.display_language} onChange={(event) => form.setData('display_language', event.target.value)}>
+                <option value="ro">RO Romana</option>
+                <option value="en">EN English</option>
+              </DarkSelect>
+            </DarkField>
+          </div>
+        </SettingsPanel>
+
         <SettingsPanel icon={Building2} title={t('organization')} subtitle={t('organizationSubtitle')}>
           <div className="mb-6">
             <p className="mb-3 text-sm font-bold">{t('businessLogo')}</p>
             <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-slate-800 text-slate-400">
-                <Building2 className="h-8 w-8" />
+              <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg border border-slate-700 bg-slate-800 text-slate-400">
+                {logoUrl ? (
+                  <img src={logoUrl} className="h-full w-full object-cover" alt={salon.name ? `${salon.name} logo` : t('businessLogo')} />
+                ) : (
+                  <Building2 className="h-8 w-8" />
+                )}
               </div>
-              <label className="inline-flex h-10 cursor-pointer items-center rounded-lg border border-slate-700 px-4 text-sm font-bold hover:bg-slate-900">
-                {t('uploadLogo')}
-                <input className="hidden" type="file" accept=".png,.jpg,.jpeg,.svg" onChange={(event) => form.setData('logo', event.target.files?.[0] ?? null)} />
-              </label>
+              <div className="min-w-0">
+                <label className="inline-flex h-10 cursor-pointer items-center rounded-lg border border-slate-700 px-4 text-sm font-bold hover:bg-slate-900 hover:text-white">
+                  {t('uploadLogo')}
+                  <input className="hidden" type="file" accept=".png,.jpg,.jpeg,.svg" onChange={(event) => form.setData('logo', event.target.files?.[0] ?? null)} />
+                </label>
+                {form.data.logo ? (
+                  <p className="mt-2 max-w-72 truncate text-xs text-slate-400">{form.data.logo.name}</p>
+                ) : null}
+              </div>
             </div>
+            {form.errors.logo ? <p className="mt-2 text-xs text-red-400">{form.errors.logo}</p> : null}
             <p className="mt-2 text-xs text-sky-300">{t('logoHint')}</p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <DarkField label={t('businessName')} error={form.errors.business_name}>
               <DarkInput value={form.data.business_name} onChange={(event) => form.setData('business_name', event.target.value)} />
-            </DarkField>
-            <DarkField label={t('timezone')} error={form.errors.timezone}>
-              <DarkSelect value={form.data.timezone} onChange={(event) => form.setData('timezone', event.target.value)}>
-                <option value="Europe/London">London (GMT/BST)</option>
-                <option value="Europe/Bucharest">Bucharest (EET/EEST)</option>
-                <option value="Europe/Berlin">Berlin (CET/CEST)</option>
-              </DarkSelect>
             </DarkField>
             <DarkField label={t('businessType')} error={form.errors.business_type}>
               <DarkSelect value={form.data.business_type} onChange={(event) => form.setData('business_type', event.target.value)}>
@@ -853,14 +1032,21 @@ function SettingsPage({ salon }: { salon: Salon }) {
                 ))}
               </DarkSelect>
             </DarkField>
-            <DarkField label={t('country')} error={form.errors.country}>
-              <DarkInput maxLength={2} value={form.data.country} onChange={(event) => form.setData('country', event.target.value.toUpperCase())} placeholder="RO" />
-            </DarkField>
             <DarkField label={t('website')} error={form.errors.website}>
               <DarkInput value={form.data.website} onChange={(event) => form.setData('website', event.target.value)} placeholder="https://example.com" />
             </DarkField>
             <DarkField label={t('businessPhone')} error={form.errors.business_phone}>
-              <DarkInput value={form.data.business_phone} onChange={(event) => form.setData('business_phone', event.target.value)} placeholder="+40..." />
+              <div className="flex h-10 overflow-hidden rounded-lg border border-slate-300 bg-white">
+                <span className="inline-flex shrink-0 items-center border-r border-slate-300 bg-slate-100 px-3 text-sm font-bold text-slate-900">
+                  {form.data.phone_prefix}
+                </span>
+                <input
+                  className="h-full min-w-0 flex-1 bg-transparent px-3 text-sm text-slate-900 outline-none placeholder:text-slate-400"
+                  value={form.data.business_phone}
+                  onChange={(event) => form.setData('business_phone', businessPhoneForInput(event.target.value, form.data.phone_prefix))}
+                  placeholder="712 345 678"
+                />
+              </div>
             </DarkField>
           </div>
         </SettingsPanel>
@@ -874,37 +1060,6 @@ function SettingsPage({ salon }: { salon: Salon }) {
             <ToggleRow title={t('bookingConfirmations')} subtitle={t('bookingConfirmationsHelp')} checked={form.data.booking_confirmations} onChange={(checked) => form.setData('booking_confirmations', checked)} disabled={!paidEmailSettingsAvailable} helper={!paidEmailSettingsAvailable ? t('availableOnPaidPlans') : undefined} />
             <ToggleRow title={t('emailNotifications')} subtitle={t('emailNotificationsHelp')} checked={form.data.email_notifications} onChange={(checked) => form.setData('email_notifications', checked)} disabled={!paidEmailSettingsAvailable} helper={!paidEmailSettingsAvailable ? t('availableOnPaidPlans') : undefined} />
             <ToggleRow title={t('missedCallAlerts')} subtitle={t('missedCallAlertsHelp')} checked={form.data.missed_call_alerts} onChange={(checked) => form.setData('missed_call_alerts', checked)} disabled={!missedCallAlertsAvailable} helper={!missedCallAlertsAvailable ? t('availableWithPhoneAi') : undefined} />
-          </div>
-        </SettingsPanel>
-
-        <SettingsPanel icon={Globe2} title={t('languageRegion')} subtitle={t('languageRegionSubtitle')}>
-          <div className="grid gap-4 md:grid-cols-2">
-            <DarkField label={t('displayLanguage')} error={form.errors.display_language}>
-              <DarkSelect value={form.data.display_language} onChange={(event) => form.setData('display_language', event.target.value)}>
-                <option value="ro">RO Romana</option>
-                <option value="en">EN English</option>
-              </DarkSelect>
-            </DarkField>
-            <DarkField label={t('dateFormat')} error={form.errors.date_format}>
-              <DarkInput value={form.data.date_format} onChange={(event) => form.setData('date_format', event.target.value)} />
-            </DarkField>
-          </div>
-        </SettingsPanel>
-
-        <SettingsPanel icon={Bot} title={t('integrations')} subtitle={t('integrationsSubtitle')}>
-          <div className="divide-y divide-slate-800">
-            {billing.services.map((service) => (
-              <IntegrationRow
-                key={service.key}
-                icon={serviceIcon(service.icon)}
-                title={t(service.title_key)}
-                subtitle={t(service.subtitle_key)}
-                status={integrationStatusLabel(service, currentPlan, t)}
-                entitlementStatus={serviceEntitlementLabel(service, currentPlan, t)}
-                implementationStatus={serviceStatusLabel(service, t)}
-                statusTone={service.implementation_status === 'live' && planHasService(currentPlan, service.key) ? 'active' : service.implementation_status === 'live' ? 'upgrade' : 'planned'}
-              />
-            ))}
           </div>
         </SettingsPanel>
 
@@ -926,7 +1081,7 @@ function SettingsPage({ salon }: { salon: Salon }) {
         </SettingsPanel>
       </div>
 
-      <div className="mt-6 flex justify-end">
+      <div className="mt-6 flex justify-start">
         <button disabled={form.processing} className="inline-flex h-11 items-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-60">
           <Save className="h-4 w-4" />
           {t('saveChanges')}
@@ -1041,6 +1196,40 @@ function IntegrationRow({
         <span className="rounded-md bg-[var(--app-panel-soft)] px-3 py-1 text-xs font-bold app-text-soft">{implementationStatus}</span>
       </div>
     </div>
+  );
+}
+
+function PlanServicesOverview({ services, currentPlan }: { services: OfferedService[]; currentPlan: Plan }) {
+  const t = useT();
+
+  return (
+    <Card className="p-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide app-text-muted">{t('whatYourPlanIncludes')}</p>
+          <h2 className="mt-2 text-2xl font-bold app-text">{t('includedServicesTitle')}</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 app-text-muted">{t('includedServicesSubtitle')}</p>
+        </div>
+        <span className="inline-flex w-fit rounded-md bg-[var(--app-panel-soft)] px-3 py-1 text-xs font-bold app-text-soft">
+          {currentPlan.name}
+        </span>
+      </div>
+
+      <div className="mt-5 divide-y divide-slate-200">
+        {services.map((service) => (
+          <IntegrationRow
+            key={service.key}
+            icon={serviceIcon(service.icon)}
+            title={t(service.title_key)}
+            subtitle={t(service.subtitle_key)}
+            status={integrationStatusLabel(service, currentPlan, t)}
+            entitlementStatus={serviceEntitlementLabel(service, currentPlan, t)}
+            implementationStatus={serviceStatusLabel(service, t)}
+            statusTone={service.implementation_status === 'live' && planHasService(currentPlan, service.key) ? 'active' : service.implementation_status === 'live' ? 'upgrade' : 'planned'}
+          />
+        ))}
+      </div>
+    </Card>
   );
 }
 
@@ -1746,7 +1935,7 @@ function Overview({ salon, overview, onboarding }: { salon: Salon; overview: Ove
       </div>
       <section className="space-y-3">
         <h2 className="text-lg font-bold app-text">{t('latestBookings')}</h2>
-        <OverviewBookingsTable bookings={overview.latest_bookings} t={t} />
+        <OverviewBookingsTable bookings={overview.latest_bookings} salon={salon} t={t} />
       </section>
     </div>
   );
@@ -1936,6 +2125,8 @@ function BillingPage({ billing, currentPlan }: { billing: { summary: UsageSummar
 
       <UsageSummaryPanel summary={billing.summary} />
 
+      <PlanServicesOverview services={billing.services} currentPlan={billing.summary.plan} />
+
       <div className="flex justify-end">
         <div className="inline-flex rounded-lg border p-1 app-border app-panel" role="group" aria-label={t('price')}>
           <button
@@ -2043,7 +2234,7 @@ function OverviewConversationsTable({ conversations, t }: { conversations: Conve
   );
 }
 
-function OverviewBookingsTable({ bookings, t }: { bookings: Booking[]; t: TranslateFn }) {
+function OverviewBookingsTable({ bookings, salon, t }: { bookings: Booking[]; salon: Salon; t: TranslateFn }) {
   if (bookings.length === 0) {
     return (
       <div className="rounded-2xl border p-6 shadow-sm app-border app-panel">
@@ -2061,14 +2252,14 @@ function OverviewBookingsTable({ bookings, t }: { bookings: Booking[]; t: Transl
             <p className="mt-1 text-xs app-text-muted">{booking.client_phone || t('phoneMissingShort')}</p>
           </td>
           <td className="w-56 whitespace-nowrap px-5 py-4 align-top">
-            <p className="text-sm font-semibold app-text">{formatBookingDay(booking.date)}</p>
+            <p className="text-sm font-semibold app-text">{formatBookingDay(booking.date, salon)}</p>
             <p className="mt-1 text-xs font-bold app-text-muted">{bookingTimeRange(booking.time, booking.service?.duration)}</p>
           </td>
           <td className="px-5 py-4 align-top">
             <StatusPill status={booking.status} t={t} />
           </td>
           <td className="min-w-72 px-5 py-4 align-top app-text-soft">
-            <BookingDetailsCell booking={booking} t={t} />
+            <BookingDetailsCell booking={booking} salon={salon} t={t} />
           </td>
         </tr>
       ))}
@@ -3007,6 +3198,7 @@ function InfoLine({ label, value }: { label: string; value: string | string[] })
 
 function Services({ salon, query }: { salon: Salon; query: string }) {
   const t = useT();
+  const { localization } = usePage<Props>().props;
   const [adding, setAdding] = useState(false);
   const [managingCategories, setManagingCategories] = useState(false);
   const [editingServiceId, setEditingServiceId] = useState<number | null>(null);
@@ -3018,8 +3210,15 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
   const [categoryDrafts, setCategoryDrafts] = useState<string[]>(salon.service_categories ?? []);
   const [serviceNameError, setServiceNameError] = useState('');
   const defaultServiceLocationIds = salon.locations.length === 1 ? [salon.locations[0].id] : [];
-  const form = useForm({ name: '', type: '', price: '', duration: 30, max_concurrent_bookings: '', location_ids: defaultServiceLocationIds, notes: '' });
-  const editForm = useForm({ name: '', type: '', price: '', duration: 30, max_concurrent_bookings: '', location_ids: [] as number[], notes: '' });
+  const defaultCurrency = defaultServiceCurrency(salon);
+  const currencyOptions = serviceCurrencyOptions(localization, salon);
+  const form = useForm({ name: '', type: '', price: '', currency: defaultCurrency, duration: 30, max_concurrent_bookings: '', location_ids: defaultServiceLocationIds, notes: '' });
+  const editForm = useForm({ name: '', type: '', price: '', currency: defaultCurrency, duration: 30, max_concurrent_bookings: '', location_ids: [] as number[], notes: '' });
+  const serviceFormCurrencyOptions = Array.from(new Map([
+    ...currencyOptions,
+    { code: form.data.currency, label: form.data.currency },
+    { code: editForm.data.currency, label: editForm.data.currency },
+  ].filter((currency) => currency.code).map((currency) => [currency.code, currency])).values());
   const serviceStats = {
     services: salon.services.length,
     categories: (salon.service_categories ?? []).filter(Boolean).length,
@@ -3042,6 +3241,7 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
       service.name,
       service.type,
       service.price,
+      service.currency,
       service.duration,
       service.notes,
       ...(service.staff_members ?? []).map((staffMember) => staffMember.name),
@@ -3071,6 +3271,7 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
       onSuccess: () => {
         form.reset();
         form.setData('location_ids', defaultServiceLocationIds);
+        form.setData('currency', defaultCurrency);
         setServiceNameError('');
         setAdding(false);
       },
@@ -3084,6 +3285,7 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
       name: service.name,
       type: service.type ?? '',
       price: String(service.price ?? ''),
+      currency: service.currency ?? defaultCurrency,
       duration: service.duration,
       location_ids: locationIds,
       notes: service.notes ?? '',
@@ -3095,6 +3297,7 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
       name: service.name,
       type,
       price: String(service.price ?? ''),
+      currency: service.currency ?? defaultCurrency,
       duration: service.duration,
       max_concurrent_bookings: service.max_concurrent_bookings ? String(service.max_concurrent_bookings) : '',
       location_ids: service.location_ids ?? [],
@@ -3108,6 +3311,7 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
       name: service.name,
       type: service.type ?? '',
       price: String(service.price ?? ''),
+      currency: service.currency ?? defaultCurrency,
       duration: service.duration,
       location_ids: service.location_ids ?? [],
       notes: service.notes ?? '',
@@ -3218,8 +3422,15 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
           <div className="grid gap-4">
             <Field label={t('service')} error={editForm.errors.name}><Input value={editForm.data.name} onChange={(event) => editForm.setData('name', event.target.value)} /></Field>
           </div>
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="grid gap-4 lg:grid-cols-4">
             <Field label={t('priceRon')} error={editForm.errors.price}><Input value={editForm.data.price} onChange={(event) => editForm.setData('price', event.target.value)} placeholder={t('pricePlaceholder')} /></Field>
+            <Field label={t('currency')} error={editForm.errors.currency}>
+              <select className="h-10 w-full rounded-lg border px-3 text-sm outline-none app-panel app-text" value={editForm.data.currency} onChange={(event) => editForm.setData('currency', event.target.value)}>
+                {serviceFormCurrencyOptions.map((currency) => (
+                  <option key={currency.code} value={currency.code}>{currency.label}</option>
+                ))}
+              </select>
+            </Field>
             <Field label={t('durationMin')} error={editForm.errors.duration}><Input type="number" value={editForm.data.duration} onChange={(event) => editForm.setData('duration', Number(event.target.value))} /></Field>
             <Field label={t('maxSimultaneousBookingsForService')} error={editForm.errors.max_concurrent_bookings}>
               <Input type="number" min={1} max={100} value={editForm.data.max_concurrent_bookings} onChange={(event) => editForm.setData('max_concurrent_bookings', event.target.value)} />
@@ -3279,8 +3490,15 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
           </div>
           <div className="grid gap-4">
             <Field label={t('service')} error={serviceNameError || form.errors.name}><Input value={form.data.name} onChange={(event) => { form.setData('name', event.target.value); if (serviceNameError) setServiceNameError(''); }} /></Field>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Field label={t('priceRon')} error={form.errors.price}><Input value={form.data.price} onChange={(event) => form.setData('price', event.target.value)} placeholder={t('pricePlaceholder')} /></Field>
+              <Field label={t('currency')} error={form.errors.currency}>
+                <select className="h-10 w-full rounded-lg border px-3 text-sm outline-none app-panel app-text" value={form.data.currency} onChange={(event) => form.setData('currency', event.target.value)}>
+                  {serviceFormCurrencyOptions.map((currency) => (
+                    <option key={currency.code} value={currency.code}>{currency.label}</option>
+                  ))}
+                </select>
+              </Field>
               <Field label={t('durationMin')} error={form.errors.duration}><Input type="number" value={form.data.duration} onChange={(event) => form.setData('duration', Number(event.target.value))} /></Field>
               <Field label={t('maxSimultaneousBookingsForService')} error={form.errors.max_concurrent_bookings}>
                 <Input type="number" min={1} max={100} value={form.data.max_concurrent_bookings} onChange={(event) => form.setData('max_concurrent_bookings', event.target.value)} />
@@ -3402,7 +3620,7 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
                     />
                   </td>
                   <td className="px-5 py-4 text-sm app-text-soft">{service.duration} min</td>
-                  <td className="px-5 py-4 font-semibold text-indigo-700">{service.price}</td>
+                  <td className="px-5 py-4 font-semibold text-indigo-700">{formatServicePrice(service.price, salon, service.currency)}</td>
                   <td className="px-5 py-4">
                     <RowActionsMenu label={t('actions')}>
                       {(close) => (
@@ -3950,7 +4168,7 @@ function DateFilterHeader({ label, dates, selected, onChange, t }: { label: stri
                 <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${checked ? 'border-indigo-600 bg-indigo-600' : 'border-[var(--app-border)]'}`}>
                   {checked && <Check className="h-2.5 w-2.5 text-white" />}
                 </span>
-                <span className="app-text">{formatBookingGroupDate(date, t)}</span>
+                <span className="app-text">{formatFilterDate(date, t)}</span>
               </button>
             );
           })}
@@ -4836,6 +5054,7 @@ function Bookings({ salon, query }: { salon: Salon; query: string }) {
       {(view === 'list' || view === 'archive') && (
         <BookingsDayCards
           groups={groupedBookings}
+          salon={salon}
           dateOptions={bookingDateOptions}
           selectedDates={selectedBookingDates}
           onDateChange={setSelectedBookingDates}
@@ -4906,7 +5125,28 @@ function groupBookingsByDay(bookings: Salon['bookings']) {
   }));
 }
 
-function formatBookingGroupDate(date: string, t: TranslateFn) {
+function formatBusinessDate(date: string, salon: Pick<Salon, 'date_format'>) {
+  const [year, month, day] = date.slice(0, 10).split('-');
+  const format = normalizeDateFormatForUi(salon.date_format) ?? 'dd.mm.yyyy';
+
+  if (format === 'yyyy-mm-dd') return `${year}-${month}-${day}`;
+  if (format === 'dd/mm/yyyy') return `${day}/${month}/${year}`;
+
+  return `${day}.${month}.${year}`;
+}
+
+function formatBookingGroupDate(date: string, t: TranslateFn, salon: Salon) {
+  const locale = t('date') === 'Date' ? 'en-GB' : 'ro-RO';
+  const weekday = new Intl.DateTimeFormat(locale, {
+    weekday: 'long',
+  }).format(new Date(`${date}T00:00:00`));
+
+  const label = `${weekday}, ${formatBusinessDate(date, salon)}`;
+
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function formatFilterDate(date: string, t: TranslateFn) {
   const locale = t('date') === 'Date' ? 'en-GB' : 'ro-RO';
   const formatted = new Intl.DateTimeFormat(locale, {
     weekday: 'long',
@@ -4929,17 +5169,34 @@ function formatCompactDate(date: string, locale: string) {
   }).format(new Date(`${date}T00:00:00`));
 }
 
-function bookingDetailsLine(booking: Salon['bookings'][number], t: TranslateFn) {
+function formatServicePrice(price: string | number | null | undefined, salon: Pick<Salon, 'country' | 'currency'>, serviceCurrency?: string | null) {
+  if (price === null || price === undefined || price === '') return '';
+
+  const priceText = String(price).trim();
+  if (/\b(RON|GBP|EUR|USD)\b|£|€|\$/i.test(priceText)) {
+    return priceText;
+  }
+
+  const normalizedCountry = (salon.country || '').toUpperCase() === 'UK' ? 'GB' : (salon.country || '').toUpperCase();
+  const currency = (serviceCurrency || salon.currency || (normalizedCountry === 'GB' ? 'GBP' : 'RON')).toUpperCase();
+
+  if (currency === 'GBP') return `£${priceText}`;
+  if (currency === 'USD') return `$${priceText}`;
+
+  return `${priceText} ${currency}`;
+}
+
+function bookingDetailsLine(booking: Salon['bookings'][number], salon: Salon, t: TranslateFn) {
   return [
     booking.service?.name || (booking.service_id ? `${t('service')} #${booking.service_id}` : null),
     booking.service?.type,
-    booking.service?.price ? `${booking.service.price} RON` : null,
+    booking.service?.price ? formatServicePrice(booking.service.price, salon, booking.service.currency) : null,
     booking.location?.name,
   ].filter(Boolean).join(' • ');
 }
 
-function BookingDetailsCell({ booking, t }: { booking: Salon['bookings'][number]; t: TranslateFn }) {
-  const detail = bookingDetailsLine(booking, t);
+function BookingDetailsCell({ booking, salon, t }: { booking: Salon['bookings'][number]; salon: Salon; t: TranslateFn }) {
+  const detail = bookingDetailsLine(booking, salon, t);
   const staffLabel = bookingStaffLabel(booking);
 
   if (!detail && !staffLabel) {
@@ -4960,6 +5217,7 @@ function BookingDetailsCell({ booking, t }: { booking: Salon['bookings'][number]
 
 function BookingsDayCards({
   groups,
+  salon,
   dateOptions,
   selectedDates,
   onDateChange,
@@ -4971,6 +5229,7 @@ function BookingsDayCards({
   onDelete,
 }: {
   groups: ReturnType<typeof groupBookingsByDay>;
+  salon: Salon;
   dateOptions: string[];
   selectedDates: string[];
   onDateChange: (next: string[]) => void;
@@ -5015,7 +5274,7 @@ function BookingsDayCards({
         return (
           <tr key={booking.id} className={dashboardTableRowClass(currentIndex)}>
             <td className="w-48 px-5 py-4 align-top text-sm font-semibold app-text">
-              {bookingIndex === 0 ? formatBookingGroupDate(group.date, t) : ''}
+              {bookingIndex === 0 ? formatBookingGroupDate(group.date, t, salon) : ''}
             </td>
             <td className="whitespace-nowrap px-5 py-4 align-top text-sm font-semibold app-text">
               {bookingTimeRange(booking.time, booking.service?.duration)}
@@ -5026,7 +5285,7 @@ function BookingsDayCards({
             <td className="px-5 py-4 align-top font-semibold app-text">{booking.client_name}</td>
             <td className="whitespace-nowrap px-5 py-4 align-top app-text-soft">{booking.client_phone || t('phoneMissingShort')}</td>
             <td className="min-w-72 px-5 py-4 align-top app-text-soft">
-              <BookingDetailsCell booking={booking} t={t} />
+              <BookingDetailsCell booking={booking} salon={salon} t={t} />
             </td>
             <td className="w-14 px-5 py-4 align-top">
               <RowActionsMenu label={t('actions')}>
@@ -5151,13 +5410,8 @@ function lastBookingEndTime(bookings: Salon['bookings']) {
   return bookingTimeRange(last.time, last.service.duration).split(' - ')[1] ?? last.time;
 }
 
-function formatBookingDay(date: string) {
-  return new Intl.DateTimeFormat('ro-RO', {
-    weekday: 'long',
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  }).format(new Date(`${date}T00:00:00`));
+function formatBookingDay(date: string, salon: Salon) {
+  return formatBusinessDate(date, salon);
 }
 
 function BookingsCalendar({ bookings, t }: { bookings: Salon['bookings']; t: TranslateFn }) {
