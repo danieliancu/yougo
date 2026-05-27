@@ -71,6 +71,7 @@ type ImportedServiceCandidate = {
   duplicate?: boolean;
 };
 
+const SERVICE_IMPORT_MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const TABLE_PILL_CLASS = 'inline-flex items-center justify-center whitespace-nowrap rounded-md font-semibold uppercase tracking-wide min-w-28 px-2 py-1 text-[10px]';
 
 type DashboardSection = Props['section'];
@@ -3710,6 +3711,12 @@ function ServiceImageImportModal({
   async function analyzeImage() {
     if (!image || analyzing) return;
 
+    if (image.size > SERVICE_IMPORT_MAX_IMAGE_BYTES) {
+      setError(t('serviceImportImageTooLarge'));
+      setCandidates([]);
+      return;
+    }
+
     setAnalyzing(true);
     setError('');
     setWarning('');
@@ -3727,7 +3734,7 @@ function ServiceImageImportModal({
         },
         body,
       });
-      const data = await response.json();
+      const data = await serviceImportResponseData(response, t);
 
       if (!response.ok) {
         throw new Error(serviceImportErrorMessage(data, t));
@@ -3799,7 +3806,7 @@ function ServiceImageImportModal({
           })),
         }),
       });
-      const data = await response.json();
+      const data = await serviceImportResponseData(response, t);
 
       if (!response.ok) {
         throw new Error(serviceImportErrorMessage(data, t));
@@ -3953,6 +3960,48 @@ function csrfHeaders(): Record<string, string> {
     ...(token ? { 'X-CSRF-TOKEN': token } : {}),
     ...(xsrf ? { 'X-XSRF-TOKEN': decodeURIComponent(xsrf) } : {}),
   };
+}
+
+async function serviceImportResponseData(response: Response, t: TranslateFn): Promise<Record<string, unknown>> {
+  if (response.status === 413) {
+    throw new Error(t('serviceImportImageTooLargeServer'));
+  }
+
+  const contentType = response.headers.get('content-type') ?? '';
+
+  if (!contentType.includes('application/json')) {
+    const body = await response.text().catch(() => '');
+
+    if (!response.ok) {
+      throw new Error(serviceImportHttpErrorMessage(response, body, t));
+    }
+
+    throw new Error(t('serviceImportFailed'));
+  }
+
+  const data = await response.json().catch(() => null);
+
+  if (data && typeof data === 'object') {
+    return data as Record<string, unknown>;
+  }
+
+  if (!response.ok) {
+    throw new Error(serviceImportHttpErrorMessage(response, '', t));
+  }
+
+  throw new Error(t('serviceImportFailed'));
+}
+
+function serviceImportHttpErrorMessage(response: Response, body: string, t: TranslateFn): string {
+  if (response.status === 413) {
+    return t('serviceImportImageTooLargeServer');
+  }
+
+  const compactBody = body.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+
+  return compactBody
+    ? `${t('serviceImportFailed')} (${response.status}: ${compactBody.slice(0, 120)})`
+    : `${t('serviceImportFailed')} (${response.status})`;
 }
 
 function serviceImportErrorMessage(data: unknown, t: TranslateFn): string {

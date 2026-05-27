@@ -476,6 +476,9 @@ JSON,
         $this->assertStringContainsString('ServiceImageImportModal', $source);
         $this->assertStringContainsString('/dashboard/services/import-image/analyze', $source);
         $this->assertStringContainsString('/dashboard/services/import-image/store', $source);
+        $this->assertStringContainsString('serviceImportResponseData', $source);
+        $this->assertStringContainsString('response.status === 413', $source);
+        $this->assertStringContainsString('serviceImportImageTooLargeServer', $source);
     }
 
     private function salonSetup(): array
