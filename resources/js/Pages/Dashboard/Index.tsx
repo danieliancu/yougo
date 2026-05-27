@@ -82,7 +82,7 @@ type NavItem = {
   icon: typeof LayoutDashboard;
 };
 type NavGroup = {
-  id: 'assistant' | 'businessSetup' | 'account';
+  id: 'assistantSettings' | 'administration';
   label: string;
   items: NavItem[];
 };
@@ -91,35 +91,29 @@ const topLevelNavItems: NavItem[] = [
   { id: 'overview', label: 'overview', href: '/dashboard', icon: LayoutDashboard },
   { id: 'onboarding', label: 'setup', href: '/dashboard/onboarding', icon: List },
   { id: 'bookings', label: 'bookings', href: '/dashboard/bookings', icon: Calendar },
+  { id: 'conversations', label: 'conversations', href: '/dashboard/conversations', icon: MessageSquare },
 ];
 
 const navGroups: NavGroup[] = [
   {
-    id: 'assistant',
-    label: 'navGroupAssistant',
+    id: 'assistantSettings',
+    label: 'navGroupAssistantSettings',
     items: [
-      { id: 'ai-settings', label: 'aiSettings', href: '/dashboard/ai-settings', icon: Sparkles },
-      { id: 'conversations', label: 'conversations', href: '/dashboard/conversations', icon: MessageSquare },
-      { id: 'widget', label: 'chat', href: '/dashboard/widget', icon: MessageCircle },
-      { id: 'whatsapp', label: 'whatsapp', href: '/dashboard/whatsapp', icon: MessageCircle },
-      { id: 'voice-calls', label: 'voiceCalls', href: '/dashboard/voice-calls', icon: Phone },
+      { id: 'ai-settings', label: 'businessBehavior', href: '/dashboard/ai-settings', icon: Sparkles },
+      { id: 'widget', label: 'chatSettings', href: '/dashboard/widget', icon: MessageCircle },
+      { id: 'whatsapp', label: 'whatsappSettings', href: '/dashboard/whatsapp', icon: MessageCircle },
+      { id: 'voice-calls', label: 'phoneSettings', href: '/dashboard/voice-calls', icon: Phone },
     ],
   },
   {
-    id: 'businessSetup',
-    label: 'navGroupBusinessSetup',
+    id: 'administration',
+    label: 'navGroupAdministration',
     items: [
       { id: 'services', label: 'services', href: '/dashboard/services', icon: Scissors },
       { id: 'staff', label: 'staff', href: '/dashboard/staff', icon: Users },
       { id: 'locations', label: 'locations', href: '/dashboard/locations', icon: MapPin },
-    ],
-  },
-  {
-    id: 'account',
-    label: 'navGroupAccount',
-    items: [
-      { id: 'settings', label: 'settings', href: '/dashboard/settings', icon: Settings },
       { id: 'billing', label: 'billing', href: '/dashboard/billing', icon: CreditCard },
+      { id: 'settings', label: 'settings', href: '/dashboard/settings', icon: Settings },
     ],
   },
 ];
@@ -437,7 +431,7 @@ function DashboardSidebarContent({ salon, section, user, t, onboarding, onNaviga
                     {group.items.map((item) => {
                       const Icon = item.icon;
                       const active = item.id === section;
-                      const isProfile = item.id === 'settings';
+                      const showsAccountEmail = item.id === 'settings';
 
                       return (
                         <Link
@@ -446,11 +440,11 @@ function DashboardSidebarContent({ salon, section, user, t, onboarding, onNaviga
                           onClick={onNavigate}
                           className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-bold transition ${active ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-white/10 hover:text-white'}`}
                         >
-                          {isProfile && <Icon className="h-4 w-4 shrink-0" />}
-                          {isProfile ? (
+                          {showsAccountEmail && <Icon className="h-4 w-4 shrink-0" />}
+                          {showsAccountEmail ? (
                             <span className="min-w-0 flex-1">
-                              <span className="block truncate text-sm font-bold text-white">{user?.name}</span>
-                              <span className={`block truncate text-xs font-medium ${active ? 'text-indigo-100' : 'text-slate-400'}`}>{user?.email}</span>
+                              <span className={`block truncate text-sm font-bold ${active ? 'text-white' : 'text-slate-400'}`}>{t(item.label)}</span>
+                              <span className={`block truncate text-xs font-medium ${active ? 'text-indigo-100' : 'text-slate-500'}`}>{user?.email}</span>
                             </span>
                           ) : (
                             <>
@@ -464,7 +458,7 @@ function DashboardSidebarContent({ salon, section, user, t, onboarding, onNaviga
                         </Link>
                       );
                     })}
-                    {group.id === 'account' && (
+                    {group.id === 'administration' && (
                       <button
                         type="button"
                         onClick={() => {
