@@ -3,6 +3,7 @@ import {
   ArrowRight,
   CalendarCheck,
   CalendarPlus,
+  Check,
   Clock,
   Mail,
   LayoutDashboard,
@@ -135,10 +136,10 @@ type MiniMenuItem = {
   label: string;
   ai?: boolean;
 };
-type MiniStatItem = {
-  icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
+type MiniBookingStatusItem = {
+  status: 'confirmed' | 'pending' | 'completed';
   label: string;
-  tone: 'blue' | 'green' | 'purple';
+  text: string;
 };
 type BenefitItem = {
   icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
@@ -183,10 +184,10 @@ function HowItWorksSection({ t }: { t: LandingTranslator }) {
       text: t('homepageHowStep3Text'),
       mockup: (
         <MiniStatsMockup
-          stats={[
-            { icon: MessageCircle, label: t('homepageHowStep3Stat1'), tone: 'blue' },
-            { icon: SiWhatsapp, label: t('homepageHowStep3Stat2'), tone: 'green' },
-            { icon: Phone, label: t('homepageHowStep3Stat3'), tone: 'purple' },
+          items={[
+            { status: 'pending', label: t('statusPending'), text: t('homepageHowStep3StatusPendingText') },
+            { status: 'confirmed', label: t('statusConfirmed'), text: t('homepageHowStep3StatusConfirmedText') },
+            { status: 'completed', label: t('statusCompleted'), text: t('homepageHowStep3StatusCompletedText') },
           ]}
         />
       ),
@@ -261,11 +262,11 @@ function MiniMenuMockup({ items }: { items: MiniMenuItem[] }) {
   );
 }
 
-function MiniStatsMockup({ stats }: { stats: MiniStatItem[] }) {
+function MiniStatsMockup({ items }: { items: MiniBookingStatusItem[] }) {
   const tones = {
-    blue: 'text-blue-600 dark:text-blue-300',
-    green: 'text-emerald-600 dark:text-emerald-300',
-    purple: 'text-purple-600 dark:text-purple-300',
+    confirmed: 'bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300',
+    pending: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
+    completed: 'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300',
   };
 
   return (
@@ -276,10 +277,14 @@ function MiniStatsMockup({ stats }: { stats: MiniStatItem[] }) {
         <span className="h-2 w-2 rounded-full bg-slate-200 dark:bg-slate-700" />
       </div>
       <div className="grid gap-2">
-        {stats.map(({ icon: Icon, label, tone }) => (
-          <div key={label} className="flex min-h-11 items-center gap-2 rounded-xl border px-3 py-2 app-border app-panel">
-            <Icon className={`h-4 w-4 shrink-0 ${tones[tone]}`} aria-hidden />
-            <p className="min-w-0 text-sm font-bold leading-4 app-text">{label}</p>
+        {items.map(({ status, label, text }) => (
+          <div key={status} className="flex min-h-11 items-center justify-between gap-2 rounded-xl border px-3 py-2 app-border app-panel">
+            <span className={`inline-flex w-28 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-bold ${tones[status]}`}>
+              {status === 'pending' && <span className="railway-lights shrink-0" aria-hidden="true" />}
+              {status === 'completed' && <Check className="h-3 w-3 shrink-0 stroke-[3]" />}
+              {label}
+            </span>
+            <p className="min-w-0 text-xs font-semibold leading-4 app-text-soft">{text}</p>
           </div>
         ))}
       </div>
