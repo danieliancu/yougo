@@ -65,6 +65,8 @@ class WidgetEmbedTest extends TestCase
 
         $this->get("/widget/{$salon->widget_key}")
             ->assertOk()
+            ->assertHeaderMissing('x-frame-options')
+            ->assertHeader('content-security-policy', 'frame-ancestors *')
             ->assertInertia(fn ($page) => $page
                 ->component('Widget/Show')
                 ->where('salon.id', $salon->id)
@@ -159,6 +161,19 @@ class WidgetEmbedTest extends TestCase
             ->postJson("/widget/{$salon->widget_key}/chat", [
                 'messages' => [['role' => 'user', 'content' => 'Buna']],
             ])->assertForbidden();
+    }
+
+    public function test_widget_page_frame_ancestors_follow_allowed_domains(): void
+    {
+        $salon = $this->createSalon([
+            'widget_allowed_domains' => ['example.com', 'client.test'],
+        ]);
+
+        $this->withHeader('Referer', 'https://example.com/page')
+            ->get("/widget/{$salon->widget_key}")
+            ->assertOk()
+            ->assertHeaderMissing('x-frame-options')
+            ->assertHeader('content-security-policy', "frame-ancestors 'self' https://example.com http://example.com https://client.test http://client.test");
     }
 
     public function test_preview_assistant_page_still_loads(): void

@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
-use Inertia\Response;
+use Symfony\Component\HttpFoundation\Response;
 
 class WidgetController extends Controller
 {
@@ -105,11 +105,16 @@ JS;
         $this->ensureDomainAllowed($request, $salon);
         $salon->load(['locations', 'services']);
 
-        return Inertia::render('Widget/Show', [
+        $response = Inertia::render('Widget/Show', [
             'salon' => $salon,
             'locale' => $salon->display_language ?? config('app.locale', 'ro'),
             'chatEndpoint' => route('widget.chat', $salon->widget_key),
-        ]);
+        ])->toResponse($request);
+
+        $response->headers->remove('X-Frame-Options');
+        $response->headers->set('Content-Security-Policy', $this->widgetFrameAncestors($salon));
+
+        return $response;
     }
 
     public function chat(Request $request, string $widgetKey): JsonResponse
@@ -180,6 +185,24 @@ JS;
             : 'Widgetul nu este activ pentru acest domeniu.';
 
         abort_unless($host && in_array($host, $allowed, true), 403, $message);
+    }
+
+    private function widgetFrameAncestors(Salon $salon): string
+    {
+        $allowed = array_values(array_filter($salon->widget_allowed_domains ?? []));
+
+        if (count($allowed) === 0) {
+            return 'frame-ancestors *';
+        }
+
+        $ancestors = collect($allowed)
+            ->flatMap(fn (string $host) => ["https://{$host}", "http://{$host}"])
+            ->prepend("'self'")
+            ->unique()
+            ->values()
+            ->implode(' ');
+
+        return "frame-ancestors {$ancestors}";
     }
 
     private function requestHost(Request $request): ?string
