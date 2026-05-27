@@ -122,6 +122,7 @@ export type Salon = {
   email_notifications?: boolean;
   missed_call_alerts?: boolean;
   booking_confirmations?: boolean;
+  booking_status_email_notifications?: boolean;
   display_language?: string | null;
   date_format?: string | null;
   service_categories?: string[] | null;

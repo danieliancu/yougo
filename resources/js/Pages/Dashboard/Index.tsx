@@ -207,9 +207,9 @@ export default function DashboardIndex() {
       website: salon.website ?? '',
       business_phone: salon.business_phone ?? '',
       notification_email: salon.notification_email ?? '',
-      email_notifications: Boolean(salon.email_notifications ?? true),
       missed_call_alerts: Boolean(salon.missed_call_alerts ?? true),
       booking_confirmations: Boolean(salon.booking_confirmations ?? true),
+      booking_status_email_notifications: Boolean(salon.booking_status_email_notifications ?? false),
       display_language: displayLanguage,
       date_format: salon.date_format ?? localization.defaults.date_format,
     }, {
@@ -879,9 +879,9 @@ function SettingsPage({ salon }: { salon: Salon }) {
     website: salon.website ?? '',
     business_phone: businessPhoneForInput(salon.business_phone, salon.phone_prefix ?? initialCountryOption?.phone_prefix ?? localization.defaults.phone_prefix),
     notification_email: salon.notification_email ?? '',
-    email_notifications: paidEmailSettingsAvailable ? (salon.email_notifications ?? true) : false,
     missed_call_alerts: missedCallAlertsAvailable ? (salon.missed_call_alerts ?? true) : false,
     booking_confirmations: paidEmailSettingsAvailable ? (salon.booking_confirmations ?? true) : false,
+    booking_status_email_notifications: paidEmailSettingsAvailable ? (salon.booking_status_email_notifications ?? false) : false,
     display_language: salon.display_language ?? 'ro',
     date_format: normalizeDateFormatForUi(salon.date_format) ?? initialCountryOption?.default_date_format ?? localization.defaults.date_format,
     logo: null as File | null,
@@ -915,8 +915,8 @@ function SettingsPage({ salon }: { salon: Salon }) {
       .transform((data) => ({
         ...data,
         business_phone: businessPhoneForSubmit(data.business_phone, data.phone_prefix),
-        email_notifications: paidEmailSettingsAvailable ? data.email_notifications : false,
         booking_confirmations: paidEmailSettingsAvailable ? data.booking_confirmations : false,
+        booking_status_email_notifications: paidEmailSettingsAvailable ? data.booking_status_email_notifications : false,
         missed_call_alerts: missedCallAlertsAvailable ? data.missed_call_alerts : false,
       }));
     form.post('/settings', { forceFormData: true, preserveScroll: true });
@@ -1052,8 +1052,14 @@ function SettingsPage({ salon }: { salon: Salon }) {
           </DarkField>
           <p className="mt-2 text-sm text-sky-300">{t('notificationEmailHelp')}</p>
           <div className="mt-7 divide-y divide-slate-800">
-            <ToggleRow title={t('bookingConfirmations')} subtitle={t('bookingConfirmationsHelp')} checked={form.data.booking_confirmations} onChange={(checked) => form.setData('booking_confirmations', checked)} disabled={!paidEmailSettingsAvailable} helper={!paidEmailSettingsAvailable ? t('availableOnPaidPlans') : undefined} />
-            <ToggleRow title={t('emailNotifications')} subtitle={t('emailNotificationsHelp')} checked={form.data.email_notifications} onChange={(checked) => form.setData('email_notifications', checked)} disabled={!paidEmailSettingsAvailable} helper={!paidEmailSettingsAvailable ? t('availableOnPaidPlans') : undefined} />
+            <div className="py-4">
+              <p className="font-medium app-text">{t('emailNotificationsTitle')}</p>
+              <p className="mt-0.5 text-sm app-text-muted">{t('emailNotificationsDescription')}</p>
+              <div className="mt-3 divide-y divide-slate-800/60">
+                <ToggleRow title={t('newBookingEmailsTitle')} subtitle={t('newBookingEmailsDescription')} checked={form.data.booking_confirmations} onChange={(checked) => form.setData('booking_confirmations', checked)} disabled={!paidEmailSettingsAvailable} helper={!paidEmailSettingsAvailable ? t('availableOnPaidPlans') : undefined} />
+                <ToggleRow title={t('bookingStatusEmailsTitle')} subtitle={t('bookingStatusEmailsDescription')} checked={form.data.booking_status_email_notifications} onChange={(checked) => form.setData('booking_status_email_notifications', checked)} disabled={!paidEmailSettingsAvailable} helper={!paidEmailSettingsAvailable ? t('availableOnPaidPlans') : undefined} />
+              </div>
+            </div>
             <ToggleRow title={t('missedCallAlerts')} subtitle={t('missedCallAlertsHelp')} checked={form.data.missed_call_alerts} onChange={(checked) => form.setData('missed_call_alerts', checked)} disabled={!missedCallAlertsAvailable} helper={!missedCallAlertsAvailable ? t('availableWithPhoneAi') : undefined} />
           </div>
         </SettingsPanel>

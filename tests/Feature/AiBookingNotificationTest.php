@@ -49,20 +49,6 @@ class AiBookingNotificationTest extends TestCase
         $this->assertNull($booking->refresh()->notification_sent_at);
     }
 
-    public function test_does_not_send_if_email_notifications_are_disabled(): void
-    {
-        Mail::fake();
-        [, $booking] = $this->createAiBooking([
-            'notification_email' => 'owner@example.com',
-            'email_notifications' => false,
-        ]);
-
-        app(BookingNotificationService::class)->sendAiBookingNotification($booking);
-
-        Mail::assertNothingSent();
-        $this->assertNull($booking->refresh()->notification_sent_at);
-    }
-
     public function test_does_not_send_if_booking_confirmations_are_disabled(): void
     {
         Mail::fake();

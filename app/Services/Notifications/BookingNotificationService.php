@@ -28,7 +28,7 @@ class BookingNotificationService
             return;
         }
 
-        if (! ($salon->email_notifications ?? true) || ! ($salon->booking_confirmations ?? true)) {
+        if (! ($salon->booking_confirmations ?? true)) {
             return;
         }
 
