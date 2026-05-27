@@ -61,6 +61,32 @@ class OnboardingTest extends TestCase
         $this->assertTrue($checklist['can_complete']);
     }
 
+    public function test_ai_step_requires_real_business_context_or_knowledge(): void
+    {
+        $salon = $this->createSalon();
+        $salon->update([
+            'ai_assistant_name' => 'Bella',
+            'ai_tone' => 'friendly',
+            'ai_response_style' => 'balanced',
+            'ai_language_mode' => 'auto',
+            'ai_industry_categories' => ['haircut'],
+            'ai_main_focus' => 'haircut',
+            'ai_business_summary' => null,
+            'ai_custom_instructions' => null,
+            'ai_custom_context' => [],
+        ]);
+
+        $checklist = app(OnboardingChecklistService::class)->forSalon($salon->refresh());
+
+        $this->assertFalse($this->step($checklist, 'ai_assistant')['completed']);
+
+        $salon->update(['ai_custom_context' => ['Clientii pot cere programari rapide.']]);
+
+        $checklist = app(OnboardingChecklistService::class)->forSalon($salon->refresh());
+
+        $this->assertTrue($this->step($checklist, 'ai_assistant')['completed']);
+    }
+
     public function test_staff_and_widget_do_not_block_completion(): void
     {
         $salon = $this->createCompleteRequiredSalon();

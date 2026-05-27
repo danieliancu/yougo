@@ -20,7 +20,7 @@ class LocationController extends Controller
             'phone' => ['nullable', 'string', 'max:50'],
             'hours' => ['nullable', 'array'],
             'max_concurrent_bookings' => ['nullable', 'integer', 'min:1', 'max:100'],
-        ]);
+        ], $this->validationMessages($request), $this->validationAttributes($request));
 
         $data['hours'] = $this->normalizeHours($data['hours'] ?? []);
 
@@ -40,7 +40,7 @@ class LocationController extends Controller
             'phone' => ['nullable', 'string', 'max:50'],
             'hours' => ['nullable', 'array'],
             'max_concurrent_bookings' => ['nullable', 'integer', 'min:1', 'max:100'],
-        ]);
+        ], $this->validationMessages($request), $this->validationAttributes($request));
 
         $data['hours'] = $this->normalizeHours($data['hours'] ?? []);
 
@@ -119,5 +119,46 @@ class LocationController extends Controller
     private function validTime(int $hour, int $minute): bool
     {
         return $hour >= 0 && $hour <= 23 && $minute >= 0 && $minute <= 59;
+    }
+
+    private function validationMessages(Request $request): array
+    {
+        if ($this->locale($request) === 'en') {
+            return [
+                'required' => 'The :attribute field is required.',
+            ];
+        }
+
+        return [
+            'required' => 'Campul :attribute este obligatoriu.',
+        ];
+    }
+
+    private function validationAttributes(Request $request): array
+    {
+        if ($this->locale($request) === 'en') {
+            return [
+                'name' => 'name',
+                'address' => 'address',
+            ];
+        }
+
+        return [
+            'name' => 'nume',
+            'address' => 'adresa',
+        ];
+    }
+
+    private function locale(Request $request): string
+    {
+        $cookieLocale = $request->cookie('yougo-lang');
+
+        if (in_array($cookieLocale, ['ro', 'en'], true)) {
+            return $cookieLocale;
+        }
+
+        $displayLanguage = $request->user()?->salon?->display_language;
+
+        return in_array($displayLanguage, ['ro', 'en'], true) ? $displayLanguage : config('app.locale', 'ro');
     }
 }

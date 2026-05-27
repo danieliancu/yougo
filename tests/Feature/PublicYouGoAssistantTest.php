@@ -61,7 +61,7 @@ class PublicYouGoAssistantTest extends TestCase
         });
     }
 
-    public function test_dashboard_booking_question_returns_booking_navigation_action(): void
+    public function test_dashboard_booking_question_returns_text_only_response(): void
     {
         config(['services.gemini.key' => null]);
 
@@ -78,11 +78,10 @@ class PublicYouGoAssistantTest extends TestCase
             ],
         ])
             ->assertOk()
-            ->assertJsonPath('actions.0.type', 'navigate')
-            ->assertJsonPath('actions.0.href', '/dashboard/bookings');
+            ->assertJsonMissingPath('actions');
     }
 
-    public function test_widget_question_returns_widget_navigation_when_authenticated(): void
+    public function test_widget_question_does_not_return_navigation_actions(): void
     {
         config(['services.gemini.key' => null]);
 
@@ -94,10 +93,10 @@ class PublicYouGoAssistantTest extends TestCase
             ],
         ])
             ->assertOk()
-            ->assertJsonPath('actions.0.href', '/dashboard/widget');
+            ->assertJsonMissingPath('actions');
     }
 
-    public function test_assistant_response_mentions_dashboard_sections_and_returns_navigation_actions(): void
+    public function test_assistant_response_mentions_dashboard_sections_without_navigation_actions(): void
     {
         config(['services.gemini.key' => 'test-key']);
 
@@ -121,11 +120,10 @@ class PublicYouGoAssistantTest extends TestCase
             ],
         ])
             ->assertOk()
-            ->assertJsonPath('actions.0.href', '/dashboard')
-            ->assertJsonPath('actions.1.href', '/dashboard/billing');
+            ->assertJsonMissingPath('actions');
     }
 
-    public function test_public_dashboard_question_offers_login_or_register(): void
+    public function test_public_dashboard_question_returns_text_only_response(): void
     {
         config(['services.gemini.key' => null]);
 
@@ -137,8 +135,7 @@ class PublicYouGoAssistantTest extends TestCase
             ],
         ])
             ->assertOk()
-            ->assertJsonPath('actions.0.href', '/login')
-            ->assertJsonPath('actions.1.href', '/register');
+            ->assertJsonMissingPath('actions');
     }
 
     public function test_public_assistant_route_is_throttled(): void
@@ -178,8 +175,8 @@ class PublicYouGoAssistantTest extends TestCase
         $this->assertStringContainsString('publicChatInitialMessage', $component);
         $this->assertStringContainsString('publicChatQuickFree', $component);
         $this->assertStringContainsString('/yougo-assistant/chat', $component);
-        $this->assertStringContainsString('router.visit', $component);
-        $this->assertStringContainsString('actions', $component);
+        $this->assertStringNotContainsString('router.visit', $component);
+        $this->assertStringNotContainsString('actions', $component);
         $this->assertStringContainsString('/images/icon.png', $component);
         $this->assertStringContainsString('cleanAssistantText', $component);
         $this->assertStringNotContainsString('microphone', strtolower($component));

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Services\PublicAssistant\YouGoPublicAssistantService;
-use App\Support\YouGoHelpRoutes;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -42,14 +41,10 @@ class PublicYouGoAssistantController extends Controller
         abort_if(empty($messages) || end($messages)['role'] !== 'user', 422, 'The last message must be from the visitor.');
 
         $context = $data['context'] ?? [];
-        $latestUserMessage = end($messages)['content'];
         $message = $this->assistant->reply($messages, $data['locale'] ?? 'ro', $context);
-        $actions = YouGoHelpRoutes::actionsFor($latestUserMessage, $context, $data['locale'] ?? 'ro')
-            ?: YouGoHelpRoutes::actionsFor($message, $context, $data['locale'] ?? 'ro');
 
-        return response()->json(array_filter([
+        return response()->json([
             'message' => $message,
-            'actions' => $actions,
-        ], fn ($value) => $value !== []));
+        ]);
     }
 }

@@ -1,19 +1,11 @@
-import { router } from '@inertiajs/react';
 import { Loader2, MessageCircle, Send, X } from 'lucide-react';
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { PublicLocale } from '@/Components/PublicChrome';
 import { translate } from '@/i18n';
-
-type CopilotAction = {
-  type: 'navigate';
-  label: string;
-  href: string;
-};
 
 type ChatMessage = {
   role: 'user' | 'assistant';
   content: string;
-  actions?: CopilotAction[];
 };
 
 export type YouGoCopilotContext = {
@@ -29,16 +21,18 @@ const maxStoredMessages = 15;
 const openStorageKey = 'yougo_copilot_open';
 
 export function YouGoCopilot({ locale, context }: { locale: PublicLocale; context: YouGoCopilotContext }) {
-  const storageKey = 'yougo_copilot_chat_messages';
+  const storageKey = `yougo_copilot_chat_messages:${locale}`;
   const [open, setOpen] = useState(() => {
     if (typeof window === 'undefined') return false;
     return window.sessionStorage.getItem(openStorageKey) === 'true';
   });
-  const [messages, setMessages] = useState<ChatMessage[]>(() => initialMessages(locale));
+  const [messages, setMessages] = useState<ChatMessage[]>(() => storedMessages(storageKey, locale) ?? initialMessages(locale));
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const listRef = useRef<HTMLDivElement>(null);
+  const shouldSmoothScroll = useRef(false);
+  const inFlightRef = useRef(false);
   const t = (key: string) => translate(locale, key);
   const quickQuestions = useMemo(() => [
     t('publicChatQuickFree'),
@@ -50,27 +44,18 @@ export function YouGoCopilot({ locale, context }: { locale: PublicLocale; contex
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const stored = window.sessionStorage.getItem(storageKey);
-    if (! stored) {
-      setMessages(initialMessages(locale));
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(stored) as ChatMessage[];
-      setMessages(parsed.length ? parsed : initialMessages(locale));
-    } catch {
-      setMessages(initialMessages(locale));
-    }
-  }, [locale, storageKey]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
     window.sessionStorage.setItem(storageKey, JSON.stringify(messages.slice(-maxStoredMessages)));
   }, [messages, storageKey]);
 
-  useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+
+    list.scrollTo({
+      top: list.scrollHeight,
+      behavior: shouldSmoothScroll.current ? 'smooth' : 'auto',
+    });
+    shouldSmoothScroll.current = false;
   }, [messages, loading, open]);
 
   useEffect(() => {
@@ -80,18 +65,30 @@ export function YouGoCopilot({ locale, context }: { locale: PublicLocale; contex
 
   async function sendMessage(content: string) {
     const trimmed = content.trim();
-    if (! trimmed || loading) return;
+    if (! trimmed || inFlightRef.current) return;
 
+    inFlightRef.current = true;
+    shouldSmoothScroll.current = true;
     const nextMessages = [...messages, { role: 'user' as const, content: trimmed }].slice(-maxStoredMessages);
     setMessages(nextMessages);
     setInput('');
     setError('');
     setLoading(true);
 
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 45000);
+
     try {
       const response = await fetch('/yougo-assistant/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          ...csrfHeaders(),
+        },
+        credentials: 'same-origin',
+        signal: controller.signal,
         body: JSON.stringify({
           locale,
           messages: nextMessages.slice(-12).map(({ role, content }) => ({ role, content })),
@@ -107,14 +104,16 @@ export function YouGoCopilot({ locale, context }: { locale: PublicLocale; contex
         throw new Error('YouGo copilot request failed.');
       }
 
+      shouldSmoothScroll.current = true;
       setMessages((current) => [...current, {
         role: 'assistant',
         content: cleanAssistantText(data.message),
-        actions: validActions(data.actions),
       }].slice(-maxStoredMessages));
     } catch {
       setError(t('publicChatError'));
     } finally {
+      window.clearTimeout(timeoutId);
+      inFlightRef.current = false;
       setLoading(false);
     }
   }
@@ -124,13 +123,9 @@ export function YouGoCopilot({ locale, context }: { locale: PublicLocale; contex
     sendMessage(input);
   }
 
-  function navigate(action: CopilotAction) {
-    if (action.href.startsWith('/')) {
-      router.visit(action.href);
-      return;
-    }
-
-    window.location.href = action.href;
+  function openChat() {
+    shouldSmoothScroll.current = true;
+    setOpen(true);
   }
 
   return (
@@ -159,20 +154,6 @@ export function YouGoCopilot({ locale, context }: { locale: PublicLocale; contex
                   <div className={`whitespace-pre-line rounded-2xl px-3 py-2 text-sm leading-6 ${message.role === 'user' ? 'bg-indigo-600 text-white' : 'app-panel-soft app-text'}`}>
                     {message.role === 'assistant' ? cleanAssistantText(message.content) : message.content}
                   </div>
-                  {message.role === 'assistant' && message.actions && message.actions.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {message.actions.map((action) => (
-                        <button
-                          key={`${action.href}-${action.label}`}
-                          type="button"
-                          onClick={() => navigate(action)}
-                          className="rounded-lg border px-3 py-1.5 text-xs font-bold app-border app-panel app-text-soft hover:bg-[var(--soft)]"
-                        >
-                          {action.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </div>
             ))}
@@ -217,7 +198,7 @@ export function YouGoCopilot({ locale, context }: { locale: PublicLocale; contex
 
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={openChat}
         className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-xl shadow-indigo-600/30 transition hover:bg-indigo-700"
         aria-label={t('publicChatOpen')}
         aria-expanded={open}
@@ -233,6 +214,49 @@ function initialMessages(locale: PublicLocale): ChatMessage[] {
   return [{ role: 'assistant', content: translate(locale, 'publicChatInitialMessage') }];
 }
 
+function storedMessages(storageKey: string, locale: PublicLocale): ChatMessage[] | null {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const raw = window.sessionStorage.getItem(storageKey);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+
+    const messages = parsed.filter((message): message is ChatMessage => (
+      message
+      && (message.role === 'assistant' || message.role === 'user')
+      && typeof message.content === 'string'
+      && message.content.trim().length > 0
+    ));
+
+    if (messages.length > 0) {
+      return messages;
+    }
+
+    const legacyRaw = window.sessionStorage.getItem('yougo_copilot_chat_messages');
+    if (!legacyRaw) return null;
+
+    const legacyParsed = JSON.parse(legacyRaw);
+    if (!Array.isArray(legacyParsed)) return null;
+
+    const legacyMessages = legacyParsed.filter((message): message is ChatMessage => (
+      message
+      && (message.role === 'assistant' || message.role === 'user')
+      && typeof message.content === 'string'
+      && message.content.trim().length > 0
+    ));
+    const firstMessage = legacyMessages[0]?.content ?? '';
+    const expectedInitialMessage = translate(locale, 'publicChatInitialMessage');
+
+    return firstMessage === expectedInitialMessage && legacyMessages.length ? legacyMessages : null;
+  } catch {
+    window.sessionStorage.removeItem(storageKey);
+    return null;
+  }
+}
+
 function cleanAssistantText(text: string) {
   return text
     .replace(/\*\*(.*?)\*\*/g, '$1')
@@ -242,14 +266,17 @@ function cleanAssistantText(text: string) {
     .trim();
 }
 
-function validActions(actions: unknown): CopilotAction[] {
-  if (! Array.isArray(actions)) return [];
+function csrfHeaders() {
+  if (typeof document === 'undefined') return {};
 
-  return actions.filter((action): action is CopilotAction => (
-    action
-    && action.type === 'navigate'
-    && typeof action.label === 'string'
-    && typeof action.href === 'string'
-    && action.href.startsWith('/')
-  ));
+  const token = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
+  const xsrfToken = document.cookie
+    .split('; ')
+    .find((row) => row.startsWith('XSRF-TOKEN='))
+    ?.split('=')[1];
+
+  return {
+    ...(token ? { 'X-CSRF-TOKEN': token } : {}),
+    ...(xsrfToken ? { 'X-XSRF-TOKEN': decodeURIComponent(xsrfToken) } : {}),
+  };
 }

@@ -8,7 +8,6 @@ import {
   LayoutDashboard,
   MapPin,
   MessageCircle,
-  MessageSquare,
   Minus,
   Phone,
   Plug,
@@ -17,7 +16,6 @@ import {
   Send,
   Settings,
   Users,
-  XCircle,
 } from 'lucide-react';
 import { SiWhatsapp } from 'react-icons/si';
 import type React from 'react';
@@ -27,6 +25,7 @@ import { PricingPlansGrid } from '@/Components/PricingPlansGrid';
 import { PublicFooter, PublicHeader, PublicLocale } from '@/Components/PublicChrome';
 import { PublicYouGoChat } from '@/Components/PublicYouGoChat';
 import { translate } from '@/i18n';
+import { preferredLocale, rememberLocale, syncLocalePreference } from '@/lib/localePreference';
 import { OfferedService, PageProps, Plan } from '@/types';
 
 export default function Landing() {
@@ -34,12 +33,13 @@ export default function Landing() {
 
   const [locale, setLocale] = useState<PublicLocale>(() => {
     if (typeof window === 'undefined') return 'ro';
-    return (localStorage.getItem('yougo-lang') as PublicLocale) ?? 'ro';
+    return preferredLocale('ro');
   });
 
   function switchLang(lang: PublicLocale) {
     setLocale(lang);
-    localStorage.setItem('yougo-lang', lang);
+    rememberLocale(lang);
+    if (auth.user) syncLocalePreference(lang);
   }
 
   function scrollToHowItWorks(event: React.MouseEvent<HTMLAnchorElement>) {
@@ -133,11 +133,12 @@ type LandingTranslator = (key: string, params?: Record<string, string | number>)
 type MiniMenuItem = {
   icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
   label: string;
+  ai?: boolean;
 };
 type MiniStatItem = {
   icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
   label: string;
-  tone: 'blue' | 'green' | 'purple' | 'slate';
+  tone: 'blue' | 'green' | 'purple';
 };
 type BenefitItem = {
   icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
@@ -165,10 +166,11 @@ function HowItWorksSection({ t }: { t: LandingTranslator }) {
       number: '02',
       title: t('homepageHowStep2Title'),
       text: t('homepageHowStep2Text'),
+      emphasis: t('homepageHowStep2AiImportText'),
       mockup: (
         <MiniMenuMockup
           items={[
-            { icon: Scissors, label: t('homepageHowStep2Item1') },
+            { icon: Scissors, label: t('homepageHowStep2Item1'), ai: true },
             { icon: Users, label: t('homepageHowStep2Item2') },
             { icon: MapPin, label: t('homepageHowStep2Item3') },
           ]}
@@ -182,21 +184,17 @@ function HowItWorksSection({ t }: { t: LandingTranslator }) {
       mockup: (
         <MiniStatsMockup
           stats={[
-            { icon: MessageSquare, label: t('homepageHowStep3Stat1'), tone: 'blue' },
-            { icon: Clock, label: t('homepageHowStep3Stat2'), tone: 'purple' },
-            { icon: MessageCircle, label: t('homepageHowStep3Stat3'), tone: 'green' },
-            { icon: XCircle, label: t('homepageHowStep3Stat4'), tone: 'slate' },
+            { icon: MessageCircle, label: t('homepageHowStep3Stat1'), tone: 'blue' },
+            { icon: SiWhatsapp, label: t('homepageHowStep3Stat2'), tone: 'green' },
+            { icon: Phone, label: t('homepageHowStep3Stat3'), tone: 'purple' },
           ]}
-          chatLabel={t('chatVoice')}
-          whatsappLabel={t('carouselWhatsapp')}
-          phoneLabel={t('phone')}
         />
       ),
     },
   ];
 
   return (
-    <section id="how-it-works" className="scroll-mt-24 mx-auto max-w-6xl px-6 pb-24 mt-12">
+    <section id="how-it-works" className="scroll-mt-24 mx-auto max-w-6xl px-6 pb-24 mt-12" style={{ maxWidth:"1400px" }}>
       <div className="max-w-3xl">
         <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">{t('homepageHowEyebrow')}</p>
         <h2 className="text-3xl font-bold app-text md:text-4xl">{t('homepageHowTitle')}</h2>
@@ -215,7 +213,7 @@ function HowItWorksSection({ t }: { t: LandingTranslator }) {
   );
 }
 
-function HowItWorksCard({ number, title, text, mockup }: { number: string; title: string; text: string; mockup: React.ReactNode }) {
+function HowItWorksCard({ number, title, text, emphasis, mockup }: { number: string; title: string; text: string; emphasis?: string; mockup: React.ReactNode }) {
   return (
     <article className="flex h-full flex-col rounded-3xl border p-6 shadow-sm app-border app-panel">
       <div className="flex items-start justify-between gap-4">
@@ -224,7 +222,10 @@ function HowItWorksCard({ number, title, text, mockup }: { number: string; title
           <h3 className="mt-5 text-xl font-bold leading-7 app-text">{title}</h3>
         </div>
       </div>
-      <p className="mt-3 min-h-[4.5rem] text-sm leading-6 app-text-soft">{text}</p>
+      <p className="mt-3 min-h-[4.5rem] text-sm leading-6 app-text-soft">
+        {text}
+        {emphasis && <span className="font-semibold app-text"> {emphasis}</span>}
+      </p>
       <div className="mt-6 flex flex-1 items-end">{mockup}</div>
     </article>
   );
@@ -239,17 +240,20 @@ function MiniMenuMockup({ items }: { items: MiniMenuItem[] }) {
         <span className="h-2 w-2 rounded-full bg-slate-200 dark:bg-slate-700" />
       </div>
       <div className="space-y-2">
-        {items.map(({ icon: Icon, label }, index) => (
+        {items.map(({ icon: Icon, label, ai }, index) => (
           <div
             key={label}
-            className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${
-              index === 0
+            className={`${ai ? 'ai-import-button' : ''} flex items-center gap-3 rounded-xl border px-3 py-2.5 ${
+              ai
+                ? 'app-panel font-semibold'
+                : index === 0
                 ? 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-400/20 dark:bg-indigo-400/10 dark:text-indigo-200'
                 : 'app-border app-panel app-text-soft'
             }`}
           >
             <Icon className="h-4 w-4 shrink-0" aria-hidden />
             <span className="min-w-0 truncate text-sm font-semibold">{label}</span>
+            {ai && <span className="ai-import-button-glow" aria-hidden="true" />}
           </div>
         ))}
       </div>
@@ -257,34 +261,27 @@ function MiniMenuMockup({ items }: { items: MiniMenuItem[] }) {
   );
 }
 
-function MiniStatsMockup({ stats, chatLabel, whatsappLabel, phoneLabel }: { stats: MiniStatItem[]; chatLabel: string; whatsappLabel: string; phoneLabel: string }) {
+function MiniStatsMockup({ stats }: { stats: MiniStatItem[] }) {
   const tones = {
     blue: 'text-blue-600 dark:text-blue-300',
     green: 'text-emerald-600 dark:text-emerald-300',
     purple: 'text-purple-600 dark:text-purple-300',
-    slate: 'text-slate-700 dark:text-slate-300',
   };
 
   return (
     <div className="flex min-h-[188px] w-full flex-col justify-between rounded-2xl border p-3 app-border app-panel-soft">
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+      <div className="mb-3 flex items-center gap-1.5" aria-hidden="true">
+        <span className="h-2 w-2 rounded-full bg-indigo-300/80" />
+        <span className="h-2 w-2 rounded-full bg-slate-300 dark:bg-slate-600" />
+        <span className="h-2 w-2 rounded-full bg-slate-200 dark:bg-slate-700" />
+      </div>
+      <div className="grid gap-2">
         {stats.map(({ icon: Icon, label, tone }) => (
-          <div key={label} className="flex min-h-10 items-center gap-1.5 rounded-xl border px-3 py-2 app-border app-panel sm:items-start">
+          <div key={label} className="flex min-h-11 items-center gap-2 rounded-xl border px-3 py-2 app-border app-panel">
             <Icon className={`h-4 w-4 shrink-0 ${tones[tone]}`} aria-hidden />
-            <p className="min-w-0 text-sm font-bold leading-4 app-text sm:text-[10.5px]">{label}</p>
+            <p className="min-w-0 text-sm font-bold leading-4 app-text">{label}</p>
           </div>
         ))}
-      </div>
-      <div className="mt-2 grid grid-cols-3 gap-2">
-        <div className="flex h-9 items-center justify-center rounded-xl border border-indigo-600 bg-indigo-600 text-white shadow-sm shadow-indigo-600/20 dark:border-indigo-400 dark:bg-indigo-500" aria-label={chatLabel}>
-          <MessageCircle className="h-5 w-5 fill-current" aria-hidden />
-        </div>
-        <div className="flex h-9 items-center justify-center rounded-xl border app-border app-panel app-text-muted" aria-label={whatsappLabel}>
-          <SiWhatsapp className="h-4 w-4" aria-hidden />
-        </div>
-        <div className="flex h-9 items-center justify-center rounded-xl border app-border app-panel app-text-muted" aria-label={phoneLabel}>
-          <Phone className="h-4 w-4" aria-hidden />
-        </div>
       </div>
     </div>
   );
@@ -402,7 +399,7 @@ function PricingSection({ plans, services, t, authUser }: { plans: Plan[]; servi
   const [selectedVoicePlan, setSelectedVoicePlan] = useState<VoicePlanKey>('voice_starter');
 
   return (
-    <section className="mx-auto max-w-6xl px-6 pb-24">
+    <section className="mx-auto max-w-6xl px-6 pb-24" style={{ maxWidth:"1400px" }}>
       <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div className="max-w-2xl">
           <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">{t('pricing')}</p>

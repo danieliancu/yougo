@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Service;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class ServiceController extends Controller
@@ -76,20 +77,42 @@ class ServiceController extends Controller
         $salon = $request->user()->salon;
 
         $data = $request->validate([
-            'categories' => ['required', 'array'],
+            'categories' => ['present', 'array'],
             'categories.*' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $categories = collect($data['categories'])
-            ->map(fn ($category) => trim((string) $category))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
+        $oldCategories = $this->sanitizeCategories($salon->service_categories ?? []);
+        $categories = $this->sanitizeCategories($data['categories']);
 
-        $salon->update([
-            'service_categories' => $categories,
-        ]);
+        DB::transaction(function () use ($salon, $oldCategories, $categories) {
+            $renameMap = $this->categoryRenameMap($oldCategories, $categories);
+
+            foreach ($renameMap as $oldCategory => $newCategory) {
+                $salon->services()
+                    ->where('type', $oldCategory)
+                    ->update(['type' => $newCategory]);
+            }
+
+            $newCategoryKeys = collect($categories)
+                ->mapWithKeys(fn (string $category) => [$this->normalizeCategoryKey($category) => true]);
+            $renamedCategoryKeys = collect(array_keys($renameMap))
+                ->mapWithKeys(fn (string $category) => [$this->normalizeCategoryKey($category) => true]);
+            $removedCategories = collect($oldCategories)
+                ->reject(fn (string $category) => $newCategoryKeys->has($this->normalizeCategoryKey($category)))
+                ->reject(fn (string $category) => $renamedCategoryKeys->has($this->normalizeCategoryKey($category)))
+                ->values()
+                ->all();
+
+            if ($removedCategories !== []) {
+                $salon->services()
+                    ->whereIn('type', $removedCategories)
+                    ->update(['type' => null]);
+            }
+
+            $salon->update([
+                'service_categories' => $categories,
+            ]);
+        });
 
         return back()->with('success', 'Categorii actualizate.');
     }
@@ -120,6 +143,55 @@ class ServiceController extends Controller
     private function authorizeOwner(Request $request, Service $service): void
     {
         abort_unless($service->salon_id === $request->user()->salon?->id, 403);
+    }
+
+    private function sanitizeCategories(array $categories): array
+    {
+        return collect($categories)
+            ->map(fn ($category) => trim((string) $category))
+            ->filter()
+            ->unique(fn (string $category) => $this->normalizeCategoryKey($category))
+            ->values()
+            ->all();
+    }
+
+    /** @return array<string, string> */
+    private function categoryRenameMap(array $oldCategories, array $newCategories): array
+    {
+        $oldCategoryKeys = collect($oldCategories)
+            ->mapWithKeys(fn (string $category) => [$this->normalizeCategoryKey($category) => true]);
+        $newCategoryKeys = collect($newCategories)
+            ->mapWithKeys(fn (string $category) => [$this->normalizeCategoryKey($category) => true]);
+
+        $map = [];
+        foreach ($oldCategories as $index => $oldCategory) {
+            $newCategory = $newCategories[$index] ?? null;
+            if ($newCategory === null) {
+                continue;
+            }
+
+            $oldKey = $this->normalizeCategoryKey($oldCategory);
+            $newKey = $this->normalizeCategoryKey($newCategory);
+
+            if ($oldKey === $newKey) {
+                if ($oldCategory !== $newCategory) {
+                    $map[$oldCategory] = $newCategory;
+                }
+
+                continue;
+            }
+
+            if (! $newCategoryKeys->has($oldKey) && ! $oldCategoryKeys->has($newKey)) {
+                $map[$oldCategory] = $newCategory;
+            }
+        }
+
+        return $map;
+    }
+
+    private function normalizeCategoryKey(string $category): string
+    {
+        return mb_strtolower(trim(preg_replace('/\s+/', ' ', $category) ?? $category));
     }
 
     private function validateLocations(Request $request, array $locationIds): void

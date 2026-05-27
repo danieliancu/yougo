@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Salon;
 use App\Support\BusinessTaxonomy;
 use App\Support\YouGoServices;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -67,6 +68,21 @@ class SettingsController extends Controller
         ]);
 
         return back()->with('success', 'Setarile au fost salvate.');
+    }
+
+    public function updateLanguage(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'display_language' => ['required', 'string', Rule::in(['ro', 'en'])],
+        ]);
+
+        $request->user()->salon()->firstOrCreate([], [
+            'name' => "{$request->user()->name}'s Salon",
+        ])->update([
+            'display_language' => $data['display_language'],
+        ]);
+
+        return response()->json(['locale' => $data['display_language']]);
     }
 
     public function destroy(Request $request): RedirectResponse

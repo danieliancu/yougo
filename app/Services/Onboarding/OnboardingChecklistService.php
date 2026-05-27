@@ -129,10 +129,8 @@ class OnboardingChecklistService
 
     private function hasAiConfiguration(Salon $salon): bool
     {
-        return filled($salon->ai_assistant_name)
-            || filled($salon->ai_business_summary)
+        return filled($salon->ai_business_summary)
             || filled($salon->ai_custom_instructions)
-            || count($salon->ai_industry_categories ?? []) > 0
             || count($salon->ai_custom_context ?? []) > 0;
     }
 }

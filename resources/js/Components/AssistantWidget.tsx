@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { MessageSquarePlus, Minus, Send, Sparkles, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { ChatShell } from '@/Components/ChatShell';
@@ -165,6 +165,7 @@ export function AssistantWidget({
   });
   const highlightNewChat = shouldHighlightNewChat(messages);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const shouldSmoothScroll = useRef(false);
   const conversationIdRef = useRef<number | null>(conversationId);
 
   useEffect(() => { conversationIdRef.current = conversationId; }, [conversationId]);
@@ -178,13 +179,21 @@ export function AssistantWidget({
     window.sessionStorage.setItem(messagesSessionKey(conversationStorageKey), JSON.stringify(messages.slice(-30)));
   }, [messages, conversationStorageKey]);
 
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+  useLayoutEffect(() => {
+    const scrollBody = scrollRef.current;
+    if (!scrollBody) return;
+
+    scrollBody.scrollTo({
+      top: scrollBody.scrollHeight,
+      behavior: shouldSmoothScroll.current ? 'smooth' : 'auto',
+    });
+    shouldSmoothScroll.current = false;
   }, [messages, loading]);
 
   async function send(text: string) {
     if (!text.trim() || loading) return;
 
+    shouldSmoothScroll.current = true;
     const nextMessages = [...messages, { role: 'user' as const, content: text.trim() }];
     setMessages(nextMessages);
     setInput('');
@@ -226,10 +235,12 @@ export function AssistantWidget({
       }
 
       const assistantMessage = String(data.message ?? fallbackMessage);
+      shouldSmoothScroll.current = true;
       setMessages([...nextMessages, { role: 'assistant', content: assistantMessage }]);
     } catch (error) {
       const message = error instanceof Error ? error.message : t('unknownError');
       toast.error(message);
+      shouldSmoothScroll.current = true;
       setMessages([...nextMessages, { role: 'assistant', content: fallbackMessage }]);
     } finally {
       setLoading(false);

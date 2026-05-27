@@ -54,4 +54,36 @@ class LocationHoursValidationTest extends TestCase
             'hours.mon' => 'Program invalid. Orele trebuie sa fie intre 00:00 si 23:59.',
         ]);
     }
+
+    public function test_location_required_fields_are_localized_in_romanian(): void
+    {
+        $user = User::factory()->create();
+        Salon::query()->create([
+            'user_id' => $user->id,
+            'name' => 'YouGo Studio',
+            'display_language' => 'ro',
+        ]);
+
+        $this->actingAs($user)->post('/locations', [])
+            ->assertSessionHasErrors([
+                'name' => 'Campul nume este obligatoriu.',
+                'address' => 'Campul adresa este obligatoriu.',
+            ]);
+    }
+
+    public function test_location_required_fields_are_localized_in_english(): void
+    {
+        $user = User::factory()->create();
+        Salon::query()->create([
+            'user_id' => $user->id,
+            'name' => 'YouGo Studio',
+            'display_language' => 'en',
+        ]);
+
+        $this->actingAs($user)->post('/locations', [])
+            ->assertSessionHasErrors([
+                'name' => 'The name field is required.',
+                'address' => 'The address field is required.',
+            ]);
+    }
 }

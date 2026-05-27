@@ -207,7 +207,7 @@ function MobileLandingMenu({
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex h-10 w-10 items-center justify-center rounded-lg border app-text-soft hover:bg-[var(--soft)]"
+        className="flex h-10 w-10 items-center justify-center rounded-lg border app-border app-text-soft hover:bg-[var(--soft)]"
         aria-label="Menu"
         aria-expanded={open}
       >
@@ -277,7 +277,7 @@ export function PublicFooter({ t }: { t: (key: string) => string }) {
 
   return (
     <footer className="border-t app-border">
-      <div className="mx-auto grid max-w-6xl gap-8 px-6 py-10 md:grid-cols-[1.2fr_0.7fr_0.8fr_0.8fr]">
+      <div className="mx-auto grid max-w-6xl gap-8 px-6 py-10 md:grid-cols-[1.2fr_0.7fr_0.8fr_0.8fr]" style={{ maxWidth:"1400px" }} >
         <div>
           <Link href="/" className="inline-flex items-center">
             <PublicBrandLogo className="h-11" />

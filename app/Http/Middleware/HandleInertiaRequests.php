@@ -17,7 +17,10 @@ class HandleInertiaRequests extends Middleware
 
     public function share(Request $request): array
     {
-        $locale = $request->user()?->salon?->display_language ?? config('app.locale', 'ro');
+        $cookieLocale = $request->cookie('yougo-lang');
+        $locale = in_array($cookieLocale, ['ro', 'en'], true)
+            ? $cookieLocale
+            : ($request->user()?->salon?->display_language ?? config('app.locale', 'ro'));
 
         return [
             ...parent::share($request),

@@ -236,6 +236,73 @@ body {
   color: inherit;
 }
 
+.ai-import-button {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-color: transparent;
+  color: #6d28d9;
+  box-shadow:
+    0 0 0 1px rgb(124 58 237 / 0.28),
+    0 10px 24px rgb(124 58 237 / 0.14);
+}
+
+.dark .ai-import-button {
+  color: #c4b5fd;
+  box-shadow:
+    0 0 0 1px rgb(196 181 253 / 0.24),
+    0 10px 26px rgb(139 92 246 / 0.22);
+}
+
+.ai-import-button::before {
+  position: absolute;
+  inset: -1px;
+  z-index: -2;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7c3aed, #ef4444, #ffffff, #a855f7, #7c3aed);
+  background-size: 240% 100%;
+  content: '';
+  animation: ai-button-border-sweep 2.4s linear infinite;
+}
+
+.ai-import-button::after {
+  position: absolute;
+  inset: 1px;
+  z-index: -1;
+  border-radius: calc(0.5rem - 1px);
+  background: var(--app-panel);
+  content: '';
+}
+
+.ai-import-button > svg,
+.ai-import-button > span,
+.ai-import-button {
+  z-index: 0;
+}
+
+.ai-import-button .ai-import-button-glow {
+  position: absolute;
+  right: 12%;
+  bottom: -8px;
+  left: 12%;
+  z-index: -3;
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgb(239 68 68 / 0.42), rgb(124 58 237 / 0.5), transparent);
+  background-size: 220% 100%;
+  filter: blur(8px);
+  opacity: 0.85;
+  animation: ai-button-border-sweep 2.4s linear infinite;
+  content: '';
+  pointer-events: none;
+}
+
+.ai-import-button:hover {
+  box-shadow:
+    0 0 0 1px rgb(124 58 237 / 0.36),
+    0 12px 32px rgb(124 58 237 / 0.24);
+}
+
 .railway-lights {
   position: relative;
   display: inline-flex;
@@ -387,6 +454,15 @@ body {
   50% {
     opacity: 1;
     transform: scaleY(1.1);
+  }
+}
+
+@keyframes ai-button-border-sweep {
+  0% {
+    background-position: 220% 0;
+  }
+  100% {
+    background-position: -20% 0;
   }
 }
 

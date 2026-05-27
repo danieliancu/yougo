@@ -43,6 +43,8 @@ return [
     'gemini' => [
         'key' => env('GEMINI_API_KEY'),
         'model' => env('GEMINI_MODEL', 'gemini-3-flash-preview'),
+        'vision_model' => env('GEMINI_VISION_MODEL', env('GEMINI_MODEL', 'gemini-3-flash-preview')),
+        'vision_timeout' => (int) env('GEMINI_VISION_TIMEOUT', 60),
         'ca_bundle' => $geminiCaBundle,
     ],
 

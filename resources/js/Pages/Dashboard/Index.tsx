@@ -10,6 +10,7 @@ import { FormEvent, lazy, ReactNode, Suspense, useEffect, useMemo, useRef, useSt
 import { useT } from '@/i18n';
 import { businessTaxonomy, findBusinessType, normalizeBusinessTypeSlug } from '@/data/businessTaxonomy';
 import { integrationStatusLabel, planHasService, serviceEntitlementLabel, serviceIsLive, serviceStatusLabel, serviceByKey } from '@/lib/yougoServices';
+import { preferredLocale, rememberLocale } from '@/lib/localePreference';
 
 const ActivityChart = lazy(() => import('@/Components/ActivityChart'));
 
@@ -28,6 +29,16 @@ type Props = PageProps<{
 
 type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
 type DateRange = { start: string; end: string };
+type ImportedServiceCandidate = {
+  name: string;
+  category: string;
+  duration_minutes: number | '';
+  price: string;
+  description: string;
+  notes: string;
+  selected: boolean;
+  duplicate?: boolean;
+};
 
 const TABLE_PILL_CLASS = 'inline-flex items-center justify-center whitespace-nowrap rounded-md font-semibold uppercase tracking-wide min-w-28 px-2 py-1 text-[10px]';
 
@@ -120,7 +131,7 @@ export default function DashboardIndex() {
   const headerSubtitle = headerSubtitles[section] ?? '';
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const activeLocale = locale === 'en' ? 'en' : 'ro';
+  const activeLocale = preferredLocale(locale);
 
   const searchSections: Partial<Record<Props['section'], string>> = {
     conversations: t('searchConversations'),
@@ -160,6 +171,7 @@ export default function DashboardIndex() {
   function switchLanguage(displayLanguage: 'ro' | 'en') {
     if (displayLanguage === activeLocale || !auth.user) return;
 
+    rememberLocale(displayLanguage);
     router.post('/settings', {
       name: auth.user.name,
       business_name: salon.name,
@@ -1759,6 +1771,22 @@ function UsageSummaryPanel({ summary, action, compact = false }: { summary: Usag
   const t = useT();
   const items = [
     {
+      key: 'ai_messages',
+      label: t('aiMessages'),
+      used: summary.usage.ai_messages,
+      limit: summary.limits.ai_messages,
+      icon: Sparkles,
+      tone: 'emerald' as const,
+    },
+    {
+      key: 'bookings',
+      label: t('bookings'),
+      used: summary.usage.bookings,
+      limit: summary.limits.bookings,
+      icon: Calendar,
+      tone: 'sky' as const,
+    },
+    {
       key: 'conversations',
       label: t('usageChatConversations'),
       used: summary.usage.conversations,
@@ -1783,22 +1811,6 @@ function UsageSummaryPanel({ summary, action, compact = false }: { summary: Usag
       icon: Phone,
       tone: 'slate' as const,
       locked: !planHasService(summary.plan, 'phone_ai'),
-    },
-    {
-      key: 'ai_messages',
-      label: t('aiMessages'),
-      used: summary.usage.ai_messages,
-      limit: summary.limits.ai_messages,
-      icon: Sparkles,
-      tone: 'emerald' as const,
-    },
-    {
-      key: 'bookings',
-      label: t('bookings'),
-      used: summary.usage.bookings,
-      limit: summary.limits.bookings,
-      icon: Calendar,
-      tone: 'sky' as const,
     },
   ];
 
@@ -2344,6 +2356,8 @@ function Locations({ salon }: { salon: Salon }) {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [confirmation, setConfirmation] = useState<{ title: string; message: string; tone?: 'danger' | 'neutral'; onConfirm: () => void } | null>(null);
+  const addLocationFormRef = useRef<HTMLFormElement>(null);
+  const editLocationFormRef = useRef<HTMLFormElement>(null);
   const defaultHours: Record<string, string> = {
     mon: '09:00 - 18:00',
     tue: '09:00 - 18:00',
@@ -2385,6 +2399,7 @@ function Locations({ salon }: { salon: Salon }) {
         form.reset();
         setAdding(false);
       },
+      onError: (errors) => scrollToFirstFormError(addLocationFormRef.current, Object.keys(errors)),
     });
   }
 
@@ -2409,6 +2424,7 @@ function Locations({ salon }: { salon: Salon }) {
     editForm.put(`/locations/${editingId}`, {
       preserveScroll: true,
       onSuccess: () => setEditingId(null),
+      onError: (errors) => scrollToFirstFormError(editLocationFormRef.current, Object.keys(errors)),
     });
   }
 
@@ -2431,16 +2447,18 @@ function Locations({ salon }: { salon: Salon }) {
       <Toolbar title={t('salonLocations')} subtitle={t('locationsSubtitle')} hideText action={<Button onClick={() => setAdding(true)}><Plus className="h-4 w-4" /> {t('addLocation')}</Button>} />
       {adding && (
         <Card className="p-5">
-          <form className="grid gap-4 lg:grid-cols-4" onSubmit={submit}>
-            <Field label="Nume" error={form.errors.name}><Input value={form.data.name} onChange={(event) => form.setData('name', event.target.value)} /></Field>
-            <Field label="Adresa" error={form.errors.address}><Input value={form.data.address} onChange={(event) => form.setData('address', event.target.value)} /></Field>
-            <Field label="Telefon" error={form.errors.phone}><Input value={form.data.phone} onChange={(event) => form.setData('phone', event.target.value)} /></Field>
-            <Field label="Email" error={form.errors.email}><Input value={form.data.email} onChange={(event) => form.setData('email', event.target.value)} /></Field>
-            <Field label={t('maxSimultaneousBookings')} error={form.errors.max_concurrent_bookings}>
-              <Input type="number" min={1} max={100} value={form.data.max_concurrent_bookings} onChange={(event) => form.setData('max_concurrent_bookings', event.target.value)} />
-              <span className="block text-xs app-text-muted">{t('locationCapacityHelp')}</span>
-            </Field>
-            <div className="lg:col-span-4">
+          <form ref={addLocationFormRef} className="grid gap-4 lg:grid-cols-4" onSubmit={submit}>
+            <div data-error-key="name"><Field label="Nume" error={form.errors.name}><Input value={form.data.name} onChange={(event) => form.setData('name', event.target.value)} /></Field></div>
+            <div data-error-key="address"><Field label="Adresa" error={form.errors.address}><Input value={form.data.address} onChange={(event) => form.setData('address', event.target.value)} /></Field></div>
+            <div data-error-key="phone"><Field label="Telefon" error={form.errors.phone}><Input value={form.data.phone} onChange={(event) => form.setData('phone', event.target.value)} /></Field></div>
+            <div data-error-key="email"><Field label="Email" error={form.errors.email}><Input value={form.data.email} onChange={(event) => form.setData('email', event.target.value)} /></Field></div>
+            <div data-error-key="max_concurrent_bookings">
+              <Field label={t('maxSimultaneousBookings')} error={form.errors.max_concurrent_bookings}>
+                <Input type="number" min={1} max={100} value={form.data.max_concurrent_bookings} onChange={(event) => form.setData('max_concurrent_bookings', event.target.value)} />
+                <span className="block text-xs app-text-muted">{t('locationCapacityHelp')}</span>
+              </Field>
+            </div>
+            <div className="lg:col-span-4" data-error-key="hours">
               <HoursEditor
                 title={t('operatingHours')}
                 hours={form.data.hours}
@@ -2467,24 +2485,28 @@ function Locations({ salon }: { salon: Salon }) {
         ) : salon.locations.map((location) => (
           <Card key={location.id} className="p-5">
             {editingId === location.id ? (
-              <form className="space-y-4" onSubmit={submitEdit}>
+              <form ref={editLocationFormRef} className="space-y-4" onSubmit={submitEdit}>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Nume" error={editForm.errors.name}><Input value={editForm.data.name} onChange={(event) => editForm.setData('name', event.target.value)} /></Field>
-                  <Field label="Telefon" error={editForm.errors.phone}><Input value={editForm.data.phone} onChange={(event) => editForm.setData('phone', event.target.value)} /></Field>
-                  <Field label="Adresa" error={editForm.errors.address}><Input value={editForm.data.address} onChange={(event) => editForm.setData('address', event.target.value)} /></Field>
-                  <Field label="Email" error={editForm.errors.email}><Input value={editForm.data.email} onChange={(event) => editForm.setData('email', event.target.value)} /></Field>
-                  <Field label={t('maxSimultaneousBookings')} error={editForm.errors.max_concurrent_bookings}>
-                    <Input type="number" min={1} max={100} value={editForm.data.max_concurrent_bookings} onChange={(event) => editForm.setData('max_concurrent_bookings', event.target.value)} />
-                    <span className="block text-xs app-text-muted">{t('locationCapacityHelp')}</span>
-                  </Field>
+                  <div data-error-key="name"><Field label="Nume" error={editForm.errors.name}><Input value={editForm.data.name} onChange={(event) => editForm.setData('name', event.target.value)} /></Field></div>
+                  <div data-error-key="phone"><Field label="Telefon" error={editForm.errors.phone}><Input value={editForm.data.phone} onChange={(event) => editForm.setData('phone', event.target.value)} /></Field></div>
+                  <div data-error-key="address"><Field label="Adresa" error={editForm.errors.address}><Input value={editForm.data.address} onChange={(event) => editForm.setData('address', event.target.value)} /></Field></div>
+                  <div data-error-key="email"><Field label="Email" error={editForm.errors.email}><Input value={editForm.data.email} onChange={(event) => editForm.setData('email', event.target.value)} /></Field></div>
+                  <div data-error-key="max_concurrent_bookings">
+                    <Field label={t('maxSimultaneousBookings')} error={editForm.errors.max_concurrent_bookings}>
+                      <Input type="number" min={1} max={100} value={editForm.data.max_concurrent_bookings} onChange={(event) => editForm.setData('max_concurrent_bookings', event.target.value)} />
+                      <span className="block text-xs app-text-muted">{t('locationCapacityHelp')}</span>
+                    </Field>
+                  </div>
                 </div>
-                <HoursEditor
-                  title={t('operatingHours')}
-                  hours={editForm.data.hours}
-                  onChange={(key, value) => editForm.setData('hours', { ...editForm.data.hours, [key]: value })}
-                  onBulkApply={(nextHours) => editForm.setData('hours', nextHours)}
-                  errors={editHourErrors}
-                />
+                <div data-error-key="hours">
+                  <HoursEditor
+                    title={t('operatingHours')}
+                    hours={editForm.data.hours}
+                    onChange={(key, value) => editForm.setData('hours', { ...editForm.data.hours, [key]: value })}
+                    onBulkApply={(nextHours) => editForm.setData('hours', nextHours)}
+                    errors={editHourErrors}
+                  />
+                </div>
                 <div className="flex gap-2">
                   <Button disabled={editForm.processing || editHasHourErrors}>{t('save')}</Button>
                   <SecondaryButton type="button" onClick={() => setEditingId(null)}>{t('cancel')}</SecondaryButton>
@@ -2989,6 +3011,8 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
   const [managingCategories, setManagingCategories] = useState(false);
   const [editingServiceId, setEditingServiceId] = useState<number | null>(null);
   const [confirmation, setConfirmation] = useState<{ title: string; message: string; tone?: 'danger' | 'neutral'; confirmLabel?: string; onConfirm: () => void } | null>(null);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importAlert, setImportAlert] = useState<{ title: string; message: string } | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
   const [branchFilter, setBranchFilter] = useState<number[]>([]);
   const [categoryDrafts, setCategoryDrafts] = useState<string[]>(salon.service_categories ?? []);
@@ -3123,8 +3147,10 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
   }
 
   function saveCategories() {
+    const categories = Array.from(new Set(categoryDrafts.map((category) => category.trim()).filter(Boolean)));
+
     router.put('/services/categories', {
-      categories: categoryDrafts,
+      categories,
     }, {
       preserveScroll: true,
       onSuccess: () => setManagingCategories(false),
@@ -3145,6 +3171,28 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
           if (!confirmation) return;
           confirmation.onConfirm();
           setConfirmation(null);
+        }}
+      />
+      <AlertModal
+        open={importAlert !== null}
+        title={importAlert?.title ?? ''}
+        message={importAlert?.message ?? ''}
+        okLabel="OK"
+        onClose={() => setImportAlert(null)}
+      />
+      <ServiceImageImportModal
+        open={importModalOpen}
+        salon={salon}
+        onClose={() => setImportModalOpen(false)}
+        onImported={(createdCount, skippedCount) => {
+          setImportModalOpen(false);
+          setImportAlert({
+            title: skippedCount > 0 ? t('serviceImportPartialSuccess') : t('serviceImportSuccess'),
+            message: skippedCount > 0
+              ? t('serviceImportDuplicateSkipped', { count: skippedCount })
+              : t('serviceImportCreatedCount', { count: createdCount }),
+          });
+          router.reload({ only: ['salon'], preserveScroll: true });
         }}
       />
       <EditModal open={editingServiceId !== null} title={t('editService')} onClose={() => setEditingServiceId(null)}>
@@ -3194,7 +3242,7 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
             {categoryDrafts.map((category, index) => (
               <div key={index} className="flex gap-2">
                 <Input value={category} onChange={(event) => updateCategoryDraft(index, event.target.value)} placeholder={t('category')} />
-                <DangerButton onClick={() => setConfirmation({
+                <DangerButton type="button" onClick={() => setConfirmation({
                   title: t('removeCategory'),
                   message: t('removeCategoryConfirm'),
                   onConfirm: () => removeCategoryDraft(index),
@@ -3203,9 +3251,9 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
             ))}
           </div>
           <div className="flex flex-wrap gap-2">
-            <SecondaryButton onClick={addCategoryDraft}><Plus className="h-4 w-4" /> {t('addCategory')}</SecondaryButton>
-            <Button onClick={saveCategories}>{t('save')}</Button>
-            <SecondaryButton onClick={() => setManagingCategories(false)}>{t('cancel')}</SecondaryButton>
+            <SecondaryButton type="button" onClick={addCategoryDraft}><Plus className="h-4 w-4" /> {t('addCategory')}</SecondaryButton>
+            <Button type="button" onClick={saveCategories}>{t('save')}</Button>
+            <SecondaryButton type="button" onClick={() => setManagingCategories(false)}>{t('cancel')}</SecondaryButton>
           </div>
         </div>
       </EditModal>
@@ -3254,12 +3302,21 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
         subtitle={t('servicesSubtitle')}
         hideText
         action={
-          <div className="flex flex-wrap gap-2">
-            <SecondaryButton onClick={openCategoryManager}><Plus className="h-4 w-4" /> {t('addCategory')}</SecondaryButton>
-            <Link href="/dashboard/staff" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium transition app-panel app-text-soft hover:bg-[var(--app-panel-soft)]">
+          <div className="grid w-full min-w-0 grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+            <SecondaryButton className="w-full sm:w-auto" onClick={openCategoryManager}><Plus className="h-4 w-4" /> {t('addEditCategory')}</SecondaryButton>
+            <Link href="/dashboard/staff" className="inline-flex h-10 w-full min-w-0 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium transition app-panel app-text-soft hover:bg-[var(--app-panel-soft)] sm:w-auto">
               <Users className="h-4 w-4" /> {t('manageStaff')}
             </Link>
-            <Button onClick={() => setAdding(true)}><Plus className="h-4 w-4" /> {t('addService')}</Button>
+            <Button className="w-full sm:w-auto" onClick={() => setAdding(true)}><Plus className="h-4 w-4" /> {t('addService')}</Button>
+            <button
+              type="button"
+              onClick={() => setImportModalOpen(true)}
+              className="ai-import-button inline-flex h-10 w-full min-w-0 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-semibold transition app-panel focus:outline-none focus:ring-2 focus:ring-violet-500/30 sm:w-auto"
+            >
+              <Sparkles className="h-4 w-4" />
+              <span>{t('importWithAi')}</span>
+              <span className="ai-import-button-glow" aria-hidden="true" />
+            </button>
           </div>
         }
       />
@@ -3378,6 +3435,325 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
   );
 }
 
+function ServiceImageImportModal({
+  open,
+  salon,
+  onClose,
+  onImported,
+}: {
+  open: boolean;
+  salon: Salon;
+  onClose: () => void;
+  onImported: (createdCount: number, skippedCount: number) => void;
+}) {
+  const t = useT();
+  const [image, setImage] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [candidates, setCandidates] = useState<ImportedServiceCandidate[]>([]);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [warning, setWarning] = useState('');
+  const existingNames = useMemo(() => new Set(salon.services.map((service) => normalizeServiceName(service.name))), [salon.services]);
+  const selectedCount = candidates.filter((candidate) => candidate.selected && candidate.name.trim()).length;
+
+  useEffect(() => {
+    if (!image) {
+      setPreviewUrl('');
+      return;
+    }
+
+    const url = URL.createObjectURL(image);
+    setPreviewUrl(url);
+
+    return () => URL.revokeObjectURL(url);
+  }, [image]);
+
+  useEffect(() => {
+    if (!open) {
+      setImage(null);
+      setCandidates([]);
+      setError('');
+      setWarning('');
+      setAnalyzing(false);
+      setSaving(false);
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  function chooseImage(file: File | null) {
+    setError('');
+    setWarning('');
+    setCandidates([]);
+    setImage(file);
+  }
+
+  async function analyzeImage() {
+    if (!image || analyzing) return;
+
+    setAnalyzing(true);
+    setError('');
+    setWarning('');
+
+    const body = new FormData();
+    body.append('image', image);
+
+    try {
+      const response = await fetch('/dashboard/services/import-image/analyze', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          Accept: 'application/json',
+          ...csrfHeaders(),
+        },
+        body,
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(serviceImportErrorMessage(data, t));
+      }
+
+      const services = Array.isArray(data.services) ? data.services : [];
+      const nextCandidates = services.map((service: Record<string, unknown>): ImportedServiceCandidate => {
+        const name = String(service.name ?? '').trim();
+
+        return {
+          name,
+          category: String(service.category ?? ''),
+          duration_minutes: typeof service.duration_minutes === 'number' ? service.duration_minutes : '',
+          price: service.price === null || service.price === undefined ? '' : String(service.price),
+          description: String(service.description ?? ''),
+          notes: String(service.notes ?? ''),
+          selected: true,
+          duplicate: existingNames.has(normalizeServiceName(name)),
+        };
+      }).filter((service: ImportedServiceCandidate) => service.name);
+
+      setCandidates(nextCandidates);
+      setWarning(data.warning || (nextCandidates.length === 0 ? t('noServicesDetected') : ''));
+    } catch (error) {
+      setError(error instanceof Error ? error.message : t('serviceImportFailed'));
+      setCandidates([]);
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
+  function updateCandidate(index: number, patch: Partial<ImportedServiceCandidate>) {
+    setCandidates((current) => current.map((candidate, candidateIndex) => {
+      if (candidateIndex !== index) return candidate;
+
+      const next = { ...candidate, ...patch };
+      if (patch.name !== undefined) {
+        next.duplicate = existingNames.has(normalizeServiceName(patch.name));
+      }
+
+      return next;
+    }));
+  }
+
+  async function insertSelectedServices() {
+    if (saving || selectedCount === 0) return;
+
+    setSaving(true);
+    setError('');
+
+    try {
+      const response = await fetch('/dashboard/services/import-image/store', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          ...csrfHeaders(),
+        },
+        body: JSON.stringify({
+          services: candidates.map((candidate) => ({
+            name: candidate.name.trim(),
+            category: candidate.category.trim() || null,
+            duration_minutes: candidate.duration_minutes === '' ? null : Number(candidate.duration_minutes),
+            price: candidate.price.trim() === '' ? null : Number(candidate.price),
+            description: candidate.description.trim() || null,
+            notes: candidate.notes.trim() || null,
+            selected: candidate.selected,
+          })),
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(serviceImportErrorMessage(data, t));
+      }
+
+      onImported(Number(data.created_count ?? 0), Array.isArray(data.skipped) ? data.skipped.length : 0);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : t('serviceImportFailed'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+      <div className="max-h-[calc(100vh-2rem)] w-full max-w-5xl overflow-y-auto rounded-lg border p-5 shadow-xl app-panel" role="dialog" aria-modal="true" aria-labelledby="service-import-title">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <h2 id="service-import-title" className="text-lg font-bold app-text">{t('importServicesFromImage')}</h2>
+            <p className="mt-1 max-w-2xl text-sm app-text-muted">{t('importServicesFromImageSubtitle')}</p>
+          </div>
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={onClose}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg app-text-soft hover:bg-[var(--app-panel-soft)]"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="grid gap-5 lg:grid-cols-[280px_1fr]">
+          <div className="space-y-4">
+            <label className="block rounded-lg border border-dashed p-4 text-sm app-border app-panel-soft">
+              <span className="mb-2 block text-xs font-bold uppercase tracking-wide app-text-muted">{t('uploadServiceImage')}</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="block w-full text-sm app-text-soft file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-600 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white"
+                onChange={(event) => chooseImage(event.target.files?.[0] ?? null)}
+              />
+            </label>
+
+            {image && (
+              <div className="space-y-3 rounded-lg border p-3 app-border app-panel">
+                <p className="text-xs font-bold uppercase tracking-wide app-text-muted">{t('selectedFile')}</p>
+                <p className="break-all text-sm font-semibold app-text">{image.name}</p>
+                {previewUrl && <img src={previewUrl} alt="" className="max-h-44 w-full rounded-lg object-cover" />}
+                <Button type="button" onClick={analyzeImage} disabled={!image || analyzing} className="w-full">
+                  <Sparkles className="h-4 w-4" />
+                  {analyzing ? t('analyzingImage') : t('analyzeImage')}
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <div className="min-w-0 space-y-4">
+            {(error || warning) && (
+              <div className={`rounded-lg border px-4 py-3 text-sm ${error ? 'border-red-200 bg-red-50 text-red-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+                {error || warning}
+              </div>
+            )}
+
+            <div>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-bold app-text">{t('extractedServices')}</h3>
+                  <p className="text-xs app-text-muted">{t('serviceImportReviewHint')}</p>
+                </div>
+                <Badge tone="indigo">{selectedCount} {t('selected')}</Badge>
+              </div>
+
+              {candidates.length === 0 ? (
+                <div className="flex min-h-48 items-center justify-center rounded-lg border p-6 text-center app-border app-panel-soft">
+                  <p className="max-w-md text-sm app-text-muted">{t('noServicesDetected')}</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border app-border">
+                  <table className="w-full min-w-[820px] text-left text-sm">
+                    <thead className="app-panel-soft">
+                      <tr>
+                        <th className="w-14 px-3 py-2">{t('selected')}</th>
+                        <th className="px-3 py-2">{t('service')}</th>
+                        <th className="w-40 px-3 py-2">{t('category')}</th>
+                        <th className="w-32 px-3 py-2">{t('durationMinutes')}</th>
+                        <th className="w-32 px-3 py-2">{t('price')}</th>
+                        <th className="px-3 py-2">{t('description')}</th>
+                        <th className="px-3 py-2">{t('notes')}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y app-border">
+                      {candidates.map((candidate, index) => (
+                        <tr key={index}>
+                          <td className="px-3 py-2 align-top">
+                            <input
+                              type="checkbox"
+                              checked={candidate.selected}
+                              onChange={(event) => updateCandidate(index, { selected: event.target.checked })}
+                              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                            />
+                          </td>
+                          <td className="px-3 py-2 align-top">
+                            <Input value={candidate.name} onChange={(event) => updateCandidate(index, { name: event.target.value })} />
+                            {candidate.duplicate && <span className="mt-1 block text-xs font-semibold text-amber-600">{t('serviceImportDuplicateLabel')}</span>}
+                          </td>
+                          <td className="px-3 py-2 align-top">
+                            <Input value={candidate.category} onChange={(event) => updateCandidate(index, { category: event.target.value })} />
+                          </td>
+                          <td className="px-3 py-2 align-top">
+                            <Input type="number" min={1} max={1440} value={candidate.duration_minutes} onChange={(event) => updateCandidate(index, { duration_minutes: event.target.value === '' ? '' : Number(event.target.value) })} />
+                          </td>
+                          <td className="px-3 py-2 align-top">
+                            <Input value={candidate.price} onChange={(event) => updateCandidate(index, { price: event.target.value })} />
+                          </td>
+                          <td className="px-3 py-2 align-top">
+                            <Input value={candidate.description} onChange={(event) => updateCandidate(index, { description: event.target.value })} />
+                          </td>
+                          <td className="px-3 py-2 align-top">
+                            <Input value={candidate.notes} onChange={(event) => updateCandidate(index, { notes: event.target.value })} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-wrap justify-end gap-2">
+              <SecondaryButton onClick={onClose}>{t('cancel')}</SecondaryButton>
+              <Button type="button" onClick={insertSelectedServices} disabled={saving || selectedCount === 0}>
+                {saving ? t('saving') : t('insertSelectedServices')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function csrfHeaders(): Record<string, string> {
+  const token = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
+  const xsrf = document.cookie
+    .split('; ')
+    .find((cookie) => cookie.startsWith('XSRF-TOKEN='))
+    ?.split('=')[1];
+
+  return {
+    'X-Requested-With': 'XMLHttpRequest',
+    ...(token ? { 'X-CSRF-TOKEN': token } : {}),
+    ...(xsrf ? { 'X-XSRF-TOKEN': decodeURIComponent(xsrf) } : {}),
+  };
+}
+
+function serviceImportErrorMessage(data: unknown, t: TranslateFn): string {
+  if (data && typeof data === 'object') {
+    const payload = data as { message?: unknown; details?: unknown; errors?: Record<string, string[]> };
+    const validationMessage = payload.errors?.image?.[0] ?? Object.values(payload.errors ?? {})[0]?.[0];
+    const details = typeof payload.details === 'string' ? payload.details : '';
+    const message = typeof payload.message === 'string' ? payload.message : '';
+
+    return validationMessage || details || message || t('serviceImportFailed');
+  }
+
+  return t('serviceImportFailed');
+}
+
+function normalizeServiceName(name: string): string {
+  return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLocaleLowerCase().replace(/\s+/g, ' ');
+}
+
 function CategoryFilterHeader({ label, categories, selected, onChange }: { label: string; categories: string[]; selected: string[]; onChange: (next: string[]) => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -3444,6 +3820,7 @@ function CategoryFilterHeader({ label, categories, selected, onChange }: { label
 }
 
 function BranchFilterHeader({ label, locations, selected, onChange }: { label: string; locations: SalonLocation[]; selected: number[]; onChange: (next: number[]) => void }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const active = selected.length > 0;
@@ -3461,7 +3838,17 @@ function BranchFilterHeader({ label, locations, selected, onChange }: { label: s
   }
 
   if (locations.length === 0) {
-    return <span>{label.toLocaleUpperCase()}</span>;
+    return (
+      <span className="flex flex-col gap-1">
+        <span>{label.toLocaleUpperCase()}</span>
+        <Link
+          href="/dashboard/locations"
+          className="inline-flex w-fit rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-black normal-case tracking-normal text-yellow-200 shadow-sm transition hover:bg-red-700 hover:text-yellow-100 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+        >
+          {t('addMinimumLocation')}
+        </Link>
+      </span>
+    );
   }
 
   return (
@@ -3747,6 +4134,10 @@ function CategoryPicker({ categories, selected, onChange, emptyLabel }: { catego
 
 function BranchPicker({ locations, selectedIds, onChange, label, emptyLabel, compact = false }: { locations: SalonLocation[]; selectedIds: number[]; onChange: (ids: number[]) => void; label?: string; emptyLabel: string; compact?: boolean }) {
   if (locations.length === 0) {
+    if (compact) {
+      return <span className="text-sm app-text-muted">-</span>;
+    }
+
     return <p className="text-sm app-text-muted">{emptyLabel}</p>;
   }
 
@@ -4018,7 +4409,7 @@ function ChannelStat({ icon: Icon, value, label, tone, compact = false }: { icon
 
 function DashboardTable({ headers, children, minWidth = '920px' }: { headers: ReactNode[]; children: ReactNode; minWidth?: string }) {
   return (
-    <div className="overflow-hidden rounded-2xl border shadow-sm app-border app-panel">
+    <div className="min-w-0 max-w-full overflow-hidden rounded-2xl border shadow-sm app-border app-panel">
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left text-sm" style={{ minWidth }}>
           {headers.length > 0 && (
@@ -4849,6 +5240,23 @@ function toDateKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
+function scrollToFirstFormError(form: HTMLFormElement | null, errorKeys: string[]) {
+  if (!form || errorKeys.length === 0) return;
+
+  window.requestAnimationFrame(() => {
+    const rootKeys = errorKeys.map((key) => key.split('.')[0]);
+    const target = rootKeys
+      .map((key) => form.querySelector<HTMLElement>(`[data-error-key="${key}"]`))
+      .find(Boolean);
+
+    if (!target) return;
+
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('input, textarea, select')
+      ?.focus({ preventScroll: true });
+  });
+}
+
 function EditModal({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: React.ReactNode }) {
   if (!open) return null;
 
@@ -4878,14 +5286,14 @@ function Toolbar({ title, subtitle, action, hideText = false }: { title: string;
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="flex min-w-0 flex-wrap items-center justify-between gap-4">
       {!hideText && (
-        <div>
+        <div className="min-w-0">
           <h2 className="text-2xl font-bold tracking-tight app-text">{title}</h2>
           <p className="text-sm app-text-muted">{subtitle}</p>
         </div>
       )}
-      {action}
+      {action && <div className="min-w-0 max-w-full">{action}</div>}
     </div>
   );
 }

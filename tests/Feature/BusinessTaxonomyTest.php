@@ -42,6 +42,23 @@ class BusinessTaxonomyTest extends TestCase
         $this->assertSame('rental', $user->salon->refresh()->business_type);
     }
 
+    public function test_authenticated_user_can_update_display_language_only(): void
+    {
+        $user = User::factory()->create();
+        $salon = $user->salon()->create([
+            'name' => 'Studio',
+            'business_type' => 'salon-beauty',
+            'display_language' => 'ro',
+        ]);
+
+        $this->actingAs($user)
+            ->postJson('/settings/language', ['display_language' => 'en'])
+            ->assertOk()
+            ->assertJsonPath('locale', 'en');
+
+        $this->assertSame('en', $salon->refresh()->display_language);
+    }
+
     public function test_free_plan_can_enable_booking_email_notification_settings(): void
     {
         $user = User::factory()->create();

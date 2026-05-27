@@ -5,6 +5,7 @@ import { PublicFooter, PublicHeader, PublicLocale } from '@/Components/PublicChr
 import { PublicYouGoChat } from '@/Components/PublicYouGoChat';
 import { BusinessType } from '@/data/businessTaxonomy';
 import { translate } from '@/i18n';
+import { preferredLocale, rememberLocale, syncLocalePreference } from '@/lib/localePreference';
 import { PageProps } from '@/types';
 
 type Props = PageProps<{
@@ -21,14 +22,15 @@ export default function IndustryShow() {
   const hasFutureLead = businessType.future_mode === 'lead';
   const [locale, setLocale] = useState<PublicLocale>(() => {
     if (typeof window === 'undefined') return 'ro';
-    return (localStorage.getItem('yougo-lang') as PublicLocale) ?? 'ro';
+    return preferredLocale('ro');
   });
   const t = (key: string) => translate(locale, key);
   const content = industryCopy(businessType, locale);
 
   function switchLang(lang: PublicLocale) {
     setLocale(lang);
-    localStorage.setItem('yougo-lang', lang);
+    rememberLocale(lang);
+    if (auth.user) syncLocalePreference(lang);
   }
 
   return (

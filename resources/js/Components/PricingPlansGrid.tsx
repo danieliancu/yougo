@@ -242,6 +242,7 @@ function pricingHighlights(plan: Plan | undefined, services: OfferedService[], t
   return [
     ...planServiceItems(plan, services, t),
     { key: 'aiBookings', label: t('aiBookings') },
+    { key: 'aiImportedServices', label: t('aiImportedServices') },
     { key: 'emailBookingNotifications', label: t('emailBookingNotifications') },
     { key: 'dashboardAccess', label: t('dashboardAccess') },
   ];
@@ -252,7 +253,6 @@ function planServiceItems(plan: Plan, services: OfferedService[], t: TranslateFn
     .map((service) => ({
       key: service.key,
       label: t(service.title_key),
-      subtitle: t(service.subtitle_key),
       planned: serviceIsPlanned(service),
       icon: serviceIcon(service.icon),
     }));

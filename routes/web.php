@@ -13,6 +13,7 @@ use App\Http\Controllers\LocationController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\PublicYouGoAssistantController;
 use App\Http\Controllers\ServiceController;
+use App\Http\Controllers\ServiceImageImportController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\WidgetController;
@@ -61,6 +62,11 @@ Route::middleware('auth')->group(function () {
     Route::delete('/staff/{staff}', [StaffController::class, 'destroy'])->name('staff.destroy');
 
     Route::post('/services', [ServiceController::class, 'store'])->name('services.store');
+    Route::post('/dashboard/services/import-image/analyze', [ServiceImageImportController::class, 'analyze'])
+        ->middleware('throttle:10,1')
+        ->name('services.import-image.analyze');
+    Route::post('/dashboard/services/import-image/store', [ServiceImageImportController::class, 'store'])
+        ->name('services.import-image.store');
     Route::put('/services/categories', [ServiceController::class, 'updateCategories'])->name('services.categories.update');
     Route::put('/services/staff', [ServiceController::class, 'updateStaff'])->name('services.staff.update');
     Route::put('/services/{service}', [ServiceController::class, 'update'])->name('services.update');
@@ -72,6 +78,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/conversations/{conversation}', [ConversationController::class, 'destroy'])->name('conversations.destroy');
 
     Route::put('/ai-settings', [AiSettingsController::class, 'update'])->name('ai-settings.update');
+    Route::post('/settings/language', [SettingsController::class, 'updateLanguage'])->name('settings.language.update');
     Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
     Route::put('/widget-settings', [WidgetController::class, 'updateSettings'])->name('widget-settings.update');
     Route::put('/billing/plan', [BillingController::class, 'updatePlan'])->name('billing.plan.update');
