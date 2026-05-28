@@ -6,6 +6,8 @@ The service entitlement overview is shown in Billing, not Settings. It uses `con
 
 Paid plan upgrades and subscription management happen through Stripe Checkout and Stripe Customer Portal. Free is internal only and does not require Stripe or a card. Paid plan activation happens after Stripe confirms the subscription by webhook.
 
+Annual billing is hidden until separate Stripe annual price IDs exist. Billing currently presents and sells monthly subscriptions only.
+
 Current services:
 
 - `website_chat`: live website chat channel.

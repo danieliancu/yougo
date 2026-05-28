@@ -2099,7 +2099,8 @@ function UsageRing({ label, used, limit, icon: Icon, tone, compact = false, lock
 function BillingPage({ billing, currentPlan }: { billing: Props['billing']; currentPlan: string }) {
   const t = useT();
   const canonicalCurrentPlan = canonicalPlanKey(currentPlan);
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
+  // Annual billing is intentionally hidden until Stripe annual price IDs are configured.
+  const billingCycle: 'monthly' | 'annual' = 'monthly';
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
   const [billingError, setBillingError] = useState('');
@@ -2237,27 +2238,6 @@ function BillingPage({ billing, currentPlan }: { billing: Props['billing']; curr
       <UsageSummaryPanel summary={billing.summary} />
 
       <PlanServicesOverview services={billing.services} currentPlan={billing.summary.plan} />
-
-      <div className="flex justify-end">
-        <div className="inline-flex rounded-lg border p-1 app-border app-panel" role="group" aria-label={t('price')}>
-          <button
-            type="button"
-            onClick={() => setBillingCycle('monthly')}
-            aria-pressed={billingCycle === 'monthly'}
-            className={`h-11 rounded-md px-4 text-sm font-semibold transition ${billingCycle === 'monthly' ? 'bg-indigo-600 text-white' : 'app-text-soft hover:bg-[var(--app-panel-soft)]'}`}
-          >
-            {t('monthly')}
-          </button>
-          <button
-            type="button"
-            onClick={() => setBillingCycle('annual')}
-            aria-pressed={billingCycle === 'annual'}
-            className={`h-11 rounded-md px-4 text-sm font-semibold transition ${billingCycle === 'annual' ? 'bg-indigo-600 text-white' : 'app-text-soft hover:bg-[var(--app-panel-soft)]'}`}
-          >
-            {t('annual')}
-          </button>
-        </div>
-      </div>
 
       <PricingPlansGrid
         plans={billing.plans}

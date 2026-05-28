@@ -345,6 +345,16 @@ class BillingUsageTest extends TestCase
 
         $this->assertStringContainsString('PricingPlansGrid', $landing);
         $this->assertStringContainsString('PricingPlansGrid', $dashboard);
+        $this->assertStringContainsString("const billingCycle: BillingCycle = 'monthly'", $landing);
+        $this->assertStringContainsString("const billingCycle: 'monthly' | 'annual' = 'monthly'", $dashboard);
+        $this->assertStringContainsString('Annual billing is intentionally hidden until Stripe annual price IDs are configured.', $landing);
+        $this->assertStringContainsString('Annual billing is intentionally hidden until Stripe annual price IDs are configured.', $dashboard);
+        $this->assertStringNotContainsString('setBillingCycle', $landing);
+        $this->assertStringNotContainsString('setBillingCycle', $dashboard);
+        $this->assertStringNotContainsString("t('annual')", $landing);
+        $this->assertStringNotContainsString("t('annual')", $dashboard);
+        $this->assertStringNotContainsString("t('billedAnnually')", $landing);
+        $this->assertStringNotContainsString("t('billedAnnually')", $dashboard);
         $this->assertStringContainsString('PlanServicesOverview', $dashboard);
         $this->assertStringContainsString('integrationStatusLabel', $dashboard);
         $this->assertStringNotContainsString('integrationSms', $dashboard);

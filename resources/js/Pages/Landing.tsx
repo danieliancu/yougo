@@ -400,7 +400,8 @@ type BillingCycle = 'monthly' | 'annual';
 type VoicePlanKey = 'voice_starter' | 'voice_growth' | 'voice_pro';
 
 function PricingSection({ plans, services, t, authUser }: { plans: Plan[]; services: OfferedService[]; t: (key: string, params?: Record<string, string | number>) => string; authUser: boolean; locale: PublicLocale }) {
-  const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
+  // Annual billing is intentionally hidden until Stripe annual price IDs are configured.
+  const billingCycle: BillingCycle = 'monthly';
   const [selectedVoicePlan, setSelectedVoicePlan] = useState<VoicePlanKey>('voice_starter');
 
   return (
@@ -411,18 +412,6 @@ function PricingSection({ plans, services, t, authUser }: { plans: Plan[]; servi
           <h2 className="mt-2 text-3xl font-bold app-text md:text-4xl">{t('choosePlan')}</h2>
           <p className="mt-4 text-sm leading-6 app-text-muted">{t('pricingChannelCopy')}</p>
           <p className="mt-2 text-sm app-text-muted">{t('paymentsComingSoon')}</p>
-        </div>
-        <div className="inline-flex w-fit rounded-lg border p-1 app-border app-panel">
-          {(['monthly', 'annual'] as BillingCycle[]).map((cycle) => (
-            <button
-              key={cycle}
-              type="button"
-              onClick={() => setBillingCycle(cycle)}
-              className={`h-9 rounded-md px-4 text-sm font-semibold transition ${billingCycle === cycle ? 'bg-indigo-600 text-white' : 'app-text-soft hover:bg-[var(--soft)]'}`}
-            >
-              {t(cycle)}
-            </button>
-          ))}
         </div>
       </div>
 

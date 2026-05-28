@@ -44,6 +44,8 @@ If payment fails, YouGo marks the subscription with a payment problem and keeps 
 
 The Customer Portal is available from Billing when a Stripe customer or subscription exists. Users manage payment method, invoices, plan cancellation, and subscription details in Stripe.
 
+Annual billing is intentionally disabled in the UI for now. The current Stripe integration supports monthly subscriptions only. Re-enabling annual billing requires separate Stripe annual price IDs for every paid plan before the annual toggle or discount messaging is shown again.
+
 Known limitations:
 
 - Stripe is the payment state provider only. Plan capabilities still come from `config/yougo_plans.php`, `service_keys`, and `App\Support\YouGoServices`.

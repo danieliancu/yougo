@@ -68,6 +68,8 @@ class StripeBillingTest extends TestCase
         $this->assertSame('cus_created', $salon->refresh()->stripe_customer_id);
         $this->assertSame('price_voice_growth', $fake->checkoutPriceId);
         $this->assertSame('voice_growth', $fake->checkoutMetadata['plan_key']);
+        $this->assertArrayNotHasKey('billing_cycle', $fake->checkoutMetadata);
+        $this->assertArrayNotHasKey('annual', config('stripe.prices'));
     }
 
     public function test_portal_requires_auth_and_fails_without_customer(): void
