@@ -3778,6 +3778,7 @@ function ServiceImageImportModal({
   const [previewUrl, setPreviewUrl] = useState('');
   const [candidates, setCandidates] = useState<ImportedServiceCandidate[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeProgress, setAnalyzeProgress] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [warning, setWarning] = useState('');
@@ -3803,9 +3804,25 @@ function ServiceImageImportModal({
       setError('');
       setWarning('');
       setAnalyzing(false);
+      setAnalyzeProgress(0);
       setSaving(false);
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!analyzing) return;
+
+    setAnalyzeProgress((current) => current || 8);
+    const interval = window.setInterval(() => {
+      setAnalyzeProgress((current) => {
+        if (current < 45) return Math.min(current + 7, 45);
+        if (current < 75) return Math.min(current + 4, 75);
+        return Math.min(current + 1.5, 94);
+      });
+    }, 700);
+
+    return () => window.clearInterval(interval);
+  }, [analyzing]);
 
   if (!open) return null;
 
@@ -3813,6 +3830,7 @@ function ServiceImageImportModal({
     setError('');
     setWarning('');
     setCandidates([]);
+    setAnalyzeProgress(0);
     setImage(file);
   }
 
@@ -3826,6 +3844,7 @@ function ServiceImageImportModal({
     }
 
     setAnalyzing(true);
+    setAnalyzeProgress(8);
     setError('');
     setWarning('');
 
@@ -3865,7 +3884,7 @@ function ServiceImageImportModal({
       }).filter((service: ImportedServiceCandidate) => service.name);
 
       const warningMessage = typeof data.warning === 'string' && data.warning.trim()
-        ? data.warning
+        ? serviceImportWarningMessage(data.warning, t)
         : nextCandidates.length === 0
           ? t('noServicesDetected')
           : '';
@@ -3876,7 +3895,9 @@ function ServiceImageImportModal({
       setError(error instanceof Error ? error.message : t('serviceImportFailed'));
       setCandidates([]);
     } finally {
+      setAnalyzeProgress(100);
       setAnalyzing(false);
+      window.setTimeout(() => setAnalyzeProgress(0), 700);
     }
   }
 
@@ -3973,6 +3994,27 @@ function ServiceImageImportModal({
                   <Sparkles className="h-4 w-4" />
                   {analyzing ? t('analyzingImage') : t('analyzeImage')}
                 </Button>
+                {analyzeProgress > 0 && (
+                  <div className="rounded-lg border px-3 py-2 app-border app-panel-soft" aria-live="polite">
+                    <div className="mb-2 flex items-center justify-between gap-3 text-xs font-semibold app-text-soft">
+                      <span>{t('serviceImportProgressLabel')}</span>
+                      <span>{Math.round(analyzeProgress)}%</span>
+                    </div>
+                    <div
+                      className="h-2 overflow-hidden rounded-full bg-slate-200"
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={Math.round(analyzeProgress)}
+                    >
+                      <div
+                        className="h-full rounded-full bg-indigo-600 transition-[width] duration-500 ease-out"
+                        style={{ width: `${analyzeProgress}%` }}
+                      />
+                    </div>
+                    <p className="mt-2 text-xs app-text-muted">{t('serviceImportProgressHint')}</p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -4071,8 +4113,7 @@ function csrfHeaders(): Record<string, string> {
 
   return {
     'X-Requested-With': 'XMLHttpRequest',
-    ...(token ? { 'X-CSRF-TOKEN': token } : {}),
-    ...(xsrf ? { 'X-XSRF-TOKEN': decodeURIComponent(xsrf) } : {}),
+    ...(xsrf ? { 'X-XSRF-TOKEN': decodeURIComponent(xsrf) } : token ? { 'X-CSRF-TOKEN': token } : {}),
   };
 }
 
@@ -4120,15 +4161,32 @@ function serviceImportHttpErrorMessage(response: Response, body: string, t: Tran
 
 function serviceImportErrorMessage(data: unknown, t: TranslateFn): string {
   if (data && typeof data === 'object') {
-    const payload = data as { message?: unknown; details?: unknown; errors?: Record<string, string[]> };
+    const payload = data as { warning?: unknown; message?: unknown; details?: unknown; errors?: Record<string, string[]> };
     const validationMessage = payload.errors?.image?.[0] ?? Object.values(payload.errors ?? {})[0]?.[0];
+    const warning = typeof payload.warning === 'string' ? payload.warning : '';
     const details = typeof payload.details === 'string' ? payload.details : '';
     const message = typeof payload.message === 'string' ? payload.message : '';
+
+    if (warning === 'ai_service_busy') {
+      return t('serviceImportAiBusy');
+    }
 
     return validationMessage || details || message || t('serviceImportFailed');
   }
 
   return t('serviceImportFailed');
+}
+
+function serviceImportWarningMessage(warning: string, t: TranslateFn): string {
+  if (warning === 'truncated_response') {
+    return t('serviceImportTruncatedResponse');
+  }
+
+  if (warning === 'invalid_json' || warning === 'empty_response') {
+    return t('serviceImportInvalidAiResponse');
+  }
+
+  return warning;
 }
 
 function normalizeServiceName(name: string): string {

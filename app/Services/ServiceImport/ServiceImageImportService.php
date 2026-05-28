@@ -5,6 +5,7 @@ namespace App\Services\ServiceImport;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
@@ -33,7 +34,19 @@ class ServiceImageImportService
             throw new RuntimeException('AI image analysis failed: '.$message);
         }
 
-        $decoded = $this->decodeJson($this->extractText($response->json()));
+        $body = $response->json();
+        $text = $this->extractText($body);
+        $decoded = $this->decodeJson($text, $this->finishReason($body));
+
+        if (in_array($decoded['warning'] ?? null, ['invalid_json', 'truncated_response'], true)) {
+            Log::warning('Service image import returned non-decodable JSON', [
+                'warning' => $decoded['warning'],
+                'finish_reason' => $this->finishReason($body),
+                'image_mime' => $image->getMimeType(),
+                'image_size' => $image->getSize(),
+                'text_preview' => Str::limit($text, 1000, ''),
+            ]);
+        }
 
         return [
             'services' => $this->normalizeServices($this->serviceRowsFromDecoded($decoded))->all(),
@@ -94,7 +107,7 @@ class ServiceImageImportService
             ]],
             'generationConfig' => [
                 'temperature' => 0.1,
-                'maxOutputTokens' => 4096,
+                'maxOutputTokens' => 8192,
                 'responseMimeType' => 'application/json',
                 'responseSchema' => [
                     'type' => 'object',
@@ -212,7 +225,14 @@ class ServiceImageImportService
         return trim(collect($parts)->pluck('text')->filter()->implode("\n"));
     }
 
-    private function decodeJson(string $text): array
+    private function finishReason(array $body): ?string
+    {
+        $reason = $body['candidates'][0]['finishReason'] ?? null;
+
+        return is_string($reason) ? $reason : null;
+    }
+
+    private function decodeJson(string $text, ?string $finishReason = null): array
     {
         $text = trim($text);
 
@@ -239,7 +259,10 @@ class ServiceImageImportService
             }
         }
 
-        return ['services' => [], 'warning' => 'invalid_json'];
+        return [
+            'services' => [],
+            'warning' => $finishReason === 'MAX_TOKENS' ? 'truncated_response' : 'invalid_json',
+        ];
     }
 
     private function tryDecodeJson(string $text): mixed

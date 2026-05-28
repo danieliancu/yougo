@@ -25,23 +25,39 @@ class ServiceImageImportController extends Controller
         try {
             $result = $importer->analyze($data['image']);
         } catch (Throwable $exception) {
+            $temporaryCapacityFailure = $this->isTemporaryAiCapacityFailure($exception);
+
             Log::warning('Service image import analysis failed', [
                 'user_id' => $request->user()?->id,
                 'exception' => $exception::class,
                 'message' => $exception->getMessage(),
+                'temporary_capacity_failure' => $temporaryCapacityFailure,
             ]);
 
             return response()->json([
                 'services' => [],
-                'warning' => 'analysis_failed',
-                'message' => 'AI image analysis failed.',
+                'warning' => $temporaryCapacityFailure ? 'ai_service_busy' : 'analysis_failed',
+                'message' => $temporaryCapacityFailure ? 'AI service is temporarily busy.' : 'AI image analysis failed.',
                 'details' => app()->isLocal() ? $exception->getMessage() : null,
-            ], 502);
+            ], $temporaryCapacityFailure ? 503 : 502);
         }
 
         return response()->json([
             'services' => $result['services'],
             'warning' => $result['warning'] ?? null,
+        ]);
+    }
+
+    private function isTemporaryAiCapacityFailure(Throwable $exception): bool
+    {
+        $message = Str::lower($exception->getMessage());
+
+        return Str::contains($message, [
+            'high demand',
+            'temporarily unavailable',
+            'overloaded',
+            'too many requests',
+            'rate limit',
         ]);
     }
 

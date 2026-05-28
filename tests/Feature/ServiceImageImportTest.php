@@ -111,6 +111,48 @@ class ServiceImageImportTest extends TestCase
             ->assertJsonPath('warning', 'invalid_json');
     }
 
+    public function test_analyze_reports_truncated_ai_json_when_output_hits_token_limit(): void
+    {
+        config(['services.gemini.key' => 'test-key']);
+        [, , $user] = $this->salonSetup();
+
+        Http::fake(['*' => Http::response([
+            'candidates' => [[
+                'finishReason' => 'MAX_TOKENS',
+                'content' => ['parts' => [['text' => '{"services":[{"name":"Tuns dama"']]],
+            ]],
+        ], 200)]);
+
+        $this->actingAs($user)
+            ->postJson('/dashboard/services/import-image/analyze', [
+                'image' => UploadedFile::fake()->image('large-menu.png'),
+            ])
+            ->assertOk()
+            ->assertJsonPath('services', [])
+            ->assertJsonPath('warning', 'truncated_response');
+    }
+
+    public function test_analyze_reports_ai_capacity_failures_as_temporary_busy(): void
+    {
+        config(['services.gemini.key' => 'test-key']);
+        [, , $user] = $this->salonSetup();
+
+        Http::fake(['*' => Http::response([
+            'error' => [
+                'message' => 'This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.',
+            ],
+        ], 503)]);
+
+        $this->actingAs($user)
+            ->postJson('/dashboard/services/import-image/analyze', [
+                'image' => UploadedFile::fake()->image('services.png'),
+            ])
+            ->assertStatus(503)
+            ->assertJsonPath('services', [])
+            ->assertJsonPath('warning', 'ai_service_busy')
+            ->assertJsonPath('message', 'AI service is temporarily busy.');
+    }
+
     public function test_analyze_recovers_json_from_markdown_fence_and_trailing_commas(): void
     {
         config(['services.gemini.key' => 'test-key']);
