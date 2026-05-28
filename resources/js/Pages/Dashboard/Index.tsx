@@ -338,13 +338,13 @@ function planDisplayName(plan?: string | null): string {
 
   const labels: Record<string, string> = {
     connect: 'Chat + WhatsApp',
-    voice: 'Voice Starter',
-    enterprise: 'Voice Pro',
+    voice: 'YouGo Starter',
+    enterprise: 'YouGo Pro',
     website_chat: 'Website Chat',
     chat_whatsapp: 'Chat + WhatsApp',
-    voice_starter: 'Voice Starter',
-    voice_growth: 'Voice Growth',
-    voice_pro: 'Voice Pro',
+    voice_starter: 'YouGo Starter',
+    voice_growth: 'YouGo Growth',
+    voice_pro: 'YouGo Pro',
   };
 
   if (labels[plan]) {

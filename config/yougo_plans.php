@@ -105,7 +105,7 @@ return [
     ],
     'voice_starter' => [
         'key' => 'voice_starter',
-        'name' => 'Voice Starter',
+        'name' => 'YouGo Starter',
         'price_label' => '599 RON/lună',
         'monthly_conversations' => 1500,
         'monthly_ai_messages' => 6000,
@@ -142,7 +142,7 @@ return [
     ],
     'voice_growth' => [
         'key' => 'voice_growth',
-        'name' => 'Voice Growth',
+        'name' => 'YouGo Growth',
         'price_label' => '999 RON/lună',
         'monthly_conversations' => 3000,
         'monthly_ai_messages' => 12000,
@@ -179,7 +179,7 @@ return [
     ],
     'voice_pro' => [
         'key' => 'voice_pro',
-        'name' => 'Voice Pro',
+        'name' => 'YouGo Pro',
         'price_label' => '2.499 RON/lună',
         'monthly_conversations' => 8000,
         'monthly_ai_messages' => 30000,

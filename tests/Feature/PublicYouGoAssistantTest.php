@@ -150,7 +150,7 @@ class PublicYouGoAssistantTest extends TestCase
     {
         $prompt = app(YouGoPublicAssistantKnowledge::class)->systemPrompt('en');
 
-        foreach (['Free', 'Website Chat', 'Chat + WhatsApp', 'Voice Starter', 'Voice Growth', 'Voice Pro'] as $plan) {
+        foreach (['Free', 'Website Chat', 'Chat + WhatsApp', 'YouGo Starter', 'YouGo Growth', 'YouGo Pro'] as $plan) {
             $this->assertStringContainsString($plan, $prompt);
         }
 

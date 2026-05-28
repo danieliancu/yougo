@@ -409,9 +409,9 @@ class BillingUsageTest extends TestCase
         $this->assertStringContainsString('Compară rapid canalele incluse și limitele lunare. Începi cu chat pe site', $translations);
         $this->assertStringNotContainsString('pricingChannelTitle', $landing);
         $this->assertStringNotContainsString('pricingChannelBody', $landing);
-        $this->assertStringContainsString('Voice Starter', $translations);
-        $this->assertStringContainsString('Voice Growth', $translations);
-        $this->assertStringContainsString('Voice Pro', $translations);
+        $this->assertStringContainsString('YouGo Starter', $translations);
+        $this->assertStringContainsString('YouGo Growth', $translations);
+        $this->assertStringContainsString('YouGo Pro', $translations);
         $this->assertStringContainsString('Phone AI', $translations);
         $this->assertStringContainsString('Telefon AI', $translations);
         $this->assertStringContainsString('integrationImplementationPlanned', $pricingGrid);

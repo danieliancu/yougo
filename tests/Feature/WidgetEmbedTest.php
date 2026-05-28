@@ -221,7 +221,7 @@ class WidgetEmbedTest extends TestCase
     {
         $dashboard = file_get_contents(resource_path('js/Pages/Dashboard/Index.tsx'));
 
-        $this->assertStringContainsString("{ id: 'widget', label: 'chat', href: '/dashboard/widget'", $dashboard);
+        $this->assertStringContainsString("{ id: 'widget', label: 'chatSettings', href: '/dashboard/widget'", $dashboard);
         $this->assertStringNotContainsString("href: '/dashboard/chat-audio'", $dashboard);
         $this->assertStringNotContainsString("label: 'widget', href: '/dashboard/widget'", $dashboard);
     }
