@@ -4,6 +4,8 @@ Dashboard -> Billing is the place where YouGo shows the current plan, usage limi
 
 The service entitlement overview is shown in Billing, not Settings. It uses `config/yougo_services.php` and `App\Support\YouGoServices` through the existing dashboard billing payload.
 
+Paid plan upgrades and subscription management happen through Stripe Checkout and Stripe Customer Portal. Free is internal only and does not require Stripe or a card. Paid plan activation happens after Stripe confirms the subscription by webhook.
+
 Current services:
 
 - `website_chat`: live website chat channel.

@@ -99,6 +99,11 @@ export type Salon = {
   plan?: string | null;
   plan_started_at?: string | null;
   trial_ends_at?: string | null;
+  stripe_customer_id?: string | null;
+  stripe_subscription_id?: string | null;
+  stripe_price_id?: string | null;
+  subscription_status?: string | null;
+  subscription_current_period_end?: string | null;
   logo_path?: string | null;
   timezone?: string | null;
   industry?: string | null;

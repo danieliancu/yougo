@@ -73,42 +73,20 @@ class BillingUsageTest extends TestCase
         $this->assertTrue(YouGoServices::planHasPhoneAi('voice_pro'));
     }
 
-    public function test_temporary_plan_selector_validates_and_updates_plan(): void
+    public function test_paid_plans_cannot_be_changed_through_legacy_local_selector(): void
     {
         [$salon, $user] = $this->createSalonWithUser();
 
         $this->actingAs($user)->put('/billing/plan', ['plan' => 'not-a-plan'])
-            ->assertSessionHasErrors('plan');
-        $this->actingAs($user)->put('/billing/plan', ['plan' => 'growth'])
-            ->assertSessionHasErrors('plan');
-        $this->actingAs($user)->put('/billing/plan', ['plan' => 'connect'])
-            ->assertSessionHasErrors('plan');
+            ->assertNotFound();
 
-        $this->actingAs($user)->put('/billing/plan', ['plan' => 'website_chat'])
-            ->assertRedirect();
+        foreach (['website_chat', 'chat_whatsapp', 'voice_starter', 'voice_growth', 'voice_pro', 'free'] as $plan) {
+            $this->actingAs($user)->put('/billing/plan', ['plan' => $plan])
+                ->assertNotFound();
+        }
 
-        $this->assertSame('website_chat', $salon->refresh()->plan);
-        $this->assertNotNull($salon->plan_started_at);
-
-        $this->actingAs($user)->put('/billing/plan', ['plan' => 'chat_whatsapp'])
-            ->assertRedirect();
-        $this->assertSame('chat_whatsapp', $salon->refresh()->plan);
-
-        $this->actingAs($user)->put('/billing/plan', ['plan' => 'voice_starter'])
-            ->assertRedirect();
-        $this->assertSame('voice_starter', $salon->refresh()->plan);
-
-        $this->actingAs($user)->put('/billing/plan', ['plan' => 'voice_growth'])
-            ->assertRedirect();
-        $this->assertSame('voice_growth', $salon->refresh()->plan);
-
-        $this->actingAs($user)->put('/billing/plan', ['plan' => 'voice_pro'])
-            ->assertRedirect();
-        $this->assertSame('voice_pro', $salon->refresh()->plan);
-
-        $this->actingAs($user)->put('/billing/plan', ['plan' => 'free'])
-            ->assertRedirect();
         $this->assertSame('free', $salon->refresh()->plan);
+        $this->assertNull($salon->plan_started_at);
     }
 
     public function test_preview_chat_does_not_record_billable_messages_but_widget_does(): void

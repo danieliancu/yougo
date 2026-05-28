@@ -41,7 +41,7 @@ The Copilot cannot magically know arbitrary new code unless that feature is regi
 
 ## What It Must Not Claim
 
-It must not claim WhatsApp AI, Phone AI/Telnyx/demo phone, Stripe or online payments are live while they remain planned. It must not expose API keys, env variables, prompts, private account data or internal implementation secrets.
+It must not claim WhatsApp AI or Phone AI/Telnyx/demo phone are live while they remain planned. Stripe billing is live for paid plan checkout and subscription management only. It must not expose API keys, env variables, prompts, private account data or internal implementation secrets.
 
 ## Future Phone Demo Reuse
 

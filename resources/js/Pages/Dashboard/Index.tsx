@@ -53,6 +53,15 @@ type Props = PageProps<{
     summary: UsageSummary;
     plans: Plan[];
     services: OfferedService[];
+    stripe: {
+      subscription_status: string | null;
+      stripe_customer_exists: boolean;
+      stripe_subscription_exists: boolean;
+      subscription_current_period_end: string | null;
+      paid_plan_keys: string[];
+      configured_prices: Record<string, boolean>;
+      payment_warning: boolean;
+    };
   };
   localization: LocalizationProps;
   appUrl: string;
@@ -2087,18 +2096,93 @@ function UsageRing({ label, used, limit, icon: Icon, tone, compact = false, lock
   );
 }
 
-function BillingPage({ billing, currentPlan }: { billing: { summary: UsageSummary; plans: Plan[]; services: OfferedService[] }; currentPlan: string }) {
+function BillingPage({ billing, currentPlan }: { billing: Props['billing']; currentPlan: string }) {
   const t = useT();
   const canonicalCurrentPlan = canonicalPlanKey(currentPlan);
-  const [selectedPlan, setSelectedPlan] = useState(canonicalCurrentPlan);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [billingError, setBillingError] = useState('');
   const [selectedVoicePlan, setSelectedVoicePlan] = useState<VoicePlanKey>(
     isVoicePlanKey(canonicalCurrentPlan) ? canonicalCurrentPlan : 'voice_starter'
   );
+  const checkoutState = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('checkout') : null;
 
-  function updatePlan(event: FormEvent) {
-    event.preventDefault();
-    router.put('/billing/plan', { plan: selectedPlan }, { preserveScroll: true });
+  async function startCheckout(planKey: string) {
+    if (loadingPlan) return;
+
+    setLoadingPlan(planKey);
+    setBillingError('');
+
+    try {
+      const response = await fetch('/dashboard/billing/checkout', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          ...csrfHeaders(),
+        },
+        body: JSON.stringify({ plan_key: planKey }),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || typeof data.url !== 'string') {
+        throw new Error(billingErrorMessage(data, t('checkoutUnavailable')));
+      }
+
+      window.location.href = data.url;
+    } catch (error) {
+      setBillingError(error instanceof Error ? error.message : t('checkoutUnavailable'));
+      setLoadingPlan(null);
+    }
+  }
+
+  async function openPortal() {
+    if (portalLoading) return;
+
+    setPortalLoading(true);
+    setBillingError('');
+
+    try {
+      const response = await fetch('/dashboard/billing/portal', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          Accept: 'application/json',
+          ...csrfHeaders(),
+        },
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || typeof data.url !== 'string') {
+        throw new Error(billingErrorMessage(data, t('portalUnavailable')));
+      }
+
+      window.location.href = data.url;
+    } catch (error) {
+      setBillingError(error instanceof Error ? error.message : t('portalUnavailable'));
+      setPortalLoading(false);
+    }
+  }
+
+  function renderPlanAction(plan: Plan) {
+    if (!billing.stripe.paid_plan_keys.includes(plan.key)) return null;
+
+    const current = canonicalCurrentPlan === plan.key;
+    const configured = billing.stripe.configured_prices[plan.key] === true;
+    const label = current ? t('currentPlan') : canonicalCurrentPlan === 'free' ? t('choosePlanButton') : t('changePlan');
+
+    return (
+      <Button
+        type="button"
+        className="mt-auto w-full"
+        disabled={current || !configured || loadingPlan !== null}
+        onClick={() => startCheckout(plan.key)}
+      >
+        {loadingPlan === plan.key ? t('openingCheckout') : label}
+      </Button>
+    );
   }
 
   return (
@@ -2109,20 +2193,46 @@ function BillingPage({ billing, currentPlan }: { billing: { summary: UsageSummar
             <p className="text-xs font-semibold uppercase tracking-wide app-text-muted">{t('currentPlan')}</p>
             <h2 className="mt-2 text-3xl font-semibold app-text">{billing.summary.plan.name}</h2>
             <p className="mt-1 text-sm app-text-soft">{priceLabel(billing.summary.plan, billingCycle)}</p>
-            <p className="mt-4 max-w-3xl text-sm leading-6 app-text-muted">{t('billingNotConnected')}</p>
+            <p className="mt-4 max-w-3xl text-sm leading-6 app-text-muted">{t('billingStripeConnected')}</p>
+            {billing.stripe.subscription_status && (
+              <p className="mt-2 text-sm app-text-muted">{t('subscriptionStatus')}: <span className="font-semibold app-text">{billing.stripe.subscription_status}</span></p>
+            )}
+            {billing.stripe.subscription_current_period_end && (
+              <p className="mt-1 text-sm app-text-muted">{t('subscriptionRenews')}: <span className="font-semibold app-text">{new Date(billing.stripe.subscription_current_period_end).toLocaleDateString()}</span></p>
+            )}
           </div>
-          <form onSubmit={updatePlan} className="rounded-lg border p-4 app-border app-panel-soft">
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold app-text">{t('selectPlan')}</span>
-              <select value={selectedPlan} onChange={(event) => setSelectedPlan(event.target.value)} className="h-10 w-full rounded-lg border px-3 text-sm app-panel app-text">
-                {billing.plans.map((plan) => <option key={plan.key} value={plan.key}>{plan.name}</option>)}
-              </select>
-            </label>
-            <p className="mt-3 text-xs app-text-muted">{t('localTestingPlanSelector')}</p>
-            <Button className="mt-4 w-full" type="submit">{t('changePlan')}</Button>
-          </form>
+          <div className="rounded-lg border p-4 app-border app-panel-soft">
+            <p className="text-sm font-semibold app-text">{t('subscriptionManagement')}</p>
+            <p className="mt-2 text-xs leading-5 app-text-muted">{t('subscriptionManagementHelp')}</p>
+            {(billing.stripe.stripe_customer_exists || billing.stripe.stripe_subscription_exists) && (
+              <SecondaryButton className="mt-4 w-full" type="button" disabled={portalLoading} onClick={openPortal}>
+                {portalLoading ? t('openingPortal') : t('manageSubscription')}
+              </SecondaryButton>
+            )}
+          </div>
         </div>
       </Card>
+
+      {checkoutState === 'success' && (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-800 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-200">
+          {t('checkoutSuccess')}
+        </div>
+      )}
+      {checkoutState === 'cancelled' && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+          {t('checkoutCancelled')}
+        </div>
+      )}
+      {billing.stripe.payment_warning && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+          {t('paymentWarning')}
+        </div>
+      )}
+      {billingError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+          {billingError}
+        </div>
+      )}
 
       <UsageSummaryPanel summary={billing.summary} />
 
@@ -2158,9 +2268,22 @@ function BillingPage({ billing, currentPlan }: { billing: { summary: UsageSummar
         t={t}
         showCtas={false}
         currentPlanKey={canonicalCurrentPlan}
+        renderPlanAction={renderPlanAction}
       />
     </div>
   );
+}
+
+function billingErrorMessage(data: unknown, fallback: string): string {
+  if (data && typeof data === 'object') {
+    const payload = data as { message?: unknown; errors?: Record<string, string[]> };
+    const validationMessage = Object.values(payload.errors ?? {})[0]?.[0];
+    const message = typeof payload.message === 'string' ? payload.message : '';
+
+    return validationMessage || message || fallback;
+  }
+
+  return fallback;
 }
 
 function isVoicePlanKey(plan: string): plan is VoicePlanKey {

@@ -7,6 +7,7 @@ use App\Services\Dashboard\DashboardDataService;
 use App\Services\Onboarding\OnboardingChecklistService;
 use App\Services\Usage\UsageLimitService;
 use App\Support\BusinessLocalization;
+use App\Support\StripePlans;
 use Illuminate\Support\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -76,6 +77,17 @@ class DashboardController extends Controller
                 'summary' => $usageLimitService->usageSummary($salon),
                 'plans' => $usageLimitService->plans(),
                 'services' => $usageLimitService->services(),
+                'stripe' => [
+                    'subscription_status' => $salon->subscription_status,
+                    'stripe_customer_exists' => filled($salon->stripe_customer_id),
+                    'stripe_subscription_exists' => filled($salon->stripe_subscription_id),
+                    'subscription_current_period_end' => $salon->subscription_current_period_end?->toIso8601String(),
+                    'paid_plan_keys' => StripePlans::paidPlanKeys(),
+                    'configured_prices' => collect(StripePlans::paidPlanKeys())
+                        ->mapWithKeys(fn (string $planKey) => [$planKey => filled(StripePlans::priceIdForPlan($planKey))])
+                        ->all(),
+                    'payment_warning' => in_array($salon->subscription_status, ['past_due', 'unpaid', 'payment_failed'], true),
+                ],
             ],
             'localization' => [
                 'countries' => BusinessLocalization::countryOptions($request->user()?->salon?->display_language ?? config('app.locale', 'ro')),

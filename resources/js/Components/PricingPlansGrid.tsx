@@ -1,6 +1,7 @@
 import { Link } from '@inertiajs/react';
 import { Check, MessageCircle, Phone } from 'lucide-react';
 import { SiWhatsapp } from 'react-icons/si';
+import { ReactNode } from 'react';
 import { OfferedService, Plan } from '@/types';
 import { servicesForPlan, serviceIsPlanned } from '@/lib/yougoServices';
 
@@ -19,6 +20,7 @@ export function PricingPlansGrid({
   showCtas = true,
   authUser = false,
   currentPlanKey,
+  renderPlanAction,
   services,
 }: {
   plans: Plan[];
@@ -30,6 +32,7 @@ export function PricingPlansGrid({
   showCtas?: boolean;
   authUser?: boolean;
   currentPlanKey?: string;
+  renderPlanAction?: (plan: Plan) => ReactNode;
 }) {
   const cardKeys: PublicPlanKey[] = ['free', 'website_chat', 'chat_whatsapp'];
   const voiceKeys: VoicePlanKey[] = ['voice_starter', 'voice_growth', 'voice_pro'];
@@ -54,6 +57,7 @@ export function PricingPlansGrid({
             t={t}
             showCta={showCtas}
             current={plan?.key === currentPlanKey}
+            action={plan ? renderPlanAction?.(plan) : null}
           />
         );
       })}
@@ -92,6 +96,7 @@ export function PricingPlansGrid({
                 {voiceCtaLabel(selectedVoicePlan, t)}
               </Link>
             )}
+            {renderPlanAction?.(selectedVoice)}
           </>
         ) : (
           <MissingPlanFallback t={t} />
@@ -101,7 +106,7 @@ export function PricingPlansGrid({
   );
 }
 
-function PricingCard({ plan, fallbackName, subtitle, highlights, usage, ctaLabel, href, billingCycle, t, showCta, current }: { plan?: Plan; fallbackName: string; subtitle: string; highlights: FeatureItem[]; usage: string[]; ctaLabel: string; href: string; billingCycle: BillingCycle; t: TranslateFn; showCta: boolean; current?: boolean }) {
+function PricingCard({ plan, fallbackName, subtitle, highlights, usage, ctaLabel, href, billingCycle, t, showCta, current, action }: { plan?: Plan; fallbackName: string; subtitle: string; highlights: FeatureItem[]; usage: string[]; ctaLabel: string; href: string; billingCycle: BillingCycle; t: TranslateFn; showCta: boolean; current?: boolean; action?: ReactNode }) {
   return (
     <article className="flex min-h-full flex-col rounded-xl border p-5 shadow-sm app-panel app-border">
       <div className="flex flex-wrap items-center gap-2">
@@ -119,6 +124,7 @@ function PricingCard({ plan, fallbackName, subtitle, highlights, usage, ctaLabel
               {ctaLabel}
             </Link>
           )}
+          {action}
         </>
       ) : (
         <MissingPlanFallback t={t} />

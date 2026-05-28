@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Console\Commands\StripeCheckCommand;
 use App\Console\Commands\TestEmailCommand;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -13,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withCommands([
+        StripeCheckCommand::class,
         TestEmailCommand::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {

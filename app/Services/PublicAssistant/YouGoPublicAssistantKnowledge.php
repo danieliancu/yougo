@@ -105,7 +105,7 @@ class YouGoPublicAssistantKnowledge
             '- Staff: team members and assignments.',
             '- Locations: addresses and opening hours.',
             '- Settings: account, business profile, notifications and language.',
-            '- Billing: plan, usage and current limits. Online payments are not live yet.',
+            '- Billing: plan, usage, current limits, Stripe Checkout upgrades and Stripe subscription management. Free does not require Stripe or a card.',
         ]);
     }
 

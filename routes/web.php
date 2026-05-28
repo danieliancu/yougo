@@ -16,6 +16,7 @@ use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\ServiceImageImportController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\StaffController;
+use App\Http\Controllers\StripeWebhookController;
 use App\Http\Controllers\WidgetController;
 use App\Support\YouGoServices;
 use Illuminate\Support\Facades\Route;
@@ -81,9 +82,14 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/language', [SettingsController::class, 'updateLanguage'])->name('settings.language.update');
     Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
     Route::put('/widget-settings', [WidgetController::class, 'updateSettings'])->name('widget-settings.update');
-    Route::put('/billing/plan', [BillingController::class, 'updatePlan'])->name('billing.plan.update');
+    Route::post('/dashboard/billing/checkout', [BillingController::class, 'checkout'])->name('billing.checkout');
+    Route::post('/dashboard/billing/portal', [BillingController::class, 'portal'])->name('billing.portal');
     Route::delete('/account', [SettingsController::class, 'destroy'])->name('account.destroy');
 });
+
+Route::post('/stripe/webhook', StripeWebhookController::class)
+    ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class)
+    ->name('stripe.webhook');
 
 Route::get('/widget/{widgetKey}.js', [WidgetController::class, 'script'])->name('widget.script');
 Route::get('/widget/{widgetKey}', [WidgetController::class, 'show'])->name('widget.show');
