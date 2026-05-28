@@ -104,11 +104,13 @@ export function YouGoCopilot({ locale, context }: { locale: PublicLocale; contex
         throw new Error('YouGo copilot request failed.');
       }
 
-      shouldSmoothScroll.current = true;
-      setMessages((current) => [...current, {
+      const assistantMessage: ChatMessage = {
         role: 'assistant',
         content: cleanAssistantText(data.message),
-      }].slice(-maxStoredMessages));
+      };
+
+      shouldSmoothScroll.current = true;
+      setMessages((current) => [...current, assistantMessage].slice(-maxStoredMessages));
     } catch {
       setError(t('publicChatError'));
     } finally {

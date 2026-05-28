@@ -3397,7 +3397,12 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
               ? t('serviceImportDuplicateSkipped', { count: skippedCount })
               : t('serviceImportCreatedCount', { count: createdCount }),
           });
-          router.reload({ only: ['salon'], preserveScroll: true });
+          router.visit(window.location.href, {
+            only: ['salon'],
+            preserveScroll: true,
+            preserveState: true,
+            replace: true,
+          });
         }}
       />
       <EditModal open={editingServiceId !== null} title={t('editService')} onClose={() => setEditingServiceId(null)}>
@@ -3756,8 +3761,14 @@ function ServiceImageImportModal({
         };
       }).filter((service: ImportedServiceCandidate) => service.name);
 
+      const warningMessage = typeof data.warning === 'string' && data.warning.trim()
+        ? data.warning
+        : nextCandidates.length === 0
+          ? t('noServicesDetected')
+          : '';
+
       setCandidates(nextCandidates);
-      setWarning(data.warning || (nextCandidates.length === 0 ? t('noServicesDetected') : ''));
+      setWarning(warningMessage);
     } catch (error) {
       setError(error instanceof Error ? error.message : t('serviceImportFailed'));
       setCandidates([]);

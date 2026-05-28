@@ -101,7 +101,7 @@ export function PricingPlansGrid({
   );
 }
 
-function PricingCard({ plan, fallbackName, subtitle, highlights, usage, ctaLabel, href, billingCycle, t, showCta, current }: { plan?: Plan; fallbackName: string; subtitle: string; highlights: string[]; usage: string[]; ctaLabel: string; href: string; billingCycle: BillingCycle; t: TranslateFn; showCta: boolean; current?: boolean }) {
+function PricingCard({ plan, fallbackName, subtitle, highlights, usage, ctaLabel, href, billingCycle, t, showCta, current }: { plan?: Plan; fallbackName: string; subtitle: string; highlights: FeatureItem[]; usage: string[]; ctaLabel: string; href: string; billingCycle: BillingCycle; t: TranslateFn; showCta: boolean; current?: boolean }) {
   return (
     <article className="flex min-h-full flex-col rounded-xl border p-5 shadow-sm app-panel app-border">
       <div className="flex flex-wrap items-center gap-2">

@@ -23,7 +23,7 @@ type PublicHeaderProps = {
 
 export function PublicHeader({ authUserName, locale, onLanguageChange, startLabel, industriesLabel, pricingLabel, logoMode = 'theme' }: PublicHeaderProps) {
   const aboutLabel = locale === 'ro' ? 'Despre' : 'About';
-  const scrollToLandingSection = (event: MouseEvent<HTMLAnchorElement>, sectionId: string) => {
+  const scrollToLandingSection = (event: MouseEvent<Element>, sectionId: string) => {
     if (typeof window === 'undefined' || window.location.pathname !== '/') return;
 
     const target = document.getElementById(sectionId);
@@ -190,7 +190,7 @@ function MobileLandingMenu({
   const [industriesOpen, setIndustriesOpen] = useState(false);
   const active = languages.find((item) => item.id === locale) ?? languages[0];
   const aboutLabel = locale === 'ro' ? 'Despre' : 'About';
-  const scrollToLandingSection = (event: MouseEvent<HTMLAnchorElement>, sectionId: string) => {
+  const scrollToLandingSection = (event: MouseEvent<Element>, sectionId: string) => {
     if (typeof window === 'undefined' || window.location.pathname !== '/') return;
 
     const target = document.getElementById(sectionId);
