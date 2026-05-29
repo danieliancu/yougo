@@ -454,6 +454,50 @@ class WhatsappIntegrationTest extends TestCase
         Mail::assertSent(NewAiBookingMail::class);
     }
 
+    public function test_whatsapp_booking_uses_from_number_when_ai_omits_client_phone(): void
+    {
+        config([
+            'twilio.validate_signature' => false,
+            'services.gemini.key' => 'test-key',
+        ]);
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $location = $salon->locations()->create([
+            'name' => 'Central',
+            'address' => 'Main Street',
+            'hours' => ['wed' => '10:00 - 18:00'],
+        ]);
+        $service = $salon->services()->create([
+            'name' => 'Tuns',
+            'price' => '100',
+            'duration' => 30,
+            'location_ids' => [$location->id],
+        ]);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => true,
+        ]);
+        $this->fakeGeminiFunctionCall('bookBooking', [
+            'client_name' => 'Maria Client',
+            'location_id' => (string) $location->id,
+            'service_id' => (string) $service->id,
+            'date' => '2026-06-03',
+            'time' => '10:00',
+        ]);
+        $this->fakeTwilioService();
+
+        $this->post('/twilio/whatsapp/webhook', $this->twilioPayload([
+            'From' => 'whatsapp:+447400606640',
+            'WaId' => '447400606640',
+        ]))->assertOk();
+
+        $booking = $salon->bookings()->firstOrFail();
+
+        $this->assertSame('+447400606640', $booking->client_phone);
+        $this->assertSame('whatsapp', $booking->source);
+    }
+
     public function test_whatsapp_post_booking_change_request_is_recorded_without_automatic_booking_change(): void
     {
         config([

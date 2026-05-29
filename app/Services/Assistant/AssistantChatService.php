@@ -177,6 +177,12 @@ class AssistantChatService
             }
 
             try {
+                $functionCall = $this->withKnownContactForBooking(
+                    $functionCall,
+                    $options['known_contact'] ?? null,
+                    (string) ($options['channel'] ?? $conversation->channel),
+                );
+
                 $booking = $this->appointmentToolHandler->handle(
                     $salon,
                     $functionCall,
@@ -222,6 +228,32 @@ class AssistantChatService
             'checkAvailability' => 'reschedule',
             default => 'unknown',
         };
+    }
+
+    private function withKnownContactForBooking(array $functionCall, ?array $knownContact, string $channel): array
+    {
+        if (! $this->appointmentToolHandler->isBookingCall($functionCall)) {
+            return $functionCall;
+        }
+
+        if (AssistantChannelBehavior::normalize($channel) !== AssistantChannelBehavior::CHANNEL_WHATSAPP) {
+            return $functionCall;
+        }
+
+        $phone = preg_replace('/^whatsapp:/i', '', trim((string) ($knownContact['phone'] ?? ''))) ?? '';
+        if ($phone === '') {
+            return $functionCall;
+        }
+
+        $args = $functionCall['args'] ?? [];
+        if (trim((string) ($args['client_phone'] ?? '')) === '') {
+            $args['client_phone'] = $phone;
+        }
+
+        return [
+            ...$functionCall,
+            'args' => $args,
+        ];
     }
 
     private function availabilityCheckForExistingBooking(Salon $salon, Conversation $conversation, array $functionCall): array

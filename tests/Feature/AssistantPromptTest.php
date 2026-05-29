@@ -198,6 +198,48 @@ class AssistantPromptTest extends TestCase
         $this->assertStringContainsString('Daca utilizatorul refuza sau ignora intrebarea, cere date de contact noi', $instruction);
     }
 
+    public function test_whatsapp_prompt_uses_known_phone_without_asking_again(): void
+    {
+        $salon = $this->createSalon();
+        $conversation = $salon->conversations()->create([
+            'channel' => 'whatsapp',
+            'provider' => 'twilio',
+            'external_contact_id' => 'whatsapp:+447400606640',
+            'external_sender' => 'whatsapp:+40700000000',
+            'status' => 'open',
+            'intent' => 'booking',
+            'last_message_at' => now(),
+        ]);
+
+        $payload = app(GeminiPayloadBuilder::class)->build($salon, [
+            ['role' => 'user', 'content' => 'Vreau o programare'],
+        ], $conversation, [
+            'phone' => 'whatsapp:+447400606640',
+            'channel' => 'whatsapp',
+        ]);
+        $instruction = $payload['systemInstruction']['parts'][0]['text'];
+        $required = $payload['tools'][0]['functionDeclarations'][0]['parameters']['required'];
+
+        $this->assertStringContainsString('The customer phone number is already known from WhatsApp: +447400606640.', $instruction);
+        $this->assertStringContainsString('Do not ask for it again unless it is missing or invalid.', $instruction);
+        $this->assertNotContains('client_phone', $required);
+    }
+
+    public function test_website_chat_still_requires_phone_when_configured(): void
+    {
+        $salon = $this->createSalon(['ai_collect_phone' => true]);
+
+        $payload = app(GeminiPayloadBuilder::class)->build($salon, [
+            ['role' => 'user', 'content' => 'Vreau o programare'],
+        ]);
+        $instruction = $payload['systemInstruction']['parts'][0]['text'];
+        $required = $payload['tools'][0]['functionDeclarations'][0]['parameters']['required'];
+
+        $this->assertContains('client_phone', $required);
+        $this->assertStringContainsString('Cere telefonul clientului inainte de creare.', $instruction);
+        $this->assertStringNotContainsString('already known from WhatsApp', $instruction);
+    }
+
     private function createSalon(array $attributes = []): Salon
     {
         $user = User::factory()->create();

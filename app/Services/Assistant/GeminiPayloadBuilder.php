@@ -37,6 +37,7 @@ class GeminiPayloadBuilder
 
         $tools = $this->appointmentToolDefinitions->forSalon($salon);
         if ($tools) {
+            $tools = $this->toolsForKnownWhatsappContact($tools, $conversation, $knownContact);
             $payload['tools'] = $tools;
         }
 
@@ -76,13 +77,41 @@ class GeminiPayloadBuilder
     private function knownContactContext(?array $knownContact): ?string
     {
         $name = trim((string) ($knownContact['name'] ?? ''));
-        $phone = trim((string) ($knownContact['phone'] ?? ''));
+        $phone = preg_replace('/^whatsapp:/i', '', trim((string) ($knownContact['phone'] ?? ''))) ?? '';
+        $channel = AssistantChannelBehavior::normalize($knownContact['channel'] ?? null);
+
+        if ($channel === AssistantChannelBehavior::CHANNEL_WHATSAPP && $phone !== '') {
+            return "The customer phone number is already known from WhatsApp: {$phone}. Do not ask for it again unless it is missing or invalid. Use this value as client_phone for bookBooking when creating a WhatsApp booking. Numarul de telefon al clientului este deja cunoscut din WhatsApp: {$phone}. Nu il cere din nou decat daca lipseste sau este invalid.";
+        }
 
         if ($name === '' || $phone === '') {
             return null;
         }
 
         return "Există date de contact folosite anterior pentru acest vizitator: {$name}, {$phone}. Nu le folosi automat. Întreabă vizitatorul dacă vrea să le refolosească. Dacă confirmă, le poți folosi ca client_name și client_phone pentru bookBooking. Previous contact details for this browser visitor are available: {$name}, {$phone}. Do not use them silently. Ask the visitor whether they want to reuse these details. If they confirm, you may use them as client_name and client_phone for bookBooking.";
+    }
+
+    private function toolsForKnownWhatsappContact(array $tools, ?Conversation $conversation, ?array $knownContact): array
+    {
+        $channel = AssistantChannelBehavior::normalize($knownContact['channel'] ?? $conversation?->channel);
+        $phone = preg_replace('/^whatsapp:/i', '', trim((string) ($knownContact['phone'] ?? ''))) ?? '';
+
+        if ($channel !== AssistantChannelBehavior::CHANNEL_WHATSAPP || $phone === '') {
+            return $tools;
+        }
+
+        foreach ($tools as $toolIndex => $tool) {
+            foreach (($tool['functionDeclarations'] ?? []) as $declarationIndex => $declaration) {
+                if (($declaration['name'] ?? null) !== 'bookBooking') {
+                    continue;
+                }
+
+                $required = $declaration['parameters']['required'] ?? [];
+                $tools[$toolIndex]['functionDeclarations'][$declarationIndex]['parameters']['required'] = array_values(array_diff($required, ['client_phone']));
+            }
+        }
+
+        return $tools;
     }
 
     private function currentBookingContext(?Conversation $conversation): ?string

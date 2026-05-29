@@ -71,6 +71,7 @@ class WhatsAppAiReplyService
                 'known_contact' => [
                     'phone' => $this->cleanWhatsappAddress((string) ($payload['From'] ?? $conversation->external_contact_id ?? '')),
                     'name' => (string) ($conversation->contact_name ?? ''),
+                    'channel' => 'whatsapp',
                 ],
             ]);
 

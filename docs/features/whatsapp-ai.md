@@ -71,6 +71,8 @@ The WhatsApp reply flow:
 
 If the assistant creates a booking request, the existing booking notification email behavior is used.
 
+For WhatsApp bookings, Twilio `From` is treated as the customer's phone number. YouGo strips the `whatsapp:` prefix before using it as `client_phone`, tells the assistant not to ask for the phone again unless it is missing or invalid, and fills `client_phone` automatically if the model calls `bookBooking` without it.
+
 ## Persistence
 
 WhatsApp uses the existing conversation tables:
