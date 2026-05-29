@@ -90,7 +90,7 @@ class WhatsAppConversationService
         return $message;
     }
 
-    public function saveOutbound(Conversation $conversation, string $body, array $providerResult = []): ConversationMessage
+    public function saveOutbound(Conversation $conversation, string $body, array $providerResult = [], array $metadata = []): ConversationMessage
     {
         $message = $conversation->messages()->create([
             'role' => 'assistant',
@@ -98,7 +98,10 @@ class WhatsAppConversationService
             'provider' => 'twilio',
             'provider_message_id' => $providerResult['sid'] ?? null,
             'content' => $body,
-            'metadata' => $providerResult ?: null,
+            'metadata' => array_filter([
+                ...$metadata,
+                'provider_result' => $providerResult ?: null,
+            ], fn ($value) => $value !== null),
         ]);
 
         $conversation->update(['last_message_at' => now()]);

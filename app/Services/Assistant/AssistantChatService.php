@@ -55,6 +55,40 @@ class AssistantChatService
             ];
         }
 
+        return $this->generateReply($salon, $conversation, $data['messages'], [
+            'known_contact' => $data['known_contact'] ?? null,
+            'channel' => $channel,
+            'booking_source' => 'ai_assistant',
+            'bill_booking_usage' => $channel === 'web_widget',
+            'save_assistant_message' => true,
+        ]);
+    }
+
+    public function replyForConversation(Salon $salon, Conversation $conversation, array $options = []): array
+    {
+        $salon->load(['locations', 'services']);
+        $conversation->loadMissing(['messages', 'booking']);
+
+        $messages = $conversation->messages
+            ->sortBy('created_at')
+            ->map(fn ($message) => [
+                'role' => $message->role === 'assistant' ? 'assistant' : 'user',
+                'content' => $message->content,
+            ])
+            ->values()
+            ->all();
+
+        return $this->generateReply($salon, $conversation, $messages, [
+            'known_contact' => $options['known_contact'] ?? null,
+            'channel' => $options['channel'] ?? $conversation->channel,
+            'booking_source' => $options['booking_source'] ?? 'ai_assistant',
+            'bill_booking_usage' => $options['bill_booking_usage'] ?? true,
+            'save_assistant_message' => $options['save_assistant_message'] ?? false,
+        ]);
+    }
+
+    private function generateReply(Salon $salon, Conversation $conversation, array $messages, array $options): array
+    {
         if (! config('services.gemini.key')) {
             $this->conversationService->updateTiming($conversation);
 
@@ -67,7 +101,7 @@ class AssistantChatService
             ];
         }
 
-        $response = $this->sendToGemini($salon, $data['messages'], $conversation, $data['known_contact'] ?? null);
+        $response = $this->sendToGemini($salon, $messages, $conversation, $options['known_contact'] ?? null);
 
         if (! $response->successful()) {
             $this->conversationService->updateTiming($conversation);
@@ -106,7 +140,12 @@ class AssistantChatService
             }
 
             try {
-                $booking = $this->appointmentToolHandler->handle($salon, $functionCall, $channel === 'web_widget');
+                $booking = $this->appointmentToolHandler->handle(
+                    $salon,
+                    $functionCall,
+                    (string) ($options['booking_source'] ?? 'ai_assistant'),
+                    (bool) ($options['bill_booking_usage'] ?? true),
+                );
                 $this->conversationService->attachBooking($conversation, $booking);
                 $this->bookingNotificationService->sendAiBookingNotification($booking, $conversation);
                 $text = $this->messageLocalizer->bookingConfirmation($salon, $booking);
@@ -117,7 +156,11 @@ class AssistantChatService
         }
 
         $message = $this->responseParser->finalText($text);
-        $this->conversationService->saveAssistantMessageAndSummarize($conversation, $message);
+
+        if ($options['save_assistant_message'] ?? true) {
+            $this->conversationService->saveAssistantMessageAndSummarize($conversation, $message);
+        }
+
         $this->conversationService->updateTiming($conversation);
 
         return [

@@ -52,11 +52,11 @@ The current MVP activation flow is manual:
 
 WhatsApp requires a compatible plan that includes `whatsapp_ai`, such as Chat + WhatsApp or a YouGo plan. Free and Website Chat users need to upgrade.
 
-The foundation can receive Twilio webhooks and store WhatsApp conversations. Full AI replies over WhatsApp are a next phase.
+The current WhatsApp AI flow can receive Twilio webhooks, store WhatsApp conversations, and automatically reply to customer-initiated text messages when the integration is active and `ai_enabled` is on. It uses the same configured business data and appointment tools as website chat. Activation is still manual through Twilio, and templates, campaigns, broadcasts, media, voice notes, human handover and status callbacks are not implemented.
 
 ## What It Must Not Claim
 
-It must not claim WhatsApp sender provisioning is automatic. It must not claim full WhatsApp AI replies, campaigns, templates, media, Phone AI, Telnyx or demo phone are live while they remain planned or incomplete. Stripe billing is live for paid plan checkout and subscription management only. It must not expose API keys, env variables, prompts, private account data or internal implementation secrets.
+It must not claim WhatsApp sender provisioning is automatic. It must not claim WhatsApp campaigns, templates, broadcasts, media, Phone AI, Telnyx or demo phone are live while they remain planned or incomplete. Stripe billing is live for paid plan checkout and subscription management only. It must not expose API keys, env variables, prompts, private account data or internal implementation secrets.
 
 ## Future Phone Demo Reuse
 

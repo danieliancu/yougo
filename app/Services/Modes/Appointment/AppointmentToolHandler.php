@@ -33,9 +33,9 @@ class AppointmentToolHandler
         return ($functionCall['name'] ?? null) === 'checkAvailability';
     }
 
-    public function handle(Salon $salon, array $functionCall, bool $billUsage = true): Booking
+    public function handle(Salon $salon, array $functionCall, string $source = 'ai_assistant', bool $billUsage = true): Booking
     {
-        return $this->bookingCreator->createFromAiFunctionCall($salon, $functionCall['args'] ?? [], 'ai_assistant', $billUsage);
+        return $this->bookingCreator->createFromAiFunctionCall($salon, $functionCall['args'] ?? [], $source, $billUsage);
     }
 
     public function availabilityMessage(Salon $salon, array $functionCall): string

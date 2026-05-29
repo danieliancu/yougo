@@ -20,7 +20,7 @@ class BookingNotificationService
             return;
         }
 
-        if ($booking->source !== 'ai_assistant') {
+        if (! in_array($booking->source, ['ai_assistant', 'whatsapp'], true)) {
             return;
         }
 

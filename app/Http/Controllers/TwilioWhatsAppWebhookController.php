@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\WhatsappIntegration;
+use App\Services\WhatsApp\WhatsAppAiReplyService;
 use App\Services\WhatsApp\WhatsAppConversationService;
 use App\Support\YouGoServices;
 use Illuminate\Http\Request;
@@ -11,7 +12,7 @@ use Twilio\Security\RequestValidator;
 
 class TwilioWhatsAppWebhookController extends Controller
 {
-    public function __invoke(Request $request, WhatsAppConversationService $conversations)
+    public function __invoke(Request $request, WhatsAppConversationService $conversations, WhatsAppAiReplyService $aiReplies)
     {
         if (! $this->hasValidSignature($request)) {
             Log::warning('Twilio WhatsApp webhook rejected invalid signature', [
@@ -25,7 +26,19 @@ class TwilioWhatsAppWebhookController extends Controller
 
         $payload = $request->all();
         $to = (string) ($payload['To'] ?? '');
+        $from = (string) ($payload['From'] ?? '');
+        $body = trim((string) ($payload['Body'] ?? ''));
         $messageSid = (string) ($payload['MessageSid'] ?? '');
+        $numMedia = (int) ($payload['NumMedia'] ?? 0);
+
+        if ($from !== '' && $to !== '' && $from === $to) {
+            Log::info('Twilio WhatsApp webhook ignored message from business sender', [
+                'to' => $to,
+                'message_sid' => $messageSid,
+            ]);
+
+            return $this->twiml();
+        }
 
         $integration = WhatsappIntegration::query()
             ->with('salon')
@@ -59,17 +72,22 @@ class TwilioWhatsAppWebhookController extends Controller
             return $this->twiml();
         }
 
-        $conversations->saveInbound($salon, $payload);
+        $inboundMessage = $conversations->saveInbound($salon, $payload);
+        $conversation = $inboundMessage->conversation;
 
         if (! $integration->ai_enabled) {
             return $this->twiml();
         }
 
-        // AI replies are intentionally not connected in this foundation phase.
-        Log::info('Twilio WhatsApp inbound saved; AI reply skipped for foundation phase.', [
-            'salon_id' => $salon->id,
-            'message_sid' => $messageSid,
-        ]);
+        if ($body === '') {
+            if ($numMedia > 0 && $conversation) {
+                $aiReplies->sendUnsupportedTextMessage($salon, $integration, $conversation);
+            }
+
+            return $this->twiml();
+        }
+
+        $aiReplies->handleInbound($salon, $integration, $inboundMessage, $payload);
 
         return $this->twiml();
     }

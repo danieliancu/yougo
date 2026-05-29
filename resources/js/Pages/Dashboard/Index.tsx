@@ -311,7 +311,7 @@ export default function DashboardIndex() {
 function DashboardSidebar({ salon, section, user, t, onboarding }: { salon: Salon; section: Props['section']; user: AuthUser | null; t: TranslateFn; onboarding: OnboardingChecklist }) {
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden h-screen w-72 shrink-0 flex-col overflow-hidden app-sidebar lg:flex">
-      <div className="shrink-0 border-b border-white/10 p-6">
+      <div className="flex h-20 shrink-0 items-center border-b border-white/10 px-6">
         <Brand salon={salon} />
       </div>
       <DashboardSidebarContent salon={salon} section={section} user={user} t={t} onboarding={onboarding} />
@@ -323,21 +323,21 @@ function Brand({ salon, onClick }: { salon: Salon; onClick?: () => void }) {
   const planName = planDisplayName(salon.plan);
 
   return (
-    <Link href="/" className="flex w-fit flex-col gap-3" onClick={onClick} style={{ alignItems:"flex-start" }}>
-      <img src="/images/logo-dark.png" className="h-12 w-auto shrink-0" alt="YouGo" style={{ objectFit:"contain" }} />
-      <div className="flex items-center gap-2.5">
-        {salon.logo_path ? (
-          <img src={`/storage/${salon.logo_path}`} className="h-7 w-7 shrink-0 rounded-md object-cover" alt={salon.name} />
-        ) : (
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/10 text-xs font-bold text-white">
-            {salon.name.slice(0, 1).toUpperCase()}
-          </span>
-        )}
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-bold text-white">{salon.name}</span>
-          <span className="block truncate text-[11px] font-medium uppercase tracking-wide text-slate-400">{planName}</span>
+    <Link href="/" className="flex items-center gap-2.5 rounded-lg text-left transition hover:bg-white/5" onClick={onClick}>
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/10 text-white">
+        <ChevronLeft className="h-4 w-4" />
+      </span>
+      {salon.logo_path ? (
+        <img src={`/storage/${salon.logo_path}`} className="h-7 w-7 shrink-0 rounded-md object-cover" alt={salon.name} />
+      ) : (
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/10 text-xs font-bold text-white">
+          {salon.name.slice(0, 1).toUpperCase()}
         </span>
-      </div>
+      )}
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-bold text-white">{salon.name}</span>
+        <span className="block truncate text-[11px] font-medium uppercase tracking-wide text-slate-400">{planName}</span>
+      </span>
     </Link>
   );
 }

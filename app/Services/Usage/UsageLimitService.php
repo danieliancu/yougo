@@ -33,6 +33,7 @@ class UsageLimitService
             'ai_messages' => (int) ($totals['ai_message'] ?? 0),
             'bookings' => (int) ($totals['booking_created'] ?? 0),
             'whatsapp_conversations' => (int) ($totals['whatsapp_conversation'] ?? 0),
+            'whatsapp_messages' => (int) ($totals['whatsapp_message_inbound'] ?? 0) + (int) ($totals['whatsapp_message_outbound'] ?? 0),
             'phone_minutes' => (int) ($totals['phone_minute'] ?? 0),
         ];
     }
@@ -89,6 +90,14 @@ class UsageLimitService
         return $this->isWithinLimit($usage['bookings'], $limits['monthly_bookings']);
     }
 
+    public function canSendWhatsappMessage(Salon $salon): bool
+    {
+        $usage = $this->getCurrentMonthlyUsage($salon);
+        $limits = $this->getPlanLimits($salon);
+
+        return $this->isWithinLimit($usage['whatsapp_messages'], $limits['monthly_whatsapp_messages'] ?? 0);
+    }
+
     public function usageSummary(Salon $salon): array
     {
         $usage = $this->getCurrentMonthlyUsage($salon);
@@ -102,6 +111,7 @@ class UsageLimitService
                 'ai_messages' => $limits['monthly_ai_messages'],
                 'bookings' => $limits['monthly_bookings'],
                 'whatsapp_conversations' => $limits['monthly_whatsapp_messages'] ?? 0,
+                'whatsapp_messages' => $limits['monthly_whatsapp_messages'] ?? 0,
                 'phone_minutes' => $limits['monthly_phone_minutes'] ?? 0,
             ],
         ];

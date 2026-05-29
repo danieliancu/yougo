@@ -6,8 +6,12 @@ use App\Models\ConversationMessage;
 use App\Models\Salon;
 use App\Models\User;
 use App\Models\WhatsappIntegration;
+use App\Mail\NewAiBookingMail;
 use App\Services\WhatsApp\TwilioWhatsAppService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
+use RuntimeException;
 use Twilio\Security\RequestValidator;
 use Tests\TestCase;
 
@@ -203,6 +207,279 @@ class WhatsappIntegrationTest extends TestCase
         $this->assertSame(1, $salon->usageEvents()->where('event_type', 'whatsapp_message_inbound')->count());
     }
 
+    public function test_webhook_with_ai_enabled_sends_and_saves_ai_reply(): void
+    {
+        config([
+            'twilio.validate_signature' => false,
+            'services.gemini.key' => 'test-key',
+        ]);
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => true,
+        ]);
+        $this->fakeGeminiText('Sigur, cu ce serviciu te pot ajuta?');
+        $this->fakeTwilioService();
+
+        $this->post('/twilio/whatsapp/webhook', $this->twilioPayload())->assertOk();
+
+        $conversation = $salon->refresh()->conversations()->firstOrFail();
+        $this->assertDatabaseHas('conversation_messages', [
+            'conversation_id' => $conversation->id,
+            'role' => 'assistant',
+            'direction' => 'outbound',
+            'provider' => 'twilio',
+            'provider_message_id' => 'SM_TEST',
+            'content' => 'Sigur, cu ce serviciu te pot ajuta?',
+        ]);
+        $this->assertSame(1, $salon->usageEvents()->where('event_type', 'whatsapp_message_outbound')->count());
+        $this->assertSame(1, $salon->usageEvents()->where('event_type', 'whatsapp_ai_reply')->count());
+    }
+
+    public function test_webhook_duplicate_message_does_not_call_ai_twice(): void
+    {
+        config([
+            'twilio.validate_signature' => false,
+            'services.gemini.key' => 'test-key',
+        ]);
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => true,
+        ]);
+        $this->fakeGeminiText('Primul raspuns');
+        $this->fakeTwilioService();
+
+        $payload = $this->twilioPayload();
+        $this->post('/twilio/whatsapp/webhook', $payload)->assertOk();
+        $this->post('/twilio/whatsapp/webhook', $payload)->assertOk();
+
+        $this->assertSame(2, ConversationMessage::query()->count());
+        Http::assertSentCount(1);
+        $this->assertSame(1, $salon->usageEvents()->where('event_type', 'whatsapp_ai_reply')->count());
+    }
+
+    public function test_webhook_does_not_reply_when_plan_lacks_whatsapp_ai(): void
+    {
+        config([
+            'twilio.validate_signature' => false,
+            'services.gemini.key' => 'test-key',
+        ]);
+        [$salon] = $this->createSalonWithUser(['plan' => 'website_chat']);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => true,
+        ]);
+        $this->fakeGeminiText('Nu ar trebui trimis');
+        $this->fakeTwilioService();
+
+        $this->post('/twilio/whatsapp/webhook', $this->twilioPayload())->assertOk();
+
+        $this->assertDatabaseCount('conversation_messages', 0);
+        Http::assertSentCount(0);
+    }
+
+    public function test_webhook_does_not_reply_when_integration_inactive(): void
+    {
+        config([
+            'twilio.validate_signature' => false,
+            'services.gemini.key' => 'test-key',
+        ]);
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'requested',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => true,
+        ]);
+        $this->fakeGeminiText('Nu ar trebui trimis');
+        $this->fakeTwilioService();
+
+        $this->post('/twilio/whatsapp/webhook', $this->twilioPayload())->assertOk();
+
+        $this->assertDatabaseCount('conversation_messages', 0);
+        Http::assertSentCount(0);
+    }
+
+    public function test_webhook_empty_body_saves_inbound_without_ai_reply(): void
+    {
+        config([
+            'twilio.validate_signature' => false,
+            'services.gemini.key' => 'test-key',
+        ]);
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => true,
+        ]);
+        $this->fakeGeminiText('Nu ar trebui trimis');
+        $this->fakeTwilioService();
+
+        $this->post('/twilio/whatsapp/webhook', $this->twilioPayload(['Body' => '']))->assertOk();
+
+        $this->assertDatabaseHas('conversation_messages', [
+            'role' => 'user',
+            'direction' => 'inbound',
+            'content' => '',
+        ]);
+        $this->assertSame(1, ConversationMessage::query()->count());
+        Http::assertSentCount(0);
+    }
+
+    public function test_webhook_media_only_sends_text_only_fallback(): void
+    {
+        config(['twilio.validate_signature' => false]);
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => true,
+        ]);
+        $this->fakeTwilioService();
+
+        $this->post('/twilio/whatsapp/webhook', $this->twilioPayload(['Body' => '', 'NumMedia' => '1']))->assertOk();
+
+        $this->assertDatabaseHas('conversation_messages', [
+            'role' => 'assistant',
+            'direction' => 'outbound',
+            'content' => 'Momentan pot procesa doar mesaje text pe WhatsApp.',
+        ]);
+    }
+
+    public function test_webhook_ai_failure_saves_fallback_reply(): void
+    {
+        config([
+            'twilio.validate_signature' => false,
+            'services.gemini.key' => 'test-key',
+        ]);
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => true,
+        ]);
+        Http::fake(['*' => Http::response(['error' => ['message' => 'bad gateway']], 502)]);
+        $this->fakeTwilioService();
+
+        $this->post('/twilio/whatsapp/webhook', $this->twilioPayload())->assertOk();
+
+        $this->assertDatabaseHas('conversation_messages', [
+            'role' => 'assistant',
+            'direction' => 'outbound',
+            'content' => 'Imi pare rau, nu pot raspunde automat acum. Te rugam sa incerci din nou mai tarziu sau sa contactezi direct businessul.',
+        ]);
+    }
+
+    public function test_webhook_twilio_send_failure_is_saved_safely(): void
+    {
+        config([
+            'twilio.validate_signature' => false,
+            'services.gemini.key' => 'test-key',
+        ]);
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => true,
+        ]);
+        $this->fakeGeminiText('Raspuns AI');
+        $this->fakeTwilioService(fail: true);
+
+        $this->post('/twilio/whatsapp/webhook', $this->twilioPayload())->assertOk();
+
+        $message = ConversationMessage::query()->where('direction', 'outbound')->firstOrFail();
+        $this->assertSame('Raspuns AI', $message->content);
+        $this->assertNull($message->provider_message_id);
+        $this->assertSame('failed', $message->metadata['status']);
+        $this->assertSame('twilio_send_failed', $message->metadata['failure']);
+    }
+
+    public function test_webhook_booking_creation_uses_whatsapp_source_and_notifications(): void
+    {
+        config([
+            'twilio.validate_signature' => false,
+            'services.gemini.key' => 'test-key',
+        ]);
+        Mail::fake();
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $salon->update([
+            'timezone' => 'Europe/Bucharest',
+            'email_notifications' => true,
+            'notification_email' => 'owner@example.com',
+        ]);
+        $location = $salon->locations()->create([
+            'name' => 'Central',
+            'address' => 'Main Street',
+            'hours' => ['wed' => '10:00 - 18:00'],
+        ]);
+        $service = $salon->services()->create([
+            'name' => 'Tuns',
+            'price' => '100',
+            'duration' => 30,
+            'location_ids' => [$location->id],
+        ]);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => true,
+        ]);
+        $this->fakeGeminiFunctionCall('bookBooking', [
+            'client_name' => 'Maria Client',
+            'client_phone' => '+40711111111',
+            'location_id' => (string) $location->id,
+            'service_id' => (string) $service->id,
+            'date' => '2026-06-03',
+            'time' => '10:00',
+        ]);
+        $this->fakeTwilioService();
+
+        $this->post('/twilio/whatsapp/webhook', $this->twilioPayload())->assertOk();
+
+        $booking = $salon->bookings()->firstOrFail();
+        $this->assertSame('whatsapp', $booking->source);
+        $this->assertNotNull($booking->notification_sent_at);
+        Mail::assertSent(NewAiBookingMail::class);
+    }
+
+    public function test_webhook_whatsapp_monthly_limit_sends_limit_fallback_without_ai(): void
+    {
+        config([
+            'twilio.validate_signature' => false,
+            'services.gemini.key' => 'test-key',
+            'yougo_plans.chat_whatsapp.monthly_whatsapp_messages' => 1,
+        ]);
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => true,
+        ]);
+        $this->fakeGeminiText('Nu ar trebui trimis');
+        $this->fakeTwilioService();
+
+        $this->post('/twilio/whatsapp/webhook', $this->twilioPayload())->assertOk();
+
+        $this->assertDatabaseHas('conversation_messages', [
+            'role' => 'assistant',
+            'direction' => 'outbound',
+            'content' => 'Momentan nu pot raspunde automat pe WhatsApp. Te rugam sa contactezi direct businessul.',
+        ]);
+        Http::assertSentCount(0);
+    }
+
     public function test_webhook_deduplicates_message_sid(): void
     {
         config(['twilio.validate_signature' => false]);
@@ -356,12 +633,47 @@ class WhatsappIntegrationTest extends TestCase
         ], $overrides);
     }
 
-    private function fakeTwilioService(): void
+    private function fakeGeminiText(string $text): void
     {
-        $this->app->instance(TwilioWhatsAppService::class, new class extends TwilioWhatsAppService
+        Http::fake(['*' => Http::response([
+            'candidates' => [[
+                'content' => [
+                    'parts' => [['text' => $text]],
+                ],
+            ]],
+        ], 200)]);
+    }
+
+    private function fakeGeminiFunctionCall(string $name, array $args): void
+    {
+        Http::fake(['*' => Http::response([
+            'candidates' => [[
+                'content' => [
+                    'parts' => [[
+                        'functionCall' => [
+                            'name' => $name,
+                            'args' => $args,
+                        ],
+                    ]],
+                ],
+            ]],
+        ], 200)]);
+    }
+
+    private function fakeTwilioService(bool $fail = false): void
+    {
+        $this->app->instance(TwilioWhatsAppService::class, new class($fail) extends TwilioWhatsAppService
         {
+            public function __construct(private readonly bool $fail)
+            {
+            }
+
             public function sendMessage(string $from, string $to, string $body): array
             {
+                if ($this->fail) {
+                    throw new RuntimeException('Simulated Twilio failure.');
+                }
+
                 return [
                     'sid' => 'SM_TEST',
                     'status' => 'queued',

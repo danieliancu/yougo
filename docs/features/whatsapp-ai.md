@@ -1,4 +1,4 @@
-# WhatsApp AI foundation
+# WhatsApp AI
 
 ## Provider
 
@@ -35,7 +35,7 @@ WhatsApp AI requires a plan that includes the `whatsapp_ai` service key, such as
 
 Free and Website Chat users see an upgrade-required state.
 
-## Webhook routing
+## Webhook routing and AI replies
 
 Twilio sends inbound WhatsApp messages to:
 
@@ -57,6 +57,20 @@ Webhook payload fields used:
 
 `MessageSid` is used for deduplication.
 
+When the integration is active, the salon plan includes `whatsapp_ai`, and `ai_enabled = true`, YouGo replies automatically to customer-initiated text messages.
+
+The WhatsApp reply flow:
+
+1. Saves the inbound Twilio message.
+2. Reuses the same business assistant flow as website chat.
+3. Adds WhatsApp-specific prompt instructions for short, natural replies.
+4. Uses configured business data: services, prices, locations, staff, opening hours and localization.
+5. Allows the existing appointment tools to create booking requests.
+6. Sends the AI reply back through Twilio.
+7. Saves the outbound message in the conversation transcript.
+
+If the assistant creates a booking request, the existing booking notification email behavior is used.
+
 ## Persistence
 
 WhatsApp uses the existing conversation tables:
@@ -67,6 +81,7 @@ WhatsApp uses the existing conversation tables:
 - `conversations.external_sender = To`
 - `conversation_messages.provider_message_id = MessageSid`
 - `conversation_messages.direction = inbound` or `outbound`
+- outbound AI metadata includes `channel = whatsapp`, `sent_via = twilio`, and `ai_generated = true`
 
 This keeps WhatsApp conversations compatible with Dashboard -> Conversations.
 
@@ -77,8 +92,25 @@ The foundation records:
 - `whatsapp_conversation`
 - `whatsapp_message_inbound`
 - `whatsapp_message_outbound`
+- `whatsapp_ai_reply`
 
-Future AI replies should count outbound assistant messages against `monthly_whatsapp_messages`.
+Inbound and outbound WhatsApp messages count toward `monthly_whatsapp_messages`.
+
+If the monthly WhatsApp message limit is reached, YouGo does not call the AI. It can send a short fallback asking the customer to contact the business directly.
+
+## Supported message types
+
+The MVP supports customer-initiated text messages only.
+
+Media-only messages are stored, but the automatic reply tells the customer that YouGo currently processes WhatsApp text messages only.
+
+Unsupported in this phase:
+
+- message templates
+- campaigns or broadcasts
+- images, audio, video, documents or voice notes
+- human handover
+- status callbacks
 
 ## Security
 
@@ -105,6 +137,7 @@ TWILIO_VALIDATE_SIGNATURE=false
 - Campaigns or broadcasts.
 - Media, voice notes, or attachments.
 - Phone AI or Telnyx.
-- Full AI replies over WhatsApp.
+- Human handover.
+- Status callback endpoint.
 
-AI reply integration is the next phase. The foundation currently saves inbound messages, supports outbound test messages, and exposes a post-activation AI toggle.
+WhatsApp AI replies are synchronous in the webhook for the MVP. If latency becomes a problem with Twilio webhook timeouts, move reply generation and sending to a queue while keeping MessageSid deduplication.

@@ -45,7 +45,7 @@ class BookingCreator
             'source' => $source,
         ]);
 
-        if ($billUsage && $source === 'ai_assistant') {
+        if ($billUsage && in_array($source, ['ai_assistant', 'whatsapp'], true)) {
             $this->usageTracker->record($salon, 'booking_created', source: $source, metadata: [
                 'booking_id' => $booking->id,
             ]);

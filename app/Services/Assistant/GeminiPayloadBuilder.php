@@ -55,11 +55,21 @@ class GeminiPayloadBuilder
             "Detalii business: ".($this->businessDetails($salon) ?: 'nu sunt configurate').'.',
             $this->aiBusinessContext($salon),
             "Context produs: modul curent este {$this->businessMode($salon)}. Pentru moment aplicatia activeaza doar fluxul appointment.",
+            $this->channelInstructions($conversation),
             $this->currentBookingContext($conversation),
             $this->knownContactContext($knownContact),
             $this->modeInstructions($salon),
             $this->ownerInstructions($salon),
         ])->filter()->implode(' ');
+    }
+
+    private function channelInstructions(?Conversation $conversation): ?string
+    {
+        if ($conversation?->channel !== 'whatsapp') {
+            return null;
+        }
+
+        return 'Canal curent: WhatsApp. Raspunde natural si concis pentru WhatsApp, ideal sub 900 de caractere. Nu folosi tabele mari sau markdown lung. Pune cate o singura intrebare pe rand cand colectezi date pentru programare. Daca informatiile sunt incomplete sau incerte, cere clarificare. Nu inventa servicii, preturi, disponibilitate sau program.';
     }
 
     private function knownContactContext(?array $knownContact): ?string
