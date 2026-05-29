@@ -1349,8 +1349,13 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
                             )}
                           </div>
                           <p className="mt-1 truncate text-xs app-text-muted">{lastMessage}</p>
-                          <div className="mt-2">
+                          <div className="mt-2 flex flex-wrap gap-1.5">
                             <IntentPill intent={conversation.intent} compact bookingStatus={conversation.booking?.status} />
+                            {hasPendingBookingChangeRequest(conversation) && (
+                              <span className="inline-flex min-w-28 justify-center rounded-md bg-amber-100 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+                                {t('bookingChangeRequest')}
+                              </span>
+                            )}
                           </div>
                         </button>
                         <button
@@ -1423,6 +1428,9 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
               <Detail icon={Calendar} label={t('dateAndTime')} value={formatDate(selected.last_message_at || selected.created_at, salon.timezone)} />
               <Detail icon={Clock} label={t('duration')} value={formatDuration(selected.duration_seconds)} />
               <Detail icon={User} label={t('contact')} value={conversationTitle(selected, t)} />
+              {hasPendingBookingChangeRequest(selected) && (
+                <Detail icon={AlertTriangle} label={t('bookingChangeRequest')} value={latestPendingBookingChangeRequestText(selected) ?? t('statusPending')} />
+              )}
             </DarkPanel>
             {isPhoneConversation(selected) && (
               <DarkPanel>
@@ -1527,6 +1535,25 @@ function formatProvider(provider?: string | null) {
   if (!provider) return 'N/A';
 
   return provider.charAt(0).toUpperCase() + provider.slice(1);
+}
+
+function pendingBookingChangeRequests(conversation: Conversation) {
+  const requests = conversation.metadata?.booking_change_requests;
+
+  return Array.isArray(requests)
+    ? requests.filter((request): request is Record<string, unknown> => typeof request === 'object' && request !== null && request.status === 'pending')
+    : [];
+}
+
+function hasPendingBookingChangeRequest(conversation: Conversation) {
+  return pendingBookingChangeRequests(conversation).length > 0;
+}
+
+function latestPendingBookingChangeRequestText(conversation: Conversation) {
+  const request = pendingBookingChangeRequests(conversation).at(-1);
+  const text = request?.requested_text;
+
+  return typeof text === 'string' && text.trim() !== '' ? text : null;
 }
 
 function conversationMatchesChannel(conversation: Conversation, filter: 'all' | 'voice' | 'chat' | 'whatsapp') {

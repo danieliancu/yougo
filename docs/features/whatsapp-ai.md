@@ -128,7 +128,9 @@ If the customer asks to change, cancel, reschedule, add details, change service,
 
 The assistant should answer naturally and say the request has been passed to the team for confirmation when enough detail is available.
 
-Business notification for these metadata-only change requests is deferred. The dashboard can surface a pending change request indicator in a later task.
+When a new pending change request is recorded, YouGo sends the business a booking change request email if booking notifications are enabled and `notification_email` is configured. The conversation metadata is marked with `notified_at` after the email is sent.
+
+Dashboard -> Conversations shows a simple pending change request indicator. A fuller booking-change workflow can be added later.
 
 Future Phone AI must use its own channel behavior policy and must not inherit Website Chat UI instructions.
 

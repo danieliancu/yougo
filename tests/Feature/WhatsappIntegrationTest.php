@@ -6,6 +6,7 @@ use App\Models\ConversationMessage;
 use App\Models\Salon;
 use App\Models\User;
 use App\Models\WhatsappIntegration;
+use App\Mail\BookingChangeRequestMail;
 use App\Mail\NewAiBookingMail;
 use App\Services\WhatsApp\TwilioWhatsAppService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -459,7 +460,12 @@ class WhatsappIntegrationTest extends TestCase
             'twilio.validate_signature' => false,
             'services.gemini.key' => 'test-key',
         ]);
+        Mail::fake();
         [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $salon->update([
+            'notification_email' => 'owner@example.com',
+            'booking_confirmations' => true,
+        ]);
         $location = $salon->locations()->create([
             'name' => 'Central',
             'address' => 'Main Street',
@@ -517,6 +523,7 @@ class WhatsappIntegrationTest extends TestCase
         $this->assertSame('whatsapp', $request['source']);
         $this->assertSame('pending', $request['status']);
         $this->assertSame('Vreau sa schimb ora programarii la 12:00', $request['requested_text']);
+        $this->assertNotEmpty($request['notified_at'] ?? null);
         $this->assertSame('confirmed', $booking->status);
         $this->assertSame('10:00', $booking->time);
         $this->assertDatabaseHas('conversation_messages', [
@@ -525,6 +532,7 @@ class WhatsappIntegrationTest extends TestCase
             'direction' => 'outbound',
             'content' => 'Sigur. Am transmis cererea catre echipa pentru confirmare.',
         ]);
+        Mail::assertSent(BookingChangeRequestMail::class);
         $this->assertStringNotContainsString('+', ConversationMessage::query()->where('direction', 'outbound')->latest()->firstOrFail()->content);
         $this->assertStringNotContainsString('conversatie noua', ConversationMessage::query()->where('direction', 'outbound')->latest()->firstOrFail()->content);
     }

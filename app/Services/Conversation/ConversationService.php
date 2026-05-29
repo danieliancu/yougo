@@ -126,26 +126,55 @@ class ConversationService
         ]);
     }
 
-    public function recordPendingBookingChangeRequest(Conversation $conversation, string $requestedText, string $source, string $type = 'unknown'): void
+    public function recordPendingBookingChangeRequest(Conversation $conversation, string $requestedText, string $source, string $type = 'unknown'): ?array
     {
         $requestedText = trim($requestedText);
         if ($requestedText === '') {
-            return;
+            return null;
         }
 
         $metadata = $conversation->metadata ?? [];
         $requests = $metadata['booking_change_requests'] ?? [];
         if (collect($requests)->contains(fn ($request) => ($request['requested_text'] ?? null) === $requestedText && ($request['status'] ?? null) === 'pending')) {
-            return;
+            return null;
         }
 
-        $requests[] = [
+        $request = [
+            'id' => (string) Str::uuid(),
             'type' => $type,
             'requested_text' => Str::limit($requestedText, 2000, ''),
             'source' => $source,
             'status' => 'pending',
             'requested_at' => now()->toISOString(),
         ];
+        $requests[] = $request;
+
+        $conversation->update([
+            'metadata' => [
+                ...$metadata,
+                'booking_change_requests' => $requests,
+            ],
+        ]);
+
+        return $request;
+    }
+
+    public function markBookingChangeRequestNotified(Conversation $conversation, string $requestId): void
+    {
+        $metadata = $conversation->metadata ?? [];
+        $requests = collect($metadata['booking_change_requests'] ?? [])
+            ->map(function (array $request) use ($requestId) {
+                if (($request['id'] ?? null) !== $requestId) {
+                    return $request;
+                }
+
+                return [
+                    ...$request,
+                    'notified_at' => now()->toISOString(),
+                ];
+            })
+            ->values()
+            ->all();
 
         $conversation->update([
             'metadata' => [

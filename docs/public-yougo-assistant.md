@@ -60,7 +60,7 @@ Customer-facing assistant behavior is channel-specific:
 
 - Website Chat can keep its widget-specific new conversation behavior.
 - WhatsApp continues in the same thread after a booking. It must not tell customers to use website widget controls, start a separate conversation, or open a separate chat.
-- WhatsApp booking changes, cancellations, reschedules, added details, service changes, time changes, or location changes are pending requests for the business, not automatically confirmed edits.
+- WhatsApp booking changes, cancellations, reschedules, added details, service changes, time changes, or location changes are pending requests for the business, not automatically confirmed edits. New pending requests are emailed to the business when booking notifications are configured.
 - Future Phone AI must use its own natural same-interaction policy and must not inherit Website Chat UI instructions.
 
 ## What It Must Not Claim

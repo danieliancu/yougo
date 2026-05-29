@@ -9,6 +9,7 @@ use App\Models\WhatsappIntegration;
 use App\Services\Assistant\AssistantChatService;
 use App\Services\Assistant\AssistantMessageLocalizer;
 use App\Services\Conversation\ConversationService;
+use App\Services\Notifications\BookingNotificationService;
 use App\Services\Usage\UsageLimitService;
 use App\Services\Usage\UsageTracker;
 use Illuminate\Support\Facades\Log;
@@ -22,6 +23,7 @@ class WhatsAppAiReplyService
         private readonly TwilioWhatsAppService $twilio,
         private readonly WhatsAppConversationService $conversations,
         private readonly ConversationService $conversationService,
+        private readonly BookingNotificationService $bookingNotificationService,
         private readonly UsageLimitService $usageLimitService,
         private readonly UsageTracker $usageTracker,
     ) {
@@ -181,12 +183,20 @@ class WhatsAppAiReplyService
             return;
         }
 
-        $this->conversationService->recordPendingBookingChangeRequest(
+        $changeRequest = $this->conversationService->recordPendingBookingChangeRequest(
             $conversation,
             $inboundMessage->content,
             'whatsapp',
             $this->classifyChangeRequest($inboundMessage->content),
         );
+
+        if (! $changeRequest) {
+            return;
+        }
+
+        if ($this->bookingNotificationService->sendBookingChangeRequestNotification($conversation, $changeRequest)) {
+            $this->conversationService->markBookingChangeRequestNotified($conversation, $changeRequest['id']);
+        }
     }
 
     private function looksLikeBookingChangeRequest(string $text): bool
