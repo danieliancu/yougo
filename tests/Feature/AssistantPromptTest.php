@@ -141,6 +141,42 @@ class AssistantPromptTest extends TestCase
         $this->assertStringContainsString('sa apese pe + si sa inceapa o conversatie noua', $instruction);
     }
 
+    public function test_whatsapp_existing_booking_prompt_does_not_include_website_new_conversation_ui(): void
+    {
+        [$salon, $conversation] = $this->createConversationWithBooking('whatsapp', ['phone_prefix' => '40']);
+
+        $payload = app(GeminiPayloadBuilder::class)->build($salon, [
+            ['role' => 'user', 'content' => 'Vreau sa schimb ora programarii'],
+        ], $conversation);
+        $instruction = $payload['systemInstruction']['parts'][0]['text'];
+
+        $this->assertStringContainsString('Channel: WhatsApp', $instruction);
+        $this->assertStringContainsString('same WhatsApp thread', $instruction);
+        $this->assertStringContainsString('pending request for the business', $instruction);
+        $this->assertStringNotContainsString('+', $instruction);
+        $this->assertStringNotContainsString('start a new conversation', $instruction);
+        $this->assertStringNotContainsString('open a new chat', $instruction);
+        $this->assertStringNotContainsString('sa apese pe +', $instruction);
+        $this->assertStringNotContainsString('inceapa o conversatie noua', $instruction);
+    }
+
+    public function test_phone_existing_booking_prompt_does_not_inherit_website_chat_ui(): void
+    {
+        [$salon, $conversation] = $this->createConversationWithBooking('voice', ['phone_prefix' => '40']);
+
+        $payload = app(GeminiPayloadBuilder::class)->build($salon, [
+            ['role' => 'user', 'content' => 'Vreau sa schimb ora programarii'],
+        ], $conversation);
+        $instruction = $payload['systemInstruction']['parts'][0]['text'];
+
+        $this->assertStringContainsString('Channel: Phone', $instruction);
+        $this->assertStringContainsString('natural spoken-style interaction', $instruction);
+        $this->assertStringNotContainsString('+', $instruction);
+        $this->assertStringNotContainsString('start a new conversation', $instruction);
+        $this->assertStringNotContainsString('open a new chat', $instruction);
+        $this->assertStringNotContainsString('sa apese pe +', $instruction);
+    }
+
     public function test_payload_includes_known_contact_reuse_rules(): void
     {
         $salon = $this->createSalon();
@@ -179,5 +215,40 @@ class AssistantPromptTest extends TestCase
         return app(GeminiPayloadBuilder::class)->build($salon, [
             ['role' => 'user', 'content' => 'Hello'],
         ]);
+    }
+
+    private function createConversationWithBooking(string $channel, array $salonAttributes = []): array
+    {
+        $salon = $this->createSalon($salonAttributes);
+        $location = $salon->locations()->create([
+            'name' => 'Nordului',
+            'address' => 'Sos. Nordului',
+        ]);
+        $service = $salon->services()->create([
+            'name' => 'Extensii Tape-On',
+            'price' => '125',
+            'duration' => 60,
+            'location_ids' => [$location->id],
+        ]);
+        $booking = $salon->bookings()->create([
+            'location_id' => $location->id,
+            'service_id' => $service->id,
+            'client_name' => 'Ionici',
+            'client_phone' => '85766634',
+            'date' => '2026-06-30',
+            'time' => '10:00',
+            'status' => 'confirmed',
+            'source' => 'ai_assistant',
+        ]);
+        $conversation = $salon->conversations()->create([
+            'booking_id' => $booking->id,
+            'channel' => $channel,
+            'status' => 'completed',
+            'intent' => 'booking',
+            'summary' => 'Booking created.',
+            'last_message_at' => now(),
+        ]);
+
+        return [$salon, $conversation];
     }
 }

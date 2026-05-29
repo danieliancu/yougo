@@ -112,6 +112,32 @@ Unsupported in this phase:
 - human handover
 - status callbacks
 
+## Post-booking behavior
+
+WhatsApp continues in the same customer thread after a booking request is created.
+
+The assistant must not ask WhatsApp customers to press the website widget new-conversation control, start a new conversation, or open a new chat.
+
+If the customer asks to change, cancel, reschedule, add details, change service, change time, or change location after a booking exists, YouGo does not automatically edit or cancel the booking. The request is stored on `conversations.metadata.booking_change_requests` with:
+
+- `type`
+- `requested_text`
+- `source = whatsapp`
+- `status = pending`
+- `requested_at`
+
+The assistant should answer naturally and say the request has been passed to the team for confirmation when enough detail is available.
+
+Business notification for these metadata-only change requests is deferred. The dashboard can surface a pending change request indicator in a later task.
+
+Future Phone AI must use its own channel behavior policy and must not inherit Website Chat UI instructions.
+
+## Assistant channel behavior policy
+
+- Website Chat (`chat`, `website`, `website_chat`, `web_widget`): may keep the current new-conversation behavior and website widget instructions.
+- WhatsApp (`whatsapp`): continues in the same thread, records booking changes as pending requests, never mentions website widget controls.
+- Future Phone AI (`phone`, `call`, `voice`): placeholder policy for natural same-interaction handling, without Website Chat UI instructions.
+
 ## Security
 
 Twilio signature validation is implemented with `Twilio\Security\RequestValidator`.

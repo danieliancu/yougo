@@ -54,6 +54,15 @@ WhatsApp requires a compatible plan that includes `whatsapp_ai`, such as Chat + 
 
 The current WhatsApp AI flow can receive Twilio webhooks, store WhatsApp conversations, and automatically reply to customer-initiated text messages when the integration is active and `ai_enabled` is on. It uses the same configured business data and appointment tools as website chat. Activation is still manual through Twilio, and templates, campaigns, broadcasts, media, voice notes, human handover and status callbacks are not implemented.
 
+## Assistant Channel Behavior Policy
+
+Customer-facing assistant behavior is channel-specific:
+
+- Website Chat can keep its widget-specific new conversation behavior.
+- WhatsApp continues in the same thread after a booking. It must not tell customers to use website widget controls, start a separate conversation, or open a separate chat.
+- WhatsApp booking changes, cancellations, reschedules, added details, service changes, time changes, or location changes are pending requests for the business, not automatically confirmed edits.
+- Future Phone AI must use its own natural same-interaction policy and must not inherit Website Chat UI instructions.
+
 ## What It Must Not Claim
 
 It must not claim WhatsApp sender provisioning is automatic. It must not claim WhatsApp campaigns, templates, broadcasts, media, Phone AI, Telnyx or demo phone are live while they remain planned or incomplete. Stripe billing is live for paid plan checkout and subscription management only. It must not expose API keys, env variables, prompts, private account data or internal implementation secrets.

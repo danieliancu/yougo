@@ -8,6 +8,7 @@ use App\Models\Salon;
 use App\Models\WhatsappIntegration;
 use App\Services\Assistant\AssistantChatService;
 use App\Services\Assistant\AssistantMessageLocalizer;
+use App\Services\Conversation\ConversationService;
 use App\Services\Usage\UsageLimitService;
 use App\Services\Usage\UsageTracker;
 use Illuminate\Support\Facades\Log;
@@ -20,6 +21,7 @@ class WhatsAppAiReplyService
         private readonly AssistantMessageLocalizer $messageLocalizer,
         private readonly TwilioWhatsAppService $twilio,
         private readonly WhatsAppConversationService $conversations,
+        private readonly ConversationService $conversationService,
         private readonly UsageLimitService $usageLimitService,
         private readonly UsageTracker $usageTracker,
     ) {
@@ -57,6 +59,8 @@ class WhatsAppAiReplyService
         }
 
         try {
+            $this->recordPendingChangeRequestIfNeeded($conversation, $inboundMessage);
+
             $result = $this->assistantChatService->replyForConversation($salon, $conversation, [
                 'channel' => 'whatsapp',
                 'booking_source' => 'whatsapp',
@@ -169,6 +173,37 @@ class WhatsAppAiReplyService
         return $this->messageLocalizer->localeFor($salon) === 'en'
             ? 'I can currently process text messages on WhatsApp only.'
             : 'Momentan pot procesa doar mesaje text pe WhatsApp.';
+    }
+
+    private function recordPendingChangeRequestIfNeeded(Conversation $conversation, ConversationMessage $inboundMessage): void
+    {
+        if (! $conversation->booking_id || ! $this->looksLikeBookingChangeRequest($inboundMessage->content)) {
+            return;
+        }
+
+        $this->conversationService->recordPendingBookingChangeRequest(
+            $conversation,
+            $inboundMessage->content,
+            'whatsapp',
+            $this->classifyChangeRequest($inboundMessage->content),
+        );
+    }
+
+    private function looksLikeBookingChangeRequest(string $text): bool
+    {
+        return preg_match('/\b(schimb|modific|reprogram|anul|cancel|alta ora|alt[aă] zi|alt serviciu|change|reschedul|cancel|another service|different service|different time)\b/iu', $text) === 1;
+    }
+
+    private function classifyChangeRequest(string $text): string
+    {
+        $normalized = mb_strtolower($text);
+
+        return match (true) {
+            preg_match('/\b(anul|cancel)\b/iu', $normalized) === 1 => 'cancel',
+            preg_match('/\b(reprogram|ora|alt[aă] zi|reschedul|different time)\b/iu', $normalized) === 1 => 'reschedule',
+            preg_match('/\b(serviciu|service)\b/iu', $normalized) === 1 => 'change_service',
+            default => 'unknown',
+        };
     }
 
     private function cleanWhatsappAddress(string $value): string

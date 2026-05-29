@@ -6,6 +6,7 @@ use App\Models\Booking;
 use App\Models\Conversation;
 use App\Models\Salon;
 use App\Services\Usage\UsageTracker;
+use Illuminate\Support\Str;
 
 class ConversationService
 {
@@ -122,6 +123,35 @@ class ConversationService
         $conversation->update([
             'last_message_at' => $now,
             'duration_seconds' => max(0, (int) $startedAt->diffInSeconds($now, true)),
+        ]);
+    }
+
+    public function recordPendingBookingChangeRequest(Conversation $conversation, string $requestedText, string $source, string $type = 'unknown'): void
+    {
+        $requestedText = trim($requestedText);
+        if ($requestedText === '') {
+            return;
+        }
+
+        $metadata = $conversation->metadata ?? [];
+        $requests = $metadata['booking_change_requests'] ?? [];
+        if (collect($requests)->contains(fn ($request) => ($request['requested_text'] ?? null) === $requestedText && ($request['status'] ?? null) === 'pending')) {
+            return;
+        }
+
+        $requests[] = [
+            'type' => $type,
+            'requested_text' => Str::limit($requestedText, 2000, ''),
+            'source' => $source,
+            'status' => 'pending',
+            'requested_at' => now()->toISOString(),
+        ];
+
+        $conversation->update([
+            'metadata' => [
+                ...$metadata,
+                'booking_change_requests' => $requests,
+            ],
         ]);
     }
 

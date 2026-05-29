@@ -4,6 +4,7 @@ namespace App\Services\Assistant;
 
 use App\Models\Booking;
 use App\Models\Salon;
+use App\Support\AssistantChannelBehavior;
 use Illuminate\Support\Carbon;
 
 class AssistantMessageLocalizer
@@ -21,11 +22,22 @@ class AssistantMessageLocalizer
         return $displayLanguage === 'en' ? 'en' : 'ro';
     }
 
-    public function existingBookingRequiresNewConversation(Salon $salon): string
+    public function existingBookingRequiresNewConversation(Salon $salon, ?string $channel = null): string
     {
+        if (! AssistantChannelBehavior::allowsNewConversationInstruction($channel)) {
+            return $this->bookingChangeRequestPassedToTeam($salon);
+        }
+
         return $this->localeFor($salon) === 'en'
             ? 'To make a new booking, please press + and start a new conversation.'
             : 'Pentru o programare nouă, apasă pe + și începe o conversație nouă.';
+    }
+
+    public function bookingChangeRequestPassedToTeam(Salon $salon): string
+    {
+        return $this->localeFor($salon) === 'en'
+            ? "I've passed the request to the team for confirmation."
+            : 'Am transmis cererea catre echipa pentru confirmare.';
     }
 
     public function bookingConfirmation(Salon $salon, Booking $booking): string

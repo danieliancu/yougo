@@ -69,6 +69,7 @@ type Props = PageProps<{
 
 type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
 type DateRange = { start: string; end: string };
+type ConversationChannelFilter = 'all' | 'voice' | 'chat' | 'whatsapp';
 type ImportedServiceCandidate = {
   name: string;
   category: string;
@@ -79,6 +80,8 @@ type ImportedServiceCandidate = {
   selected: boolean;
   duplicate?: boolean;
 };
+
+const CONVERSATION_CHANNEL_FILTER_STORAGE_KEY = 'yougo.dashboard.conversations.channelFilter';
 
 const SERVICE_IMPORT_MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const TABLE_PILL_CLASS = 'inline-flex items-center justify-center whitespace-nowrap rounded-md font-semibold uppercase tracking-wide min-w-28 px-2 py-1 text-[10px]';
@@ -1247,7 +1250,8 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
   const t = useT();
   const [selectedId, setSelectedId] = useState(salon.conversations[0]?.id ?? null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [channelFilter, setChannelFilter] = useState<'all' | 'voice' | 'chat' | 'whatsapp'>('chat');
+  const [channelFilter, setChannelFilter] = useState<ConversationChannelFilter>(() => initialConversationChannelFilter());
+  const transcriptRef = useRef<HTMLDivElement | null>(null);
   const metrics = overview.metrics;
   const conversations = salon.conversations.filter((conversation) => {
     if (!conversationMatchesChannel(conversation, channelFilter)) return false;
@@ -1269,6 +1273,22 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
       ? t('noWhatsappConversationsFound')
       : t('noConversations');
   const emptyHelp = channelFilter === 'all' ? t('noConversationsHelp') : t('noFilteredConversationsHelp');
+  const lastMessageId = selected?.messages.at(-1)?.id ?? null;
+
+  useEffect(() => {
+    const transcript = transcriptRef.current;
+    if (! transcript) return;
+
+    transcript.scrollTop = transcript.scrollHeight;
+  }, [selected?.id, lastMessageId]);
+
+  function selectChannelFilter(filter: ConversationChannelFilter) {
+    setChannelFilter(filter);
+
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(CONVERSATION_CHANNEL_FILTER_STORAGE_KEY, filter);
+    }
+  }
 
   return (
     <>
@@ -1293,9 +1313,9 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
           <ChannelStat label={t('abandonedConversations')} value={metrics.abandoned_conversations} icon={XCircle} tone="slate" compact />
         </div>
         <div className="flex flex-wrap gap-2">
-          <ConversationFilterButton active={channelFilter === 'voice'} onClick={() => setChannelFilter('voice')} icon={Phone}>{t('phoneCalls')}</ConversationFilterButton>
-          <ConversationFilterButton active={channelFilter === 'chat'} onClick={() => setChannelFilter('chat')} icon={MessageSquare}>{t('chat')}</ConversationFilterButton>
-          <ConversationFilterButton active={channelFilter === 'whatsapp'} onClick={() => setChannelFilter('whatsapp')} icon={MessageCircle}>{t('whatsapp')}</ConversationFilterButton>
+          <ConversationFilterButton active={channelFilter === 'voice'} onClick={() => selectChannelFilter('voice')} icon={Phone}>{t('phoneCalls')}</ConversationFilterButton>
+          <ConversationFilterButton active={channelFilter === 'chat'} onClick={() => selectChannelFilter('chat')} icon={MessageSquare}>{t('chat')}</ConversationFilterButton>
+          <ConversationFilterButton active={channelFilter === 'whatsapp'} onClick={() => selectChannelFilter('whatsapp')} icon={MessageCircle}>{t('whatsapp')}</ConversationFilterButton>
         </div>
       </div>
       {selected ? (
@@ -1370,7 +1390,7 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
                 <FileText className="h-5 w-5" />
                 {t('transcript')}
               </div>
-              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-2">
+              <div ref={transcriptRef} className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-2">
                 {selected.messages.map((message) => {
                   const participant = conversationMessageParticipant(selected, message, t);
                   const alignRight = conversationMessageAlignsRight(selected, message);
@@ -1471,7 +1491,7 @@ function conversationMessageAlignsRight(conversation: Conversation, message: Con
     if (message.direction === 'outbound') return true;
   }
 
-  return message.role === 'user';
+  return message.role === 'assistant' || message.direction === 'outbound';
 }
 
 function conversationMessageParticipant(conversation: Conversation, message: Conversation['messages'][number], t: TranslateFn) {
@@ -1516,6 +1536,18 @@ function conversationMatchesChannel(conversation: Conversation, filter: 'all' | 
   if (filter === 'chat') return channel === 'chat' || channel === 'web_widget';
 
   return channel === filter;
+}
+
+function initialConversationChannelFilter(): ConversationChannelFilter {
+  if (typeof window === 'undefined') {
+    return 'chat';
+  }
+
+  const stored = window.localStorage.getItem(CONVERSATION_CHANNEL_FILTER_STORAGE_KEY);
+
+  return stored === 'voice' || stored === 'chat' || stored === 'whatsapp'
+    ? stored
+    : 'chat';
 }
 
 function ConversationFilterButton({ active, onClick, icon: Icon, children }: { active: boolean; onClick: () => void; icon?: any; children: React.ReactNode }) {

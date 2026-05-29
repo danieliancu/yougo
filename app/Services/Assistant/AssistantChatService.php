@@ -8,6 +8,7 @@ use App\Services\Conversation\ConversationService;
 use App\Services\Modes\Appointment\AppointmentToolHandler;
 use App\Services\Notifications\BookingNotificationService;
 use App\Services\Usage\UsageLimitService;
+use App\Support\AssistantChannelBehavior;
 use Illuminate\Support\Facades\Http;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -126,7 +127,18 @@ class AssistantChatService
 
             if ($conversation->booking_id) {
                 $booking = $conversation->booking;
-                $text = $this->messageLocalizer->existingBookingRequiresNewConversation($salon);
+                $channel = (string) ($options['channel'] ?? $conversation->channel);
+
+                if (! AssistantChannelBehavior::allowsNewConversationInstruction($channel)) {
+                    $this->conversationService->recordPendingBookingChangeRequest(
+                        $conversation,
+                        $this->latestUserMessageText($messages),
+                        AssistantChannelBehavior::normalize($channel),
+                        $this->pendingRequestType($functionCall),
+                    );
+                }
+
+                $text = $this->messageLocalizer->existingBookingRequiresNewConversation($salon, $channel);
                 continue;
             }
 
@@ -171,6 +183,20 @@ class AssistantChatService
             ],
             'status' => 200,
         ];
+    }
+
+    private function latestUserMessageText(array $messages): string
+    {
+        return (string) (collect($messages)->where('role', 'user')->last()['content'] ?? '');
+    }
+
+    private function pendingRequestType(array $functionCall): string
+    {
+        return match ($functionCall['name'] ?? null) {
+            'bookBooking' => 'new_booking_request',
+            'checkAvailability' => 'reschedule',
+            default => 'unknown',
+        };
     }
 
     private function sendToGemini(Salon $salon, array $messages, ?Conversation $conversation = null, ?array $knownContact = null)
