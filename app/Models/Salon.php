@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
 
 class Salon extends Model
@@ -196,5 +197,10 @@ class Salon extends Model
     public function usageEvents(): HasMany
     {
         return $this->hasMany(UsageEvent::class);
+    }
+
+    public function whatsappIntegration(): HasOne
+    {
+        return $this->hasOne(WhatsappIntegration::class);
     }
 }

@@ -15,6 +15,9 @@ class Conversation extends Model
         'salon_id',
         'booking_id',
         'channel',
+        'provider',
+        'external_contact_id',
+        'external_sender',
         'visitor_number',
         'contact_name',
         'contact_phone',
@@ -23,6 +26,7 @@ class Conversation extends Model
         'intent',
         'duration_seconds',
         'summary',
+        'metadata',
         'last_message_at',
     ];
 
@@ -31,6 +35,7 @@ class Conversation extends Model
         return [
             'last_message_at' => 'datetime',
             'duration_seconds' => 'integer',
+            'metadata' => 'array',
         ];
     }
 

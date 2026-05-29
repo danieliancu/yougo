@@ -10,7 +10,22 @@ class ConversationMessage extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['conversation_id', 'role', 'content'];
+    protected $fillable = [
+        'conversation_id',
+        'role',
+        'direction',
+        'provider',
+        'provider_message_id',
+        'content',
+        'metadata',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'metadata' => 'array',
+        ];
+    }
 
     public function conversation(): BelongsTo
     {

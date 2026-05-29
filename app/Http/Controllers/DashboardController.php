@@ -58,6 +58,7 @@ class DashboardController extends Controller
             'staff' => fn ($query) => $query->with(['location', 'locations', 'services'])->latest(),
             'services' => fn ($query) => $query->with('staffMembers')->latest(),
             'bookings' => fn ($query) => $query->with(['location', 'service', 'staffMember'])->latest(),
+            'whatsappIntegration',
             'conversations' => fn ($query) => $query
                 ->with([
                     'messages' => fn ($messageQuery) => $messageQuery->oldest(),
@@ -65,7 +66,7 @@ class DashboardController extends Controller
                     'booking.service',
                 ])
                 ->latest('last_message_at')
-                ->latest(),
+                ->oldest('id'),
         ]);
 
         return Inertia::render('Dashboard/Index', [

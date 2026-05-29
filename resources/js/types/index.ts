@@ -69,7 +69,11 @@ export type ConversationMessage = {
   id: number;
   conversation_id: number;
   role: 'user' | 'assistant';
+  direction?: 'inbound' | 'outbound' | string | null;
+  provider?: string | null;
+  provider_message_id?: string | null;
   content: string;
+  metadata?: Record<string, unknown> | null;
   created_at?: string;
 };
 
@@ -79,6 +83,9 @@ export type Conversation = {
   booking_id?: number | null;
   visitor_number?: number | null;
   channel: 'chat' | 'voice' | 'web_widget' | string;
+  provider?: string | null;
+  external_contact_id?: string | null;
+  external_sender?: string | null;
   contact_name?: string | null;
   contact_phone?: string | null;
   contact_email?: string | null;
@@ -86,10 +93,26 @@ export type Conversation = {
   intent: 'inquiry' | 'booking' | string;
   duration_seconds?: number | null;
   summary?: string | null;
+  metadata?: Record<string, unknown> | null;
   last_message_at?: string | null;
   created_at?: string;
   messages: ConversationMessage[];
   booking?: Booking | null;
+};
+
+export type WhatsappIntegration = {
+  id: number;
+  salon_id: number;
+  provider: 'twilio' | string;
+  requested_number?: string | null;
+  twilio_sender?: string | null;
+  display_number?: string | null;
+  status: 'not_connected' | 'requested' | 'active' | 'disabled' | 'failed' | string;
+  ai_enabled: boolean;
+  last_verified_at?: string | null;
+  activated_at?: string | null;
+  requested_at?: string | null;
+  metadata?: Record<string, unknown> | null;
 };
 
 export type Salon = {
@@ -150,6 +173,7 @@ export type Salon = {
   services: Service[];
   bookings: Booking[];
   conversations: Conversation[];
+  whatsapp_integration?: WhatsappIntegration | null;
 };
 
 export type Plan = {

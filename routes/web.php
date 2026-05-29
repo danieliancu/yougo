@@ -17,6 +17,8 @@ use App\Http\Controllers\ServiceImageImportController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\StripeWebhookController;
+use App\Http\Controllers\TwilioWhatsAppWebhookController;
+use App\Http\Controllers\WhatsappSettingsController;
 use App\Http\Controllers\WidgetController;
 use App\Support\YouGoServices;
 use Illuminate\Support\Facades\Route;
@@ -82,6 +84,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings/language', [SettingsController::class, 'updateLanguage'])->name('settings.language.update');
     Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
     Route::put('/widget-settings', [WidgetController::class, 'updateSettings'])->name('widget-settings.update');
+    Route::post('/dashboard/whatsapp/request-activation', [WhatsappSettingsController::class, 'requestActivation'])
+        ->name('dashboard.whatsapp.request-activation');
+    Route::patch('/dashboard/whatsapp/toggle', [WhatsappSettingsController::class, 'toggle'])
+        ->name('dashboard.whatsapp.toggle');
+    Route::post('/dashboard/whatsapp/test-message', [WhatsappSettingsController::class, 'testMessage'])
+        ->name('dashboard.whatsapp.test-message');
     Route::post('/dashboard/billing/checkout', [BillingController::class, 'checkout'])->name('billing.checkout');
     Route::post('/dashboard/billing/portal', [BillingController::class, 'portal'])->name('billing.portal');
     Route::delete('/account', [SettingsController::class, 'destroy'])->name('account.destroy');
@@ -90,6 +98,10 @@ Route::middleware('auth')->group(function () {
 Route::post('/stripe/webhook', StripeWebhookController::class)
     ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class)
     ->name('stripe.webhook');
+
+Route::post('/twilio/whatsapp/webhook', TwilioWhatsAppWebhookController::class)
+    ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class)
+    ->name('twilio.whatsapp.webhook');
 
 Route::get('/widget/{widgetKey}.js', [WidgetController::class, 'script'])->name('widget.script');
 Route::get('/widget/{widgetKey}', [WidgetController::class, 'show'])->name('widget.show');

@@ -37,8 +37,9 @@ class YouGoPublicAssistantKnowledge
         return implode("\n", [
             'Product facts:',
             '- YouGo is an AI receptionist SaaS for small appointment-based businesses.',
-            '- Live today: website chat widget, dashboard, onboarding, booking request collection, availability checks based on configured services/locations/staff/schedule, and email notifications on eligible plans.',
-            '- Planned later: WhatsApp AI, Phone AI/Telnyx/demo phone, Stripe/online payments.',
+            '- Live today: website chat widget, dashboard, onboarding, booking request collection, availability checks based on configured services/locations/staff/schedule, email notifications on eligible plans, and a Twilio WhatsApp activation/settings foundation.',
+            '- WhatsApp foundation today: business owner can request activation, YouGo admin manually configures Twilio, inbound webhooks can be stored as WhatsApp conversations, and active integrations can send test messages. Full AI replies over WhatsApp are a next phase.',
+            '- Planned later: automatic WhatsApp sender provisioning, full WhatsApp AI replies, Phone AI/Telnyx/demo phone, Stripe/online payments.',
             '- Website chat is text-only. Do not mention website voice input as available.',
         ]);
     }
@@ -88,6 +89,7 @@ class YouGoPublicAssistantKnowledge
             '- Configure business profile, services, locations, staff and schedule.',
             '- Configure AI assistant settings and notification email.',
             '- Open Widget settings, copy the widget snippet and paste it before the closing body tag or into the CMS/custom HTML area.',
+            '- For WhatsApp, open WhatsApp Settings, enter the business WhatsApp number and request activation. YouGo configures Twilio manually before the toggle becomes available.',
             '- Test the website chat and confirm booking requests in the dashboard.',
         ]);
     }
@@ -101,6 +103,7 @@ class YouGoPublicAssistantKnowledge
             '- Bookings: confirm, cancel, edit or archive booking requests.',
             '- Conversations: website chat transcripts and status.',
             '- Chat/Widget: widget preview, embed snippet and widget settings.',
+            '- WhatsApp Settings: request manual Twilio activation, view status, toggle WhatsApp AI after activation and send a test message.',
             '- Services: service catalog, prices, duration and capacity.',
             '- Staff: team members and assignments.',
             '- Locations: addresses and opening hours.',

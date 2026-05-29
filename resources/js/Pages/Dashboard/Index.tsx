@@ -3,7 +3,7 @@ import { AlertModal, Badge, Button, Card, ConfirmationModal, DangerButton, Field
 import type { ActivityChartRow } from '@/Components/ActivityChart';
 import { PricingPlansGrid, VoicePlanKey } from '@/Components/PricingPlansGrid';
 import { YouGoCopilot } from '@/Components/YouGoCopilot';
-import { Booking, Conversation, Location as SalonLocation, OfferedService, OnboardingChecklist, OnboardingStep, OverviewData, PageProps, Plan, Salon, Service, Staff, UsageSummary, User as AuthUser } from '@/types';
+import { Booking, Conversation, Location as SalonLocation, OfferedService, OnboardingChecklist, OnboardingStep, OverviewData, PageProps, Plan, Salon, Service, Staff, UsageSummary, User as AuthUser, WhatsappIntegration } from '@/types';
 import { AlertTriangle, Bell, Bot, Building2, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, CreditCard, Download, ExternalLink, FileText, Globe2, LayoutDashboard, List, Lock, LogOut, MapPin, Menu, MessageCircle, MessageSquare, MoreHorizontal, Pencil, Phone, Plus, QrCode, Save, Scissors, Search, Settings, Smartphone, Sparkles, Trash2, User, Users, X, XCircle } from 'lucide-react';
 import { SiWhatsapp } from 'react-icons/si';
 import { FormEvent, lazy, ReactNode, Suspense, useEffect, useMemo, useRef, useState } from 'react';
@@ -284,7 +284,7 @@ export default function DashboardIndex() {
           {section === 'ai-settings' && <AiSettings salon={salon} />}
           {section === 'conversations' && <Conversations salon={salon} query={query} overview={overview} />}
           {section === 'voice-calls' && <VoiceCalls query={query} />}
-          {section === 'whatsapp' && <WhatsAppConversations query={query} />}
+          {section === 'whatsapp' && <WhatsAppSettings salon={salon} plan={billing.summary.plan} />}
           {section === 'locations' && <Locations salon={salon} />}
           {section === 'staff' && <StaffManagement salon={salon} query={query} />}
           {section === 'services' && <Services salon={salon} query={query} />}
@@ -4177,6 +4177,18 @@ function serviceImportErrorMessage(data: unknown, t: TranslateFn): string {
   return t('serviceImportFailed');
 }
 
+function jsonErrorMessage(data: unknown, fallback: string): string {
+  if (data && typeof data === 'object') {
+    const payload = data as { message?: unknown; errors?: Record<string, string[]> };
+    const validationMessage = payload.errors ? Object.values(payload.errors)[0]?.[0] : '';
+    const message = typeof payload.message === 'string' ? payload.message : '';
+
+    return validationMessage || message || fallback;
+  }
+
+  return fallback;
+}
+
 function serviceImportWarningMessage(warning: string, t: TranslateFn): string {
   if (warning === 'truncated_response') {
     return t('serviceImportTruncatedResponse');
@@ -4774,52 +4786,261 @@ function VoiceCalls({ query: _query }: { query: string }) {
   );
 }
 
-function WhatsAppConversations({ query: _query }: { query: string }) {
+function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
   const t = useT();
+  const [integration, setIntegration] = useState<WhatsappIntegration | null>(salon.whatsapp_integration ?? null);
+  const [requestedNumber, setRequestedNumber] = useState(integration?.requested_number ?? salon.business_phone ?? '');
+  const [aiEnabled, setAiEnabled] = useState(Boolean(integration?.ai_enabled));
+  const [testTo, setTestTo] = useState('');
+  const [testMessage, setTestMessage] = useState(t('whatsappDefaultTestMessage'));
+  const [busy, setBusy] = useState<'request' | 'toggle' | 'test' | null>(null);
+  const [notice, setNotice] = useState('');
+  const [error, setError] = useState('');
+  const hasWhatsappPlan = planHasService(plan, 'whatsapp_ai');
+  const status = integration?.status ?? 'not_connected';
+  const active = status === 'active';
+
+  useEffect(() => {
+    setIntegration(salon.whatsapp_integration ?? null);
+    setAiEnabled(Boolean(salon.whatsapp_integration?.ai_enabled));
+    setRequestedNumber(salon.whatsapp_integration?.requested_number ?? salon.business_phone ?? '');
+  }, [salon.whatsapp_integration, salon.business_phone]);
+
+  async function requestActivation() {
+    setBusy('request');
+    setNotice('');
+    setError('');
+
+    try {
+      const response = await fetch('/dashboard/whatsapp/request-activation', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          ...csrfHeaders(),
+        },
+        body: JSON.stringify({ requested_number: requestedNumber }),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(jsonErrorMessage(data, t('whatsappActivationRequestFailed')));
+      }
+
+      setIntegration(data.integration ?? null);
+      setNotice(t('whatsappActivationRequestedMessage'));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t('whatsappActivationRequestFailed'));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function toggleAi(next: boolean) {
+    setBusy('toggle');
+    setNotice('');
+    setError('');
+
+    try {
+      const response = await fetch('/dashboard/whatsapp/toggle', {
+        method: 'PATCH',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          ...csrfHeaders(),
+        },
+        body: JSON.stringify({ ai_enabled: next }),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(jsonErrorMessage(data, t('whatsappToggleFailed')));
+      }
+
+      setIntegration(data.integration ?? integration);
+      setAiEnabled(Boolean(data.integration?.ai_enabled));
+    } catch (caught) {
+      setAiEnabled(Boolean(integration?.ai_enabled));
+      setError(caught instanceof Error ? caught.message : t('whatsappToggleFailed'));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function sendTestMessage() {
+    setBusy('test');
+    setNotice('');
+    setError('');
+
+    try {
+      const response = await fetch('/dashboard/whatsapp/test-message', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          ...csrfHeaders(),
+        },
+        body: JSON.stringify({ to: testTo, message: testMessage }),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(jsonErrorMessage(data, t('whatsappTestMessageFailed')));
+      }
+
+      setNotice(t('whatsappTestMessageSent'));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t('whatsappTestMessageFailed'));
+    } finally {
+      setBusy(null);
+    }
+  }
 
   return (
     <div className="space-y-6">
-      <Card className="border-emerald-500/30 p-6">
-        <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+      <Card className="p-6">
+        <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
           <div className="flex items-start gap-4">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-500">
-              <QrCode className="h-6 w-6" />
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300">
+              <SiWhatsapp className="h-5 w-5" />
             </span>
-            <div>
-              <h2 className="text-lg font-bold app-text">{t('whatsappBot')}</h2>
-              <span className="mt-1 inline-flex rounded-md bg-amber-400/20 px-2.5 py-1 text-[11px] font-bold text-amber-600 dark:text-amber-300">
-                {t('disconnected')}
-              </span>
-              <div className="mt-4">
-                <SecondaryButton type="button">
-                  <Smartphone className="h-4 w-4" />
-                  {t('connectWithPhoneNumber')}
-                </SecondaryButton>
-              </div>
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold app-text">{t('whatsappSettingsTitle')}</h2>
+              <p className="mt-1 max-w-2xl text-sm app-text-muted">{t('whatsappSettingsSubtitle')}</p>
             </div>
           </div>
 
-          <Button type="button" className="bg-emerald-600 hover:bg-emerald-700">
-            <QrCode className="h-4 w-4" />
-            {t('connectWhatsapp')}
-          </Button>
+          <WhatsappStatusBadge status={status} />
         </div>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <ChannelStat icon={MessageCircle} value={0} label={t('totalChats')} tone="green" />
-        <ChannelStat icon={MessageCircle} value={0} label={t('activeChats')} tone="blue" />
-        <ChannelStat icon={CheckCircle2} value={0} label={t('completedChats')} tone="slate" />
-      </div>
+      {!hasWhatsappPlan ? (
+        <Card className="p-6">
+          <div className="flex items-start gap-3">
+            <Lock className="mt-0.5 h-5 w-5 text-amber-600" />
+            <div>
+              <h3 className="text-base font-bold app-text">{t('upgradeRequired')}</h3>
+              <p className="mt-1 text-sm app-text-muted">{t('whatsappRequiresUpgrade')}</p>
+              <Link href="/dashboard/billing" className="mt-4 inline-flex h-10 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700">
+                {t('billing')}
+              </Link>
+            </div>
+          </div>
+        </Card>
+      ) : (
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <Card className="p-6">
+            <div className="space-y-5">
+              {(notice || error) && (
+                <div className={`rounded-lg border px-4 py-3 text-sm ${error ? 'border-red-200 bg-red-50 text-red-700' : 'border-green-200 bg-green-50 text-green-700'}`}>
+                  {error || notice}
+                </div>
+              )}
 
-      <Card className="min-h-40 p-6">
-        <h2 className="text-lg font-bold app-text">{t('whatsappConversations')}</h2>
-        <div className="flex min-h-24 items-center justify-center text-sm app-text-muted">
-          {t('noWhatsappConversationsFound')}
+              <Field label={t('whatsappBusinessNumber')}>
+                <Input
+                  value={requestedNumber}
+                  onChange={(event) => setRequestedNumber(event.target.value)}
+                  placeholder="+407xxxxxxxx"
+                  disabled={active}
+                />
+              </Field>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <Button type="button" onClick={requestActivation} disabled={busy !== null || active || requestedNumber.trim() === ''}>
+                  <Smartphone className="h-4 w-4" />
+                  {busy === 'request' ? t('saving') : t('requestWhatsappActivation')}
+                </Button>
+                {!active && (
+                  <p className="max-w-xl text-sm app-text-muted">{t('whatsappSetupUnderReview')}</p>
+                )}
+              </div>
+
+              <div className="rounded-lg border p-4 app-border app-panel-soft">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold app-text">{t('whatsappAiEnabled')}</h3>
+                    <p className="mt-1 text-sm app-text-muted">{t('whatsappAiEnabledDescription')}</p>
+                  </div>
+                  <label className="inline-flex cursor-pointer items-center gap-3">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      checked={aiEnabled}
+                      disabled={!active || busy !== null}
+                      onChange={(event) => {
+                        setAiEnabled(event.target.checked);
+                        void toggleAi(event.target.checked);
+                      }}
+                    />
+                    <span className="text-sm font-semibold app-text-soft">{active ? t('enabled') : t('locked')}</span>
+                  </label>
+                </div>
+              </div>
+
+              {active && (
+                <div className="space-y-4 rounded-lg border p-4 app-border">
+                  <div>
+                    <h3 className="text-sm font-bold app-text">{t('whatsappTestMessage')}</h3>
+                    <p className="mt-1 text-sm app-text-muted">{t('whatsappTwilioManualActivationHelp')}</p>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Field label={t('whatsappRecipientNumber')}>
+                      <Input value={testTo} onChange={(event) => setTestTo(event.target.value)} placeholder="+407xxxxxxxx" />
+                    </Field>
+                    <Field label={t('whatsappTestMessageBody')}>
+                      <Input value={testMessage} onChange={(event) => setTestMessage(event.target.value)} />
+                    </Field>
+                  </div>
+                  <Button type="button" onClick={sendTestMessage} disabled={busy !== null || testTo.trim() === '' || testMessage.trim() === ''}>
+                    <MessageCircle className="h-4 w-4" />
+                    {busy === 'test' ? t('saving') : t('sendWhatsappTestMessage')}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <h3 className="text-sm font-bold app-text">{t('details')}</h3>
+            <div className="mt-4 space-y-3">
+              <Detail icon={MessageCircle} label={t('status')} value={t(whatsappStatusKey(status))} />
+              <Detail icon={Phone} label={t('whatsappBusinessNumber')} value={integration?.display_number || integration?.requested_number || t('notConfigured')} />
+              <Detail icon={QrCode} label="Twilio" value={integration?.twilio_sender ? t('configured') : t('notConfigured')} />
+            </div>
+          </Card>
         </div>
-      </Card>
+      )}
     </div>
   );
+}
+
+function WhatsappStatusBadge({ status }: { status: string }) {
+  const t = useT();
+  const tones: Record<string, 'slate' | 'amber' | 'green' | 'red'> = {
+    not_connected: 'slate',
+    requested: 'amber',
+    active: 'green',
+    disabled: 'slate',
+    failed: 'red',
+  };
+
+  return <Badge tone={tones[status] ?? 'slate'}>{t(whatsappStatusKey(status))}</Badge>;
+}
+
+function whatsappStatusKey(status: string) {
+  const keys: Record<string, string> = {
+    not_connected: 'whatsappStatusNotConnected',
+    requested: 'whatsappStatusRequested',
+    active: 'whatsappStatusActive',
+    disabled: 'whatsappStatusDisabled',
+    failed: 'whatsappStatusFailed',
+  };
+
+  return keys[status] ?? 'whatsappStatusNotConnected';
 }
 
 function ChannelStat({ icon: Icon, value, label, tone, compact = false }: { icon: any; value: number; label: string; tone: 'blue' | 'green' | 'red' | 'purple' | 'slate'; compact?: boolean }) {
