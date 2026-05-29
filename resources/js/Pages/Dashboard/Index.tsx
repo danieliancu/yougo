@@ -1306,7 +1306,8 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
               <div className="space-y-2">
                 {conversations.map((conversation) => {
                   const active = conversation.id === selected.id;
-                  const lastMessage = conversation.messages.at(-1)?.content ?? 'Conversatie fara mesaje.';
+                  const lastMessage = conversation.messages.at(-1)?.content ?? t('conversationWithoutMessages');
+                  const isWhatsapp = isWhatsappConversation(conversation);
                   return (
                     <div
                       key={conversation.id}
@@ -1318,7 +1319,15 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
                           onClick={() => setSelectedId(conversation.id)}
                           className="min-w-0 flex-1 text-left"
                         >
-                          <p className="truncate text-sm font-bold app-text">{conversationTitle(conversation, t)}</p>
+                          <div className="flex min-w-0 items-center gap-2">
+                            <p className="truncate text-sm font-bold app-text">{conversationTitle(conversation, t)}</p>
+                            {isWhatsapp && (
+                              <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-green-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-green-800 dark:bg-green-500/15 dark:text-green-300">
+                                <SiWhatsapp className="h-3 w-3" />
+                                WhatsApp
+                              </span>
+                            )}
+                          </div>
                           <p className="mt-1 truncate text-xs app-text-muted">{lastMessage}</p>
                           <div className="mt-2">
                             <IntentPill intent={conversation.intent} compact bookingStatus={conversation.booking?.status} />
@@ -1344,10 +1353,10 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
             <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between lg:mb-6">
               <div className="flex min-w-0 items-center gap-3 sm:gap-4">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700 sm:h-12 sm:w-12">
-                  {selected.channel === 'voice' ? <Phone className="h-5 w-5" /> : <MessageSquare className="h-5 w-5" />}
+                  {isPhoneConversation(selected) ? <Phone className="h-5 w-5" /> : isWhatsappConversation(selected) ? <SiWhatsapp className="h-5 w-5" /> : <MessageSquare className="h-5 w-5" />}
                 </div>
                 <div className="min-w-0">
-                  <h3 className="truncate text-xl font-bold app-text sm:text-2xl">{selected.channel === 'voice' ? t('voiceCall') : t('chatConversation')}</h3>
+                  <h3 className="truncate text-xl font-bold app-text sm:text-2xl">{conversationChannelTitle(selected, t)}</h3>
                   <p className="text-sm app-text-muted">{conversationTitle(selected, t)}</p>
                 </div>
               </div>
@@ -1362,15 +1371,24 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
                 {t('transcript')}
               </div>
               <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-2">
-                {selected.messages.map((message) => (
-                  <div key={message.id} className={`flex items-start gap-2 sm:gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    {message.role === 'assistant' && <Avatar label="AI" />}
-                    <div className={`max-w-[calc(100%-3rem)] break-words rounded-lg px-4 py-3 text-sm leading-6 sm:max-w-[78%] ${message.role === 'assistant' ? 'app-panel-soft' : 'chat-bubble-user'}`}>
-                      <InlineMarkdown text={formatNaturalDatesInText(message.content)} />
+                {selected.messages.map((message) => {
+                  const participant = conversationMessageParticipant(selected, message, t);
+                  const alignRight = conversationMessageAlignsRight(selected, message);
+                  const bubbleClass = alignRight ? 'chat-bubble-user' : 'app-panel-soft';
+
+                  return (
+                    <div key={message.id} className={`flex items-start gap-2 sm:gap-3 ${alignRight ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`flex max-w-full flex-col gap-1.5 sm:max-w-[78%] ${alignRight ? 'items-end' : 'items-start'}`}>
+                        <span className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${participant.badgeClass}`}>
+                          {participant.label}
+                        </span>
+                        <div className={`w-full break-words rounded-lg px-4 py-3 text-sm leading-6 ${bubbleClass}`}>
+                          <InlineMarkdown text={formatNaturalDatesInText(message.content)} />
+                        </div>
+                      </div>
                     </div>
-                    {message.role === 'user' && <Avatar label="C" muted />}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </DarkPanel>
           </section>
@@ -1386,11 +1404,22 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
               <Detail icon={Clock} label={t('duration')} value={formatDuration(selected.duration_seconds)} />
               <Detail icon={User} label={t('contact')} value={conversationTitle(selected, t)} />
             </DarkPanel>
-            <DarkPanel>
-              <h3 className="mb-6 flex items-center gap-2 text-lg font-bold app-text"><Phone className="h-5 w-5" /> {t('phoneAi')}</h3>
-              <Detail icon={Bot} label={t('agent')} value={`${salon.ai_assistant_name?.trim() || 'Bella'} Romania Line`} />
-              <Detail icon={Phone} label={t('businessPhone')} value={salon.locations[0]?.phone || '+40 000 000 000'} />
-            </DarkPanel>
+            {isPhoneConversation(selected) && (
+              <DarkPanel>
+                <h3 className="mb-6 flex items-center gap-2 text-lg font-bold app-text"><Phone className="h-5 w-5" /> {t('phoneAi')}</h3>
+                <Detail icon={Bot} label={t('agent')} value={`${salon.ai_assistant_name?.trim() || 'Bella'} Romania Line`} />
+                <Detail icon={Phone} label={t('businessPhone')} value={salon.locations[0]?.phone || '+40 000 000 000'} />
+              </DarkPanel>
+            )}
+            {isWhatsappConversation(selected) && (
+              <DarkPanel>
+                <h3 className="mb-6 flex items-center gap-2 text-lg font-bold app-text"><SiWhatsapp className="h-5 w-5" /> {t('whatsappAiCardTitle')}</h3>
+                <Detail icon={MessageCircle} label={t('conversationChannel')} value="WhatsApp" />
+                <Detail icon={User} label={t('contact')} value={conversationTitle(selected, t)} />
+                <Detail icon={Bot} label={t('provider')} value={formatProvider(selected.provider)} />
+                <Detail icon={Clock} label={t('status')} value={selected.status === 'open' ? t('intentInquiry') : selected.status} />
+              </DarkPanel>
+            )}
           </aside>
         </div>
       ) : (
@@ -1409,7 +1438,75 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
 
 function conversationTitle(conversation: Conversation, t?: (key: string, params?: Record<string, string | number>) => string) {
   const num = conversation.visitor_number ?? conversation.id;
-  return conversation.contact_name || conversation.contact_phone || conversation.contact_email || (t ? t('visitorLabel', { id: num }) : `Visitor #${num}`);
+  return conversation.contact_name
+    || cleanWhatsappAddress(conversation.contact_phone)
+    || conversation.contact_email
+    || cleanWhatsappAddress(conversation.external_contact_id)
+    || cleanWhatsappAddress(conversation.external_sender)
+    || (t ? t('visitorLabel', { id: num }) : `Visitor #${num}`);
+}
+
+function cleanWhatsappAddress(value?: string | null) {
+  return value?.trim().replace(/^whatsapp:/i, '') || null;
+}
+
+function isWhatsappConversation(conversation: Conversation) {
+  return conversation.channel === 'whatsapp';
+}
+
+function isPhoneConversation(conversation: Conversation) {
+  return ['voice', 'phone', 'call'].includes(conversation.channel as string);
+}
+
+function conversationChannelTitle(conversation: Conversation, t: TranslateFn) {
+  if (isWhatsappConversation(conversation)) return t('whatsappConversationTitle');
+  if (isPhoneConversation(conversation)) return t('phoneConversationTitle');
+
+  return t('chatConversationTitle');
+}
+
+function conversationMessageAlignsRight(conversation: Conversation, message: Conversation['messages'][number]) {
+  if (isWhatsappConversation(conversation)) {
+    if (message.direction === 'inbound') return false;
+    if (message.direction === 'outbound') return true;
+  }
+
+  return message.role === 'user';
+}
+
+function conversationMessageParticipant(conversation: Conversation, message: Conversation['messages'][number], t: TranslateFn) {
+  const client = {
+    label: t('clientBadge'),
+    avatar: 'C',
+    tone: 'client',
+    badgeClass: 'bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300',
+  };
+  const ai = {
+    label: t('aiBadge'),
+    avatar: 'AI',
+    tone: 'ai',
+    badgeClass: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-500/15 dark:text-indigo-300',
+  };
+  const yougo = {
+    label: t('yougoBadge'),
+    avatar: 'YG',
+    tone: 'yougo',
+    badgeClass: 'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300',
+  };
+
+  if (isWhatsappConversation(conversation)) {
+    if (message.direction === 'inbound') return client;
+    if (message.role === 'assistant') return ai;
+    if (message.direction === 'outbound') return yougo;
+  }
+
+  return message.role === 'assistant' ? ai : client;
+}
+
+function formatProvider(provider?: string | null) {
+  if (!provider) return 'N/A';
+
+  return provider.charAt(0).toUpperCase() + provider.slice(1);
 }
 
 function conversationMatchesChannel(conversation: Conversation, filter: 'all' | 'voice' | 'chat' | 'whatsapp') {

@@ -68,7 +68,7 @@ export type Booking = {
 export type ConversationMessage = {
   id: number;
   conversation_id: number;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system' | string;
   direction?: 'inbound' | 'outbound' | string | null;
   provider?: string | null;
   provider_message_id?: string | null;

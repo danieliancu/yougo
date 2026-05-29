@@ -294,6 +294,44 @@ class WhatsappIntegrationTest extends TestCase
         }
     }
 
+    public function test_dashboard_whatsapp_conversation_ui_source_contains_channel_specific_polish(): void
+    {
+        $source = file_get_contents(resource_path('js/Pages/Dashboard/Index.tsx'));
+        $translations = file_get_contents(resource_path('js/i18n.ts'));
+
+        foreach ([
+            'whatsappConversationTitle',
+            'chatConversationTitle',
+            'phoneConversationTitle',
+            'clientBadge',
+            'aiBadge',
+            'yougoBadge',
+            'whatsappAiCardTitle',
+            'conversationChannel',
+            'provider',
+            'Conversație WhatsApp',
+            'WhatsApp conversation',
+        ] as $needle) {
+            $this->assertStringContainsString($needle, $translations);
+        }
+
+        foreach ([
+            'conversationChannelTitle(selected, t)',
+            'cleanWhatsappAddress',
+            "replace(/^whatsapp:/i, '')",
+            'isPhoneConversation(selected) &&',
+            'isWhatsappConversation(selected) &&',
+            "message.direction === 'inbound'",
+            "message.direction === 'outbound'",
+            "message.role === 'assistant'",
+            "t('clientBadge')",
+            "t('aiBadge')",
+            "t('yougoBadge')",
+        ] as $needle) {
+            $this->assertStringContainsString($needle, $source);
+        }
+    }
+
     private function createSalonWithUser(array $attributes = []): array
     {
         $user = User::factory()->create();
