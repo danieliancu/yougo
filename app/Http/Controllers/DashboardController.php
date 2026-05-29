@@ -57,7 +57,17 @@ class DashboardController extends Controller
             'locations' => fn ($query) => $query->latest(),
             'staff' => fn ($query) => $query->with(['location', 'locations', 'services'])->latest(),
             'services' => fn ($query) => $query->with('staffMembers')->latest(),
-            'bookings' => fn ($query) => $query->with(['location', 'service', 'staffMember'])->latest(),
+            'bookings' => fn ($query) => $query
+                ->with([
+                    'location',
+                    'service',
+                    'staffMember',
+                    'conversations' => fn ($conversationQuery) => $conversationQuery
+                        ->select(['id', 'booking_id', 'metadata', 'last_message_at'])
+                        ->latest('last_message_at')
+                        ->latest(),
+                ])
+                ->latest(),
             'whatsappIntegration',
             'conversations' => fn ($query) => $query
                 ->with([

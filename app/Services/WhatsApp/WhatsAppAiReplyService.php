@@ -201,7 +201,7 @@ class WhatsAppAiReplyService
 
     private function looksLikeBookingChangeRequest(string $text): bool
     {
-        return preg_match('/\b(schimb|modific|reprogram|anul|cancel|alta ora|alt[aă] zi|alt serviciu|change|reschedul|cancel|another service|different service|different time)\b/iu', $text) === 1;
+        return preg_match('/\b(schimb|modific|reprogram|mut|anul|cancel|alta ora|alt[aă] zi|alt serviciu|change|move|reschedul|cancel|another service|different service|different time)\b/iu', $text) === 1;
     }
 
     private function classifyChangeRequest(string $text): string
@@ -210,7 +210,7 @@ class WhatsAppAiReplyService
 
         return match (true) {
             preg_match('/\b(anul|cancel)\b/iu', $normalized) === 1 => 'cancel',
-            preg_match('/\b(reprogram|ora|alt[aă] zi|reschedul|different time)\b/iu', $normalized) === 1 => 'reschedule',
+            preg_match('/\b(reprogram|mut|ora|alt[aă] zi|move|reschedul|different time)\b/iu', $normalized) === 1 => 'reschedule',
             preg_match('/\b(serviciu|service)\b/iu', $normalized) === 1 => 'change_service',
             default => 'unknown',
         };
@@ -221,3 +221,4 @@ class WhatsAppAiReplyService
         return preg_replace('/^whatsapp:/i', '', trim($value)) ?? '';
     }
 }
+

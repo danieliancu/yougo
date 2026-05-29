@@ -5878,7 +5878,7 @@ function BookingsDayCards({
               {bookingTimeRange(booking.time, booking.service?.duration)}
             </td>
             <td className="px-5 py-4 align-top">
-              <StatusPill status={booking.status} t={t} />
+              <BookingStatusCell booking={booking} t={t} />
             </td>
             <td className="px-5 py-4 align-top font-semibold app-text">{booking.client_name}</td>
             <td className="whitespace-nowrap px-5 py-4 align-top app-text-soft">{booking.client_phone || t('phoneMissingShort')}</td>
@@ -5924,6 +5924,42 @@ function BookingsDayCards({
       }))}
     </DashboardTable>
   );
+}
+
+function BookingStatusCell({ booking, t }: { booking: Salon['bookings'][number]; t: TranslateFn }) {
+  const changeRequest = latestPendingBookingChangeRequestForBooking(booking);
+
+  return (
+    <div className="space-y-1.5">
+      <StatusPill status={booking.status} t={t} />
+      {changeRequest && (
+        <p className="max-w-56 text-xs font-semibold leading-5 text-red-600 dark:text-red-300">
+          {bookingChangeRequestLabel(changeRequest, t)}: {String(changeRequest.requested_text ?? '')}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function latestPendingBookingChangeRequestForBooking(booking: Salon['bookings'][number]) {
+  const requests = (booking.conversations ?? [])
+    .flatMap((conversation) => pendingBookingChangeRequests(conversation))
+    .sort((a, b) => String(a.requested_at ?? '').localeCompare(String(b.requested_at ?? '')));
+
+  return requests.at(-1) ?? null;
+}
+
+function bookingChangeRequestLabel(request: Record<string, unknown>, t: TranslateFn) {
+  const type = typeof request.type === 'string' ? request.type : 'unknown';
+
+  if (type === 'cancel') return t('bookingChangeTypeCancel');
+  if (type === 'reschedule') return t('bookingChangeTypeReschedule');
+  if (type === 'change_service') return t('bookingChangeTypeChangeService');
+  if (type === 'change_location') return t('bookingChangeTypeChangeLocation');
+  if (type === 'add_note') return t('bookingChangeTypeAddNote');
+  if (type === 'new_booking_request') return t('bookingChangeTypeNewBooking');
+
+  return t('bookingChangeTypeUnknown');
 }
 
 function ServiceNotesPill({ notes }: { notes: string }) {

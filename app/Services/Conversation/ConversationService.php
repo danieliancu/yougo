@@ -126,7 +126,7 @@ class ConversationService
         ]);
     }
 
-    public function recordPendingBookingChangeRequest(Conversation $conversation, string $requestedText, string $source, string $type = 'unknown'): ?array
+    public function recordPendingBookingChangeRequest(Conversation $conversation, string $requestedText, string $source, string $type = 'unknown', array $extra = []): ?array
     {
         $requestedText = trim($requestedText);
         if ($requestedText === '') {
@@ -135,8 +135,27 @@ class ConversationService
 
         $metadata = $conversation->metadata ?? [];
         $requests = $metadata['booking_change_requests'] ?? [];
-        if (collect($requests)->contains(fn ($request) => ($request['requested_text'] ?? null) === $requestedText && ($request['status'] ?? null) === 'pending')) {
-            return null;
+        $extra = array_filter($extra, fn ($value) => $value !== null);
+        $existingIndex = collect($requests)->search(fn ($request) => ($request['requested_text'] ?? null) === $requestedText && ($request['status'] ?? null) === 'pending');
+
+        if ($existingIndex !== false) {
+            if ($extra === []) {
+                return null;
+            }
+
+            $requests[$existingIndex] = [
+                ...$requests[$existingIndex],
+                ...$extra,
+            ];
+
+            $conversation->update([
+                'metadata' => [
+                    ...$metadata,
+                    'booking_change_requests' => $requests,
+                ],
+            ]);
+
+            return $requests[$existingIndex];
         }
 
         $request = [
@@ -146,6 +165,8 @@ class ConversationService
             'source' => $source,
             'status' => 'pending',
             'requested_at' => now()->toISOString(),
+            'previous_booking_status' => $conversation->booking?->status,
+            ...$extra,
         ];
         $requests[] = $request;
 
@@ -155,6 +176,10 @@ class ConversationService
                 'booking_change_requests' => $requests,
             ],
         ]);
+
+        if ($conversation->booking && $conversation->booking->status !== 'pending') {
+            $conversation->booking->update(['status' => 'pending']);
+        }
 
         return $request;
     }

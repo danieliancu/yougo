@@ -125,12 +125,25 @@ If the customer asks to change, cancel, reschedule, add details, change service,
 - `source = whatsapp`
 - `status = pending`
 - `requested_at`
+- `previous_booking_status`
 
 The assistant should answer naturally and say the request has been passed to the team for confirmation when enough detail is available.
 
+Recording a pending change request also moves the linked booking status back to `pending`, even if it was previously `confirmed`. YouGo does not change the booking date, time, location, service, staff, or cancellation state automatically.
+
+For reschedule requests where the assistant extracts a target date and time, YouGo checks availability using the existing booking availability rules before replying. The result is stored on the pending change request:
+
+- `availability_checked`
+- `availability_status = available | unavailable | missing_details`
+- `requested_date`
+- `requested_time`
+- `availability_reason`
+
+If the requested slot is unavailable, the WhatsApp reply tells the customer that the time is not available and asks for another time. The booking still remains `pending` so the business can review the request.
+
 When a new pending change request is recorded, YouGo sends the business a booking change request email if booking notifications are enabled and `notification_email` is configured. The conversation metadata is marked with `notified_at` after the email is sent.
 
-Dashboard -> Conversations shows a simple pending change request indicator. A fuller booking-change workflow can be added later.
+Dashboard -> Conversations shows a simple pending change request indicator. Dashboard -> Bookings shows the linked booking as pending and displays the latest pending request text under the status badge.
 
 Future Phone AI must use its own channel behavior policy and must not inherit Website Chat UI instructions.
 

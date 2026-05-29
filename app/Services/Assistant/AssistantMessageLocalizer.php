@@ -40,6 +40,26 @@ class AssistantMessageLocalizer
             : 'Am transmis cererea catre echipa pentru confirmare.';
     }
 
+    public function bookingChangeRequestedTimeAvailable(Salon $salon, ?string $date, ?string $time): string
+    {
+        $dateLabel = $this->dateLabel($salon, (string) $date);
+        $timeLabel = $time ?: ($this->localeFor($salon) === 'en' ? 'the requested time' : 'ora ceruta');
+
+        return $this->localeFor($salon) === 'en'
+            ? "The time {$timeLabel} appears to be available for {$dateLabel}. I've passed the change request to the team for confirmation."
+            : "Ora {$timeLabel} pare disponibila pentru {$dateLabel}. Am transmis cererea de modificare catre echipa pentru confirmare.";
+    }
+
+    public function bookingChangeRequestedTimeUnavailable(Salon $salon, ?string $date, ?string $time): string
+    {
+        $dateLabel = $this->dateLabel($salon, (string) $date);
+        $timeLabel = $time ?: ($this->localeFor($salon) === 'en' ? 'the requested time' : 'ora ceruta');
+
+        return $this->localeFor($salon) === 'en'
+            ? "The time {$timeLabel} is not available for {$dateLabel}. Please choose another time and I can check it."
+            : "Ora {$timeLabel} nu este disponibila pentru {$dateLabel}. Te rog sa alegi alta ora si o pot verifica.";
+    }
+
     public function bookingConfirmation(Salon $salon, Booking $booking): string
     {
         $date = $this->dateLabel($salon, $booking->date?->format('Y-m-d') ?? '');

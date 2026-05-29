@@ -4,6 +4,7 @@ namespace App\Services\Assistant;
 
 use App\Models\Salon;
 use App\Models\Conversation;
+use App\Services\Booking\AvailabilityChecker;
 use App\Services\Conversation\ConversationService;
 use App\Services\Modes\Appointment\AppointmentToolHandler;
 use App\Services\Notifications\BookingNotificationService;
@@ -19,6 +20,7 @@ class AssistantChatService
         private readonly AssistantResponseParser $responseParser,
         private readonly ConversationService $conversationService,
         private readonly AppointmentToolHandler $appointmentToolHandler,
+        private readonly AvailabilityChecker $availabilityChecker,
         private readonly BookingNotificationService $bookingNotificationService,
         private readonly UsageLimitService $usageLimitService,
         private readonly AssistantMessageLocalizer $messageLocalizer,
@@ -130,12 +132,35 @@ class AssistantChatService
                 $channel = (string) ($options['channel'] ?? $conversation->channel);
 
                 if (! AssistantChannelBehavior::allowsNewConversationInstruction($channel)) {
+                    $availability = $this->appointmentToolHandler->isAvailabilityCall($functionCall)
+                        ? $this->availabilityCheckForExistingBooking($salon, $conversation, $functionCall)
+                        : [];
+
                     $this->conversationService->recordPendingBookingChangeRequest(
                         $conversation,
                         $this->latestUserMessageText($messages),
                         AssistantChannelBehavior::normalize($channel),
                         $this->pendingRequestType($functionCall),
+                        $availability,
                     );
+
+                    if (($availability['availability_status'] ?? null) === 'unavailable') {
+                        $text = $this->messageLocalizer->bookingChangeRequestedTimeUnavailable(
+                            $salon,
+                            $availability['requested_date'] ?? null,
+                            $availability['requested_time'] ?? null,
+                        );
+                        continue;
+                    }
+
+                    if (($availability['availability_status'] ?? null) === 'available') {
+                        $text = $this->messageLocalizer->bookingChangeRequestedTimeAvailable(
+                            $salon,
+                            $availability['requested_date'] ?? null,
+                            $availability['requested_time'] ?? null,
+                        );
+                        continue;
+                    }
                 }
 
                 $text = $this->messageLocalizer->existingBookingRequiresNewConversation($salon, $channel);
@@ -197,6 +222,68 @@ class AssistantChatService
             'checkAvailability' => 'reschedule',
             default => 'unknown',
         };
+    }
+
+    private function availabilityCheckForExistingBooking(Salon $salon, Conversation $conversation, array $functionCall): array
+    {
+        $booking = $conversation->booking;
+        $args = $functionCall['args'] ?? [];
+        $date = trim((string) ($args['date'] ?? ''));
+        $time = $this->normalizedTime((string) ($args['time'] ?? $args['preferred_time'] ?? ''));
+        $locationId = (int) ($args['location_id'] ?? $booking?->location_id ?? 0);
+        $serviceId = (int) ($args['service_id'] ?? $booking?->service_id ?? 0);
+        $staffId = isset($args['staff_id']) ? (int) $args['staff_id'] : $booking?->staff_id;
+
+        $metadata = [
+            'availability_checked' => false,
+            'availability_status' => 'missing_details',
+            'requested_date' => $date ?: null,
+            'requested_time' => $time,
+            'availability_reason' => null,
+        ];
+
+        if (! $booking || $date === '' || ! $time || ! $locationId || ! $serviceId) {
+            return $metadata;
+        }
+
+        try {
+            $this->availabilityChecker->check($salon, $locationId, $serviceId, $date, $time, $staffId ?: null);
+
+            return [
+                ...$metadata,
+                'availability_checked' => true,
+                'availability_status' => 'available',
+                'availability_reason' => null,
+            ];
+        } catch (HttpException $exception) {
+            return [
+                ...$metadata,
+                'availability_checked' => true,
+                'availability_status' => 'unavailable',
+                'availability_reason' => $exception->getMessage(),
+            ];
+        }
+    }
+
+    private function normalizedTime(string $time): ?string
+    {
+        $time = trim(strtolower($time));
+
+        if (preg_match('/^(\d{1,2})(?::|\.)(\d{2})$/', $time, $matches)) {
+            $hour = (int) $matches[1];
+            $minute = (int) $matches[2];
+        } elseif (preg_match('/^\d{1,2}$/', $time)) {
+            $hour = (int) $time;
+            $minute = 0;
+        } else {
+            return null;
+        }
+
+        if ($hour < 0 || $hour > 23 || $minute < 0 || $minute > 59) {
+            return null;
+        }
+
+        return sprintf('%02d:%02d', $hour, $minute);
     }
 
     private function sendToGemini(Salon $salon, array $messages, ?Conversation $conversation = null, ?array $knownContact = null)

@@ -43,7 +43,15 @@ class DashboardDataService
                 ->limit(5)
                 ->get(),
             'latest_bookings' => $salon->bookings()
-                ->with(['location', 'service', 'staffMember'])
+                ->with([
+                    'location',
+                    'service',
+                    'staffMember',
+                    'conversations' => fn ($conversationQuery) => $conversationQuery
+                        ->select(['id', 'booking_id', 'metadata', 'last_message_at'])
+                        ->latest('last_message_at')
+                        ->latest(),
+                ])
                 ->latest('date')
                 ->latest('time')
                 ->limit(5)

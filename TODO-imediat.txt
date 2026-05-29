@@ -1,0 +1,25 @@
+git commit -m "Separate post-booking behavior by assistant channel"
+
+
+
+
+
+1. mesaj WhatsApp primit
+2. conversație salvată în dashboard
+3. AI răspunde pe WhatsApp
+4. AI ține contextul conversației
+5. AI citește programul/serviciile/locația
+6. AI creează booking
+7. bookingul apare în dashboard
+8. conversația apare în Conversations cu WhatsApp
+
+
+
+
+
+hardening:
+1. mutăm WhatsApp AI replies în queue/job
+2. prevenim timeouturi Twilio
+3. facem retry controlat pentru AI/Twilio
+4. păstrăm deduplicarea MessageSid
+5. loguri clare când AI/Twilio pică

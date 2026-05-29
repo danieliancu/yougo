@@ -62,6 +62,7 @@ export type Booking = {
   location?: Location | null;
   service?: Service | null;
   staff_member?: Staff | null;
+  conversations?: Conversation[];
   created_at?: string;
 };
 
