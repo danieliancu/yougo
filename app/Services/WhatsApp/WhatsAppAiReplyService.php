@@ -130,6 +130,13 @@ class WhatsAppAiReplyService
                 ...$metadata,
                 'status' => $providerResult['status'] ?? 'sent',
             ]);
+
+            Log::info('WhatsApp AI outbound accepted by Twilio', [
+                'salon_id' => $conversation->salon_id,
+                'conversation_id' => $conversation->id,
+                'provider_message_id' => $providerResult['sid'] ?? null,
+                'provider_status' => $providerResult['status'] ?? null,
+            ]);
         } catch (Throwable $exception) {
             Log::warning('WhatsApp AI outbound send failed after reply generation', [
                 'salon_id' => $conversation->salon_id,

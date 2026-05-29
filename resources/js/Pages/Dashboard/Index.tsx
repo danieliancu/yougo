@@ -1400,13 +1400,21 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
                   const participant = conversationMessageParticipant(selected, message, t);
                   const alignRight = conversationMessageAlignsRight(selected, message);
                   const bubbleClass = alignRight ? 'chat-bubble-user' : 'app-panel-soft';
+                  const sendStatus = whatsappOutboundSendStatus(selected, message, t);
 
                   return (
                     <div key={message.id} className={`flex items-start gap-2 sm:gap-3 ${alignRight ? 'justify-end' : 'justify-start'}`}>
                       <div className={`flex max-w-full flex-col gap-1.5 sm:max-w-[78%] ${alignRight ? 'items-end' : 'items-start'}`}>
-                        <span className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${participant.badgeClass}`}>
-                          {participant.label}
-                        </span>
+                        <div className={`flex flex-wrap gap-1.5 ${alignRight ? 'justify-end' : 'justify-start'}`}>
+                          <span className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${participant.badgeClass}`}>
+                            {participant.label}
+                          </span>
+                          {sendStatus && (
+                            <span className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${sendStatus.className}`}>
+                              {sendStatus.label}
+                            </span>
+                          )}
+                        </div>
                         <div className={`w-full break-words rounded-lg px-4 py-3 text-sm leading-6 ${bubbleClass}`}>
                           <InlineMarkdown text={formatNaturalDatesInText(message.content)} />
                         </div>
@@ -1529,6 +1537,30 @@ function conversationMessageParticipant(conversation: Conversation, message: Con
   }
 
   return message.role === 'assistant' ? ai : client;
+}
+
+function whatsappOutboundSendStatus(conversation: Conversation, message: Conversation['messages'][number], t: TranslateFn) {
+  if (!isWhatsappConversation(conversation) || message.direction !== 'outbound') {
+    return null;
+  }
+
+  const status = typeof message.metadata?.status === 'string' ? message.metadata.status : null;
+
+  if (status === 'failed') {
+    return {
+      label: t('sendFailed'),
+      className: 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300',
+    };
+  }
+
+  if (!message.provider_message_id) {
+    return {
+      label: t('sendUnknown'),
+      className: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
+    };
+  }
+
+  return null;
 }
 
 function formatProvider(provider?: string | null) {

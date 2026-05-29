@@ -897,6 +897,8 @@ class WhatsappIntegrationTest extends TestCase
             'latestPendingBookingChangeRequestForBooking',
             "t('bookingChangeTypeCancel')",
             "t('bookingChangeTypeReschedule')",
+            'whatsappOutboundSendStatus',
+            "t('sendFailed')",
             "message.direction === 'inbound'",
             "message.direction === 'outbound'",
             "message.role === 'assistant'",
