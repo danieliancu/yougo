@@ -17,8 +17,8 @@ This document explains the rules and must be consulted before changing services 
 ## 4. Current Services
 
 - `website_chat`: public website text chat for conversations and AI booking requests.
-- `whatsapp_ai`: WhatsApp conversations, automatic replies, and AI booking requests.
-- `phone_ai`: phone call answering, voice replies, and request collection.
+- `whatsapp_ai`: live MVP for WhatsApp conversations, automatic replies, AI booking requests, and booking change requests. Business activation is manual through YouGo/Twilio.
+- `phone_ai`: planned phone call answering, voice replies, and request collection.
 
 ## 5. Service Statuses
 
@@ -56,7 +56,8 @@ New code must not use those fields to decide whether a service exists or whether
 - Render services from the catalog.
 - Show implementation status honestly.
 - Show plan entitlement separately from implementation status.
-- A planned included service must not look live.
+- Show business-specific activation state separately from implementation status. For example, WhatsApp AI can be live as a product but still need activation for a specific business.
+- A planned included service must not look live. Phone AI remains planned until its service catalog status changes.
 - Website Chat is text chat only. Do not reintroduce website voice input.
 
 ## 11. Backend Rules

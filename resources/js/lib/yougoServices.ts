@@ -30,19 +30,19 @@ export function serviceIsPlanned(service?: OfferedService | null) {
 }
 
 export function serviceStatusLabel(service: OfferedService, t: TranslateFn) {
-  return serviceIsLive(service) ? t('integrationImplementationLive') : t('integrationImplementationPlanned');
+  return serviceIsLive(service) ? t('available') : t('planned');
 }
 
 export function serviceEntitlementLabel(service: OfferedService, plan: Plan | undefined | null, t: TranslateFn) {
-  return planHasService(plan, service.key) ? t('integrationEntitlementIncluded') : t('integrationEntitlementUpgrade');
+  return planHasService(plan, service.key) ? t('includedInPlan') : t('requiresUpgrade');
 }
 
 export function integrationStatusLabel(service: OfferedService, plan: Plan | undefined | null, t: TranslateFn) {
   const included = planHasService(plan, service.key);
 
-  if (serviceIsLive(service) && included) return t('integrationStateActive');
-  if (serviceIsLive(service)) return t('integrationEntitlementUpgrade');
-  if (included) return t('integrationImplementationPlanned');
+  if (serviceIsLive(service) && included) return t('available');
+  if (serviceIsLive(service)) return t('requiresUpgrade');
+  if (included) return t('planned');
 
-  return t('integrationPlannedUpgrade');
+  return t('requiresUpgrade');
 }

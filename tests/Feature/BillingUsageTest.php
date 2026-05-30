@@ -371,7 +371,29 @@ class BillingUsageTest extends TestCase
                 ->where('plans.4.key', 'voice_growth')
                 ->where('plans.5.key', 'voice_pro')
                 ->where('services.0.key', 'website_chat')
-                ->where('services.1.implementation_status', 'planned')
+                ->where('services.1.implementation_status', 'live')
+            );
+    }
+
+    public function test_billing_payload_includes_safe_whatsapp_activation_state(): void
+    {
+        [$salon, $user] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'requested_number' => '+40700000000',
+            'display_number' => '+40700000000',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => true,
+        ]);
+
+        $this->actingAs($user)->get('/dashboard/billing')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('billing.whatsapp_integration.status', 'active')
+                ->where('billing.whatsapp_integration.requested_number', '+40700000000')
+                ->where('billing.whatsapp_integration.display_number', '+40700000000')
+                ->where('billing.whatsapp_integration.ai_enabled', true)
             );
     }
 
@@ -382,9 +404,15 @@ class BillingUsageTest extends TestCase
         $pricingGrid = file_get_contents(resource_path('js/Components/PricingPlansGrid.tsx'));
         $translations = file_get_contents(resource_path('js/i18n.ts'));
 
-        foreach (['price', 'service_keys', 'title_key', 'subtitle_key', 'serviceIsPlanned', 'aiBookings'] as $key) {
+        foreach (['price', 'service_keys', 'aiBookings', 'availabilityChecks', 'serviceLocationsStaff', 'emailBookingNotifications', 'savedConversations', 'dashboardAccess'] as $key) {
             $this->assertStringContainsString($key, $pricingGrid);
         }
+        $this->assertStringNotContainsString('serviceIsPlanned', $pricingGrid);
+        $this->assertStringNotContainsString('servicesForPlan', $pricingGrid);
+        $this->assertStringNotContainsString('title_key', $pricingGrid);
+        $this->assertStringNotContainsString('subtitle: t(service.subtitle_key)', $pricingGrid);
+        $this->assertStringNotContainsString('item.subtitle', $pricingGrid);
+        $this->assertStringNotContainsString("t('paymentsComingSoon')", $landing);
 
         foreach (['serviceWebsiteChatShort', 'serviceWhatsappAiShort', 'servicePhoneAiShort'] as $key) {
             $this->assertStringContainsString($key, $translations);
@@ -403,7 +431,14 @@ class BillingUsageTest extends TestCase
         $this->assertStringNotContainsString("t('billedAnnually')", $landing);
         $this->assertStringNotContainsString("t('billedAnnually')", $dashboard);
         $this->assertStringContainsString('PlanServicesOverview', $dashboard);
-        $this->assertStringContainsString('integrationStatusLabel', $dashboard);
+        $this->assertStringContainsString('whatsappActivationStateLabel', $dashboard);
+        $this->assertStringContainsString('whatsappActivationStateTone', $dashboard);
+        $this->assertStringContainsString('whatsappIntegration={billing.whatsapp_integration}', $dashboard);
+        $this->assertStringContainsString('whatsappManualActivationNote', $pricingGrid);
+        $this->assertStringContainsString('available', $translations);
+        $this->assertStringContainsString('needsActivation', $translations);
+        $this->assertStringContainsString('activationRequested', $translations);
+        $this->assertStringContainsString('activated', $translations);
         $this->assertStringNotContainsString('integrationSms', $dashboard);
         $this->assertStringNotContainsString('integrationPayments', $dashboard);
 
@@ -449,8 +484,7 @@ class BillingUsageTest extends TestCase
         $this->assertStringContainsString('YouGo Pro', $translations);
         $this->assertStringContainsString('Phone AI', $translations);
         $this->assertStringContainsString('Telefon AI', $translations);
-        $this->assertStringContainsString('integrationImplementationPlanned', $pricingGrid);
-        $this->assertStringContainsString('servicesForPlan', $pricingGrid);
+        $this->assertStringNotContainsString('integrationImplementationPlanned', $pricingGrid);
         $this->assertStringNotContainsString('Chat + Voice', $landing);
         $this->assertStringNotContainsString('Chat + Voice', $translations);
         $this->assertStringContainsString("t('phoneMinutesUsage')", $dashboard);

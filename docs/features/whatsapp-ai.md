@@ -1,10 +1,14 @@
 # WhatsApp AI
 
+WhatsApp AI is available as an MVP. It supports Twilio inbound webhooks, automatic AI replies, booking creation, booking change requests, dashboard conversations, usage limits, and manual Twilio activation.
+
 ## Provider
 
 WhatsApp AI uses Twilio as the WhatsApp provider.
 
 The MVP does not provision Meta or Twilio senders automatically. It stores the business request and lets the YouGo team configure the sender manually in Twilio.
+
+Phone AI remains planned and is not part of the WhatsApp MVP.
 
 ## MVP activation flow
 
@@ -15,6 +19,14 @@ The MVP does not provision Meta or Twilio senders automatically. It stores the b
 5. A YouGo admin configures the WhatsApp sender in Twilio.
 6. The admin manually activates the integration.
 7. Once active, the business owner can toggle WhatsApp AI on or off.
+
+Activation states:
+
+- `needs activation`: the plan includes WhatsApp AI, but the business has not requested setup yet.
+- `activation requested`: the business entered a WhatsApp number and is waiting for YouGo admin setup.
+- `active`: the Twilio sender is configured and WhatsApp AI can be toggled on or off.
+- `disabled`: the integration exists but is disabled.
+- `failed`: activation failed and needs admin review.
 
 Manual activation:
 

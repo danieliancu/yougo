@@ -860,7 +860,10 @@ class WhatsappIntegrationTest extends TestCase
             '/dashboard/whatsapp/toggle',
             '/dashboard/whatsapp/test-message',
             'whatsappRequiresUpgrade',
-            'whatsappStatusActive',
+            'needsActivation',
+            'activationRequested',
+            'activated',
+            'activationError',
         ] as $needle) {
             $this->assertStringContainsString($needle, $source.$translations);
         }

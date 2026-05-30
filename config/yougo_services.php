@@ -18,7 +18,7 @@ return [
         'subtitle_key' => 'integrationWhatsappSubtitle',
         'short_label_key' => 'serviceWhatsappAiShort',
         'icon' => 'whatsapp',
-        'implementation_status' => 'planned',
+        'implementation_status' => 'live',
         'category' => 'channel',
         'entitlement_key' => 'whatsapp_ai',
         'sort_order' => 20,

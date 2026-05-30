@@ -24,7 +24,7 @@ Clear, pragmatic, warm, and business-focused. Avoid hype. Explain future feature
 
 - Make the working product visible first: bookings, conversations, widget, usage, and setup.
 - Keep dashboard UI dense but readable, with predictable controls and familiar table/card patterns.
-- Distinguish active capabilities from future positioning. WhatsApp, Phone AI, Telnyx, Stripe, and payments are future or testing surfaces unless implemented.
+- Distinguish active capabilities from future positioning. WhatsApp AI is available as an MVP with manual Twilio activation. Phone AI and Telnyx remain future surfaces unless implemented.
 - Preserve the Free plan as a stable test and onboarding path.
 - Use plan limits honestly. Do not imply unlimited usage unless the backend config and enforcement support it.
 - Prefer simple, inspectable UI over clever effects.
@@ -44,7 +44,7 @@ YouGo should feel like a modern operational tool: restrained colors, clear hiera
 ## Current Constraints
 
 - No Stripe integration or real payments yet.
-- No WhatsApp implementation or WhatsApp usage tracking yet.
+- WhatsApp AI MVP is implemented with manual Twilio activation, inbound webhooks, AI replies, booking requests, booking change requests, dashboard conversations, and usage tracking.
 - No Phone AI or Telnyx implementation yet.
 - Chat means text input in website chat; AI replies in text.
 - Usage tracking currently enforces conversations, AI messages, and bookings.

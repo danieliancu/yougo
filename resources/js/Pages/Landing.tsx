@@ -411,7 +411,6 @@ function PricingSection({ plans, services, t, authUser }: { plans: Plan[]; servi
           <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">{t('pricing')}</p>
           <h2 className="mt-2 text-3xl font-bold app-text md:text-4xl">{t('choosePlan')}</h2>
           <p className="mt-4 text-sm leading-6 app-text-muted">{t('pricingChannelCopy')}</p>
-          <p className="mt-2 text-sm app-text-muted">{t('paymentsComingSoon')}</p>
         </div>
       </div>
 

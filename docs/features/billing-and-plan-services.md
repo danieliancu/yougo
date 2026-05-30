@@ -11,12 +11,14 @@ Annual billing is hidden until separate Stripe annual price IDs exist. Billing c
 Current services:
 
 - `website_chat`: live website chat channel.
-- `whatsapp_ai`: planned WhatsApp AI channel.
+- `whatsapp_ai`: live WhatsApp AI MVP channel. It requires manual number activation through YouGo/Twilio for each business.
 - `phone_ai`: planned Phone AI channel.
 
 Settings remains focused on business configuration: profile details, localization, notifications and assistant preferences. Billing owns plan capabilities, usage and included service/channel status.
 
-Planned services must stay visibly planned until their `implementation_status` changes in the service catalog. Do not imply WhatsApp AI or Phone AI are live from the Billing UI alone.
+Planned services must stay visibly planned until their `implementation_status` changes in the service catalog. Do not imply Phone AI is live from the Billing UI alone.
+
+Billing must keep product availability separate from business activation state. WhatsApp AI is available as a product, can be included in a plan, and can still show a business-specific activation state such as needs activation, activation requested, activated, disabled, or activation error.
 
 ## Usage limits
 

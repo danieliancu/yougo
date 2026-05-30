@@ -1,15 +1,13 @@
 import { Link } from '@inertiajs/react';
-import { Check, MessageCircle, Phone } from 'lucide-react';
-import { SiWhatsapp } from 'react-icons/si';
+import { Check } from 'lucide-react';
 import { ReactNode } from 'react';
 import { OfferedService, Plan } from '@/types';
-import { servicesForPlan, serviceIsPlanned } from '@/lib/yougoServices';
 
 export type BillingCycle = 'monthly' | 'annual';
 export type PublicPlanKey = 'free' | 'website_chat' | 'chat_whatsapp';
 export type VoicePlanKey = 'voice_starter' | 'voice_growth' | 'voice_pro';
 type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
-type FeatureItem = { key: string; label: string; subtitle?: string; planned?: boolean; icon?: any };
+type FeatureItem = { key: string; label: string };
 
 export function PricingPlansGrid({
   plans,
@@ -78,6 +76,7 @@ export function PricingPlansGrid({
           <>
             <PriceBlock plan={selectedVoice} billingCycle={billingCycle} t={t} />
             <VoiceUsage plan={selectedVoice} t={t} />
+            {selectedVoice.service_keys?.includes('whatsapp_ai') && <p className="mb-5 text-xs leading-5 app-text-muted">{t('whatsappManualActivationNote')}</p>}
             <div className="mb-5 grid grid-cols-3 gap-1 rounded-lg border p-1 app-border app-panel-soft">
               {voiceKeys.map((key) => (
                 <button
@@ -118,6 +117,7 @@ function PricingCard({ plan, fallbackName, subtitle, highlights, usage, ctaLabel
         <>
           <PriceBlock plan={plan} billingCycle={billingCycle} t={t} />
           <UsageList items={usage} />
+          {plan.service_keys?.includes('whatsapp_ai') && <p className="mb-5 text-xs leading-5 app-text-muted">{t('whatsappManualActivationNote')}</p>}
           <FeatureList items={highlights} t={t} />
           {showCta && (
             <Link href={href} className="mt-auto inline-flex h-11 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-bold text-white shadow-sm hover:bg-indigo-700">
@@ -143,7 +143,7 @@ function CurrentPlanBadge({ t }: { t: TranslateFn }) {
 
 function UsageList({ items }: { items: string[] }) {
   return (
-    <div className="mb-5 grid gap-1 rounded-lg border px-3 py-2 text-xs font-semibold leading-5 app-border app-text-muted">
+    <div className="mb-5 flex flex-col gap-2 rounded-lg border px-3 py-3 text-xs font-semibold leading-5 app-border app-text-muted lg:min-h-[7rem]">
       {items.map((item) => <span key={item}>{item}</span>)}
     </div>
   );
@@ -153,15 +153,11 @@ function FeatureList({ items, t }: { items: FeatureItem[]; t: TranslateFn }) {
   return (
     <ul className="mt-5 mb-5 grid gap-3 text-sm font-medium app-text-soft">
       {items.map((item) => {
-        const Icon = item.icon ?? Check;
-
         return (
           <li key={item.key} className="flex items-start gap-2">
-            <Icon className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
+            <Check className="mt-0.5 h-4 w-4 shrink-0 text-green-600" />
             <span className="min-w-0">
               {item.label}
-              {item.planned && <span className="ml-2 inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-700 dark:bg-slate-700 dark:text-slate-100">{t('integrationImplementationPlanned')}</span>}
-              {item.subtitle && <span className="mt-0.5 block text-xs leading-5 app-text-muted">{item.subtitle}</span>}
             </span>
           </li>
         );
@@ -185,14 +181,14 @@ function PriceBlock({ plan, billingCycle, t }: { plan: Plan; billingCycle: Billi
 
 function VoiceUsage({ plan, t }: { plan: Plan; t: TranslateFn }) {
   const rows = [
-    plan.phone_minutes_label && plan.phone_minutes_label.toLowerCase().includes('min') ? `${plan.phone_minutes_label} ${t('phoneMinutes').toLowerCase()}` : null,
     `${formatLandingLimit(plan.monthly_conversations, t)} ${t('conversationsIncluded')}`,
     `${formatLandingLimit(plan.monthly_bookings, t)} ${t('bookingsIncluded')}`,
     `${formatLandingLimit(plan.monthly_whatsapp_messages ?? null, t)} ${t('whatsappMessagesIncluded')}`,
+    plan.phone_minutes_label && plan.phone_minutes_label.toLowerCase().includes('min') ? `${plan.phone_minutes_label} ${t('phoneMinutes').toLowerCase()}` : null,
   ].filter(Boolean) as string[];
 
   return (
-    <div className="mb-5 grid gap-2 rounded-lg border px-3 py-3 text-xs font-semibold leading-5 app-border app-text-muted">
+    <div className="mb-5 flex flex-col gap-2 rounded-lg border px-3 py-3 text-xs font-semibold leading-5 app-border app-text-muted lg:min-h-[7rem]">
       {rows.map((row) => <span key={row}>{row}</span>)}
     </div>
   );
@@ -246,30 +242,13 @@ function pricingHighlights(plan: Plan | undefined, services: OfferedService[], t
   if (! plan) return [{ key: 'missing-plan', label: t('pricingPlanUnavailable') }];
 
   return [
-    ...planServiceItems(plan, services, t),
     { key: 'aiBookings', label: t('aiBookings') },
-    { key: 'aiImportedServices', label: t('aiImportedServices') },
+    { key: 'availabilityChecks', label: t('availabilityChecks') },
+    { key: 'serviceLocationsStaff', label: t('serviceLocationsStaff') },
     { key: 'emailBookingNotifications', label: t('emailBookingNotifications') },
+    { key: 'savedConversations', label: t('savedConversations') },
     { key: 'dashboardAccess', label: t('dashboardAccess') },
   ];
-}
-
-function planServiceItems(plan: Plan, services: OfferedService[], t: TranslateFn): FeatureItem[] {
-  return servicesForPlan(services, plan)
-    .map((service) => ({
-      key: service.key,
-      label: t(service.title_key),
-      subtitle: t(service.subtitle_key),
-      planned: serviceIsPlanned(service),
-      icon: serviceIcon(service.icon),
-    }));
-}
-
-function serviceIcon(icon: string) {
-  if (icon === 'whatsapp') return SiWhatsapp;
-  if (icon === 'phone') return Phone;
-
-  return MessageCircle;
 }
 
 function usageLines(plan: Plan | undefined, t: TranslateFn) {

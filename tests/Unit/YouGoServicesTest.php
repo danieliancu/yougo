@@ -23,7 +23,7 @@ class YouGoServicesTest extends TestCase
         }
 
         $this->assertTrue(YouGoServices::isServiceLive('website_chat'));
-        $this->assertTrue(YouGoServices::isServicePlanned('whatsapp_ai'));
+        $this->assertTrue(YouGoServices::isServiceLive('whatsapp_ai'));
         $this->assertTrue(YouGoServices::isServicePlanned('phone_ai'));
     }
 

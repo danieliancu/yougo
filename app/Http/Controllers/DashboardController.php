@@ -88,6 +88,7 @@ class DashboardController extends Controller
                 'summary' => $usageLimitService->usageSummary($salon),
                 'plans' => $usageLimitService->plans(),
                 'services' => $usageLimitService->services(),
+                'whatsapp_integration' => $salon->whatsappIntegration,
                 'stripe' => [
                     'subscription_status' => $salon->subscription_status,
                     'stripe_customer_exists' => filled($salon->stripe_customer_id),

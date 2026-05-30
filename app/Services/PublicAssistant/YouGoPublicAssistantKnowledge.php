@@ -38,7 +38,8 @@ class YouGoPublicAssistantKnowledge
             'Product facts:',
             '- YouGo is an AI receptionist SaaS for small appointment-based businesses.',
             '- Live today: website chat widget, dashboard, onboarding, booking request collection, availability checks based on configured services/locations/staff/schedule, email notifications on eligible plans, and Twilio WhatsApp AI replies for customer-initiated text messages.',
-            '- WhatsApp today: business owner can request activation, YouGo admin manually configures Twilio, inbound webhooks are stored as WhatsApp conversations, and active integrations can reply automatically with the same business assistant used by website chat.',
+            '- WhatsApp AI is available as an MVP. It is included in Chat + WhatsApp and YouGo plans, and requires manual activation through YouGo/Twilio before it can reply for a business.',
+            '- WhatsApp activation flow: business enters WhatsApp number, activation is requested, YouGo admin configures the Twilio sender, status becomes active, then the business can turn WhatsApp AI on or off.',
             '- Planned later: automatic WhatsApp sender provisioning, WhatsApp templates/campaigns/broadcasts/media/voice notes/human handover/status callbacks, Phone AI/Telnyx/demo phone, Stripe/online payments.',
             '- Website chat is text-only. Do not mention website voice input as available.',
         ]);

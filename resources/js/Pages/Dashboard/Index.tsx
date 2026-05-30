@@ -9,7 +9,7 @@ import { SiWhatsapp } from 'react-icons/si';
 import { FormEvent, lazy, ReactNode, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { businessTaxonomy, findBusinessType, normalizeBusinessTypeSlug } from '@/data/businessTaxonomy';
-import { integrationStatusLabel, planHasService, serviceEntitlementLabel, serviceIsLive, serviceStatusLabel, serviceByKey } from '@/lib/yougoServices';
+import { planHasService, serviceEntitlementLabel, serviceIsLive, serviceStatusLabel, serviceByKey } from '@/lib/yougoServices';
 import { preferredLocale, rememberLocale } from '@/lib/localePreference';
 
 const ActivityChart = lazy(() => import('@/Components/ActivityChart'));
@@ -53,6 +53,7 @@ type Props = PageProps<{
     summary: UsageSummary;
     plans: Plan[];
     services: OfferedService[];
+    whatsapp_integration?: WhatsappIntegration | null;
     stripe: {
       subscription_status: string | null;
       stripe_customer_exists: boolean;
@@ -1173,24 +1174,30 @@ function IntegrationRow({
   icon: Icon,
   title,
   subtitle,
-  status,
+  productStatus,
   entitlementStatus,
-  implementationStatus,
-  statusTone,
+  activationStatus,
+  productTone,
+  entitlementTone,
+  activationTone,
 }: {
   icon: any;
   title: string;
   subtitle: string;
-  status: string;
+  productStatus: string;
   entitlementStatus: string;
-  implementationStatus: string;
-  statusTone: 'active' | 'upgrade' | 'planned';
+  activationStatus?: string;
+  productTone: 'active' | 'planned';
+  entitlementTone: 'active' | 'upgrade';
+  activationTone?: 'active' | 'upgrade' | 'planned' | 'error' | 'neutral';
 }) {
-  const statusClass = statusTone === 'active'
-    ? 'bg-green-100 text-green-800'
-    : statusTone === 'upgrade'
-      ? 'bg-amber-100 text-amber-900'
-      : 'bg-slate-700 text-slate-100';
+  const badgeClass = (tone: 'active' | 'upgrade' | 'planned' | 'error' | 'neutral') => ({
+    active: 'bg-green-100 text-green-800',
+    upgrade: 'bg-amber-100 text-amber-900',
+    planned: 'bg-slate-700 text-slate-100',
+    error: 'bg-red-100 text-red-800',
+    neutral: 'bg-[var(--app-panel-soft)] app-text-soft',
+  }[tone]);
 
   return (
     <div className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
@@ -1204,15 +1211,15 @@ function IntegrationRow({
         </div>
       </div>
       <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
-        <span className={`rounded-md px-3 py-1 text-xs font-bold ${statusClass}`}>{status}</span>
-        <span className="rounded-md bg-[var(--app-panel-soft)] px-3 py-1 text-xs font-bold app-text-soft">{entitlementStatus}</span>
-        <span className="rounded-md bg-[var(--app-panel-soft)] px-3 py-1 text-xs font-bold app-text-soft">{implementationStatus}</span>
+        <span className={`rounded-md px-3 py-1 text-xs font-bold ${badgeClass(productTone)}`}>{productStatus}</span>
+        <span className={`rounded-md px-3 py-1 text-xs font-bold ${badgeClass(entitlementTone)}`}>{entitlementStatus}</span>
+        {activationStatus && <span className={`rounded-md px-3 py-1 text-xs font-bold ${badgeClass(activationTone ?? 'neutral')}`}>{activationStatus}</span>}
       </div>
     </div>
   );
 }
 
-function PlanServicesOverview({ services, currentPlan }: { services: OfferedService[]; currentPlan: Plan }) {
+function PlanServicesOverview({ services, currentPlan, whatsappIntegration }: { services: OfferedService[]; currentPlan: Plan; whatsappIntegration?: WhatsappIntegration | null }) {
   const t = useT();
 
   return (
@@ -1235,15 +1242,57 @@ function PlanServicesOverview({ services, currentPlan }: { services: OfferedServ
             icon={serviceIcon(service.icon)}
             title={t(service.title_key)}
             subtitle={t(service.subtitle_key)}
-            status={integrationStatusLabel(service, currentPlan, t)}
+            productStatus={serviceStatusLabel(service, t)}
             entitlementStatus={serviceEntitlementLabel(service, currentPlan, t)}
-            implementationStatus={serviceStatusLabel(service, t)}
-            statusTone={service.implementation_status === 'live' && planHasService(currentPlan, service.key) ? 'active' : service.implementation_status === 'live' ? 'upgrade' : 'planned'}
+            activationStatus={service.key === 'whatsapp_ai' ? whatsappActivationStateLabel(currentPlan, whatsappIntegration, t) : undefined}
+            productTone={service.implementation_status === 'live' ? 'active' : 'planned'}
+            entitlementTone={planHasService(currentPlan, service.key) ? 'active' : 'upgrade'}
+            activationTone={service.key === 'whatsapp_ai' ? whatsappActivationStateTone(currentPlan, whatsappIntegration) : undefined}
           />
         ))}
       </div>
     </Card>
   );
+}
+
+function whatsappActivationStateLabel(plan: Plan | undefined | null, integration: WhatsappIntegration | undefined | null, t: TranslateFn) {
+  return t(whatsappActivationStateKey(plan, integration));
+}
+
+function whatsappActivationStateTone(plan: Plan | undefined | null, integration: WhatsappIntegration | undefined | null): 'active' | 'upgrade' | 'planned' | 'error' | 'neutral' {
+  if (!planHasService(plan, 'whatsapp_ai')) return 'upgrade';
+  if (!integration) return 'upgrade';
+
+  switch (integration.status) {
+    case 'requested':
+      return 'upgrade';
+    case 'active':
+      return 'active';
+    case 'disabled':
+      return 'neutral';
+    case 'failed':
+      return 'error';
+    default:
+      return 'upgrade';
+  }
+}
+
+function whatsappActivationStateKey(plan: Plan | undefined | null, integration: WhatsappIntegration | undefined | null) {
+  if (!planHasService(plan, 'whatsapp_ai')) return 'requiresUpgrade';
+  if (!integration) return 'needsActivation';
+
+  switch (integration.status) {
+    case 'requested':
+      return integration.requested_number ? 'activationRequested' : 'needsActivation';
+    case 'active':
+      return 'activated';
+    case 'disabled':
+      return 'disabled';
+    case 'failed':
+      return 'activationError';
+    default:
+      return 'needsActivation';
+  }
 }
 
 function Conversations({ salon, query, overview }: { salon: Salon; query: string; overview: OverviewData }) {
@@ -2431,7 +2480,7 @@ function BillingPage({ billing, currentPlan }: { billing: Props['billing']; curr
 
       <UsageSummaryPanel summary={billing.summary} />
 
-      <PlanServicesOverview services={billing.services} currentPlan={billing.summary.plan} />
+      <PlanServicesOverview services={billing.services} currentPlan={billing.summary.plan} whatsappIntegration={billing.whatsapp_integration} />
 
       <PricingPlansGrid
         plans={billing.plans}
@@ -4997,6 +5046,7 @@ function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
   const hasWhatsappPlan = planHasService(plan, 'whatsapp_ai');
   const status = integration?.status ?? 'not_connected';
   const active = status === 'active';
+  const activationRequested = status === 'requested';
 
   useEffect(() => {
     setIntegration(salon.whatsapp_integration ?? null);
@@ -5111,7 +5161,7 @@ function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
             </div>
           </div>
 
-          <WhatsappStatusBadge status={status} />
+          <WhatsappActivationBadge plan={plan} integration={integration} />
         </div>
       </Card>
 
@@ -5143,12 +5193,12 @@ function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
                   value={requestedNumber}
                   onChange={(event) => setRequestedNumber(event.target.value)}
                   placeholder="+407xxxxxxxx"
-                  disabled={active}
+                  disabled={active || activationRequested}
                 />
               </Field>
 
               <div className="flex flex-wrap items-center gap-3">
-                <Button type="button" onClick={requestActivation} disabled={busy !== null || active || requestedNumber.trim() === ''}>
+                <Button type="button" onClick={requestActivation} disabled={busy !== null || active || activationRequested || requestedNumber.trim() === ''}>
                   <Smartphone className="h-4 w-4" />
                   {busy === 'request' ? t('saving') : t('requestWhatsappActivation')}
                 </Button>
@@ -5205,7 +5255,7 @@ function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
           <Card className="p-6">
             <h3 className="text-sm font-bold app-text">{t('details')}</h3>
             <div className="mt-4 space-y-3">
-              <Detail icon={MessageCircle} label={t('status')} value={t(whatsappStatusKey(status))} />
+              <Detail icon={MessageCircle} label={t('status')} value={whatsappActivationStateLabel(plan, integration, t)} />
               <Detail icon={Phone} label={t('whatsappBusinessNumber')} value={integration?.display_number || integration?.requested_number || t('notConfigured')} />
               <Detail icon={QrCode} label="Twilio" value={integration?.twilio_sender ? t('configured') : t('notConfigured')} />
             </div>
@@ -5216,29 +5266,18 @@ function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
   );
 }
 
-function WhatsappStatusBadge({ status }: { status: string }) {
+function WhatsappActivationBadge({ plan, integration }: { plan: Plan; integration?: WhatsappIntegration | null }) {
   const t = useT();
   const tones: Record<string, 'slate' | 'amber' | 'green' | 'red'> = {
-    not_connected: 'slate',
-    requested: 'amber',
+    upgrade: 'amber',
+    planned: 'amber',
     active: 'green',
-    disabled: 'slate',
-    failed: 'red',
+    neutral: 'slate',
+    error: 'red',
   };
+  const tone = whatsappActivationStateTone(plan, integration);
 
-  return <Badge tone={tones[status] ?? 'slate'}>{t(whatsappStatusKey(status))}</Badge>;
-}
-
-function whatsappStatusKey(status: string) {
-  const keys: Record<string, string> = {
-    not_connected: 'whatsappStatusNotConnected',
-    requested: 'whatsappStatusRequested',
-    active: 'whatsappStatusActive',
-    disabled: 'whatsappStatusDisabled',
-    failed: 'whatsappStatusFailed',
-  };
-
-  return keys[status] ?? 'whatsappStatusNotConnected';
+  return <Badge tone={tones[tone] ?? 'slate'}>{whatsappActivationStateLabel(plan, integration, t)}</Badge>;
 }
 
 function ChannelStat({ icon: Icon, value, label, tone, compact = false }: { icon: any; value: number; label: string; tone: 'blue' | 'green' | 'red' | 'purple' | 'slate'; compact?: boolean }) {

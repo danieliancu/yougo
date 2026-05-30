@@ -55,8 +55,9 @@ class PublicYouGoAssistantTest extends TestCase
 
             return str_contains($prompt, 'public YouGo website support assistant')
                 && str_contains($prompt, 'website_chat: live')
-                && str_contains($prompt, 'whatsapp_ai: planned')
+                && str_contains($prompt, 'whatsapp_ai: live')
                 && str_contains($prompt, 'phone_ai: planned')
+                && str_contains($prompt, 'WhatsApp AI is available as an MVP')
                 && ! str_contains($prompt, 'asistentul virtual pentru {$salon->name}');
         });
     }
@@ -155,8 +156,10 @@ class PublicYouGoAssistantTest extends TestCase
         }
 
         $this->assertStringContainsString('website_chat: live', $prompt);
-        $this->assertStringContainsString('whatsapp_ai: planned', $prompt);
+        $this->assertStringContainsString('whatsapp_ai: live', $prompt);
         $this->assertStringContainsString('phone_ai: planned', $prompt);
+        $this->assertStringContainsString('WhatsApp AI is available as an MVP', $prompt);
+        $this->assertStringContainsString('requires manual activation through YouGo/Twilio', $prompt);
         $this->assertStringContainsString('Known help routes and navigation targets', $prompt);
         $this->assertStringContainsString('dashboard.bookings', $prompt);
         $this->assertStringContainsString('docs/features/README.md', $prompt);
