@@ -69,9 +69,13 @@ class YouGoPublicAssistantKnowledge
                 "- {$plan['name']} ({$plan['key']}): {$plan['price_label']}",
                 "conversations/month: {$plan['monthly_conversations']}",
                 "AI messages/month: {$plan['monthly_ai_messages']}",
-                "bookings/month: {$plan['monthly_bookings']}",
-                "WhatsApp messages/month: {$plan['monthly_whatsapp_messages']}",
-                "phone minutes/month: {$plan['monthly_phone_minutes']}",
+                "AI booking requests/month: {$plan['monthly_bookings']}",
+                ((int) $plan['monthly_whatsapp_messages']) > 0
+                    ? "WhatsApp messages/month: {$plan['monthly_whatsapp_messages']}"
+                    : 'WhatsApp messages/month: none included',
+                ((int) $plan['monthly_phone_minutes']) > 0
+                    ? "Phone AI minutes/month: {$plan['monthly_phone_minutes']}"
+                    : 'Phone AI minutes/month: none included',
                 "services: {$serviceStatuses}",
                 ! empty($plan['email_notifications_enabled']) ? 'email notifications: yes' : 'email notifications: no',
             ])->implode('; ');

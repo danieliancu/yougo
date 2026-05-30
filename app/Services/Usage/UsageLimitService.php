@@ -110,9 +110,11 @@ class UsageLimitService
                 'conversations' => $limits['monthly_conversations'],
                 'ai_messages' => $limits['monthly_ai_messages'],
                 'bookings' => $limits['monthly_bookings'],
-                'whatsapp_conversations' => $limits['monthly_whatsapp_messages'] ?? 0,
                 'whatsapp_messages' => $limits['monthly_whatsapp_messages'] ?? 0,
                 'phone_minutes' => $limits['monthly_phone_minutes'] ?? 0,
+            ],
+            'analytics' => [
+                'whatsapp_conversations' => $usage['whatsapp_conversations'],
             ],
         ];
     }

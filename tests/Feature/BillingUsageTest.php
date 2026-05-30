@@ -133,7 +133,49 @@ class BillingUsageTest extends TestCase
 
         $this->assertSame(1, $summary['usage']['conversations']);
         $this->assertSame(0, $summary['usage']['whatsapp_conversations']);
+        $this->assertSame(0, $summary['analytics']['whatsapp_conversations']);
+        $this->assertArrayNotHasKey('whatsapp_conversations', $summary['limits']);
         $this->assertSame(0, $summary['usage']['phone_minutes']);
+    }
+
+    public function test_usage_summary_exposes_canonical_plan_limits(): void
+    {
+        $limits = app(UsageLimitService::class);
+
+        $free = $limits->usageSummary($this->createSalon(['plan' => 'free']));
+        $websiteChat = $limits->usageSummary($this->createSalon(['plan' => 'website_chat']));
+        $chatWhatsapp = $limits->usageSummary($this->createSalon(['plan' => 'chat_whatsapp']));
+        $starter = $limits->usageSummary($this->createSalon(['plan' => 'voice_starter']));
+
+        $this->assertSame(0, $free['limits']['whatsapp_messages']);
+        $this->assertSame(0, $websiteChat['limits']['whatsapp_messages']);
+
+        $this->assertSame(1000, $chatWhatsapp['limits']['conversations']);
+        $this->assertSame(400, $chatWhatsapp['limits']['bookings']);
+        $this->assertSame(500, $chatWhatsapp['limits']['whatsapp_messages']);
+        $this->assertArrayNotHasKey('whatsapp_conversations', $chatWhatsapp['limits']);
+
+        $this->assertSame(750, $starter['limits']['whatsapp_messages']);
+        $this->assertSame(300, $starter['limits']['phone_minutes']);
+    }
+
+    public function test_whatsapp_message_limit_uses_monthly_whatsapp_messages(): void
+    {
+        config(['yougo_plans.chat_whatsapp.monthly_whatsapp_messages' => 2]);
+        $salon = $this->createSalon(['plan' => 'chat_whatsapp']);
+        $tracker = app(UsageTracker::class);
+        $limits = app(UsageLimitService::class);
+
+        $this->assertTrue($limits->canSendWhatsappMessage($salon));
+
+        $tracker->record($salon, 'whatsapp_conversation', source: 'whatsapp');
+        $tracker->record($salon, 'whatsapp_message_inbound', source: 'whatsapp');
+
+        $this->assertTrue($limits->canSendWhatsappMessage($salon));
+
+        $tracker->record($salon, 'whatsapp_message_outbound', source: 'whatsapp');
+
+        $this->assertFalse($limits->canSendWhatsappMessage($salon));
     }
 
     public function test_old_plan_keys_alias_to_new_limits_and_new_limits_are_used(): void
@@ -316,9 +358,14 @@ class BillingUsageTest extends TestCase
                 ->where('plans.1.key', 'website_chat')
                 ->where('plans.1.price_label', '149 RON/lună')
                 ->where('plans.2.key', 'chat_whatsapp')
+                ->where('plans.2.monthly_conversations', 1000)
+                ->where('plans.2.monthly_bookings', 400)
+                ->where('plans.2.monthly_whatsapp_messages', 500)
                 ->where('plans.2.services.1.key', 'whatsapp_ai')
                 ->where('plans.3.key', 'voice_starter')
                 ->where('plans.3.recommended', true)
+                ->where('plans.3.monthly_whatsapp_messages', 750)
+                ->where('plans.3.monthly_phone_minutes', 300)
                 ->where('plans.3.phone_minutes_label', '300 min')
                 ->where('plans.3.services.2.key', 'phone_ai')
                 ->where('plans.4.key', 'voice_growth')
@@ -406,8 +453,12 @@ class BillingUsageTest extends TestCase
         $this->assertStringContainsString('servicesForPlan', $pricingGrid);
         $this->assertStringNotContainsString('Chat + Voice', $landing);
         $this->assertStringNotContainsString('Chat + Voice', $translations);
-        $this->assertStringContainsString("t('phoneMinutes')", $dashboard);
-        $this->assertStringContainsString('usageWhatsappConversations', $dashboard);
+        $this->assertStringContainsString("t('phoneMinutesUsage')", $dashboard);
+        $this->assertStringContainsString('whatsappMessagesUsage', $dashboard);
+        $this->assertStringNotContainsString("label: t('usageWhatsappConversations')", $dashboard);
+        $this->assertStringContainsString('currentPlanLabel', $dashboard);
+        $this->assertStringContainsString('notIncludedInPlan', $dashboard);
+        $this->assertStringContainsString('usedOfLimit', $dashboard);
 
         foreach (['planDescription_website_chat', 'planDescription_chat_whatsapp', 'planDescription_voice_starter', 'planDescription_voice_growth', 'planDescription_voice_pro'] as $key) {
             $this->assertStringContainsString($key, $translations);

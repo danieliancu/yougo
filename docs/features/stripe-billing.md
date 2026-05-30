@@ -50,3 +50,4 @@ Known limitations:
 
 - Stripe is the payment state provider only. Plan capabilities still come from `config/yougo_plans.php`, `service_keys`, and `App\Support\YouGoServices`.
 - WhatsApp AI and Phone AI implementation status is independent from Stripe billing.
+- Usage limits are not inferred from Stripe. `monthly_conversations`, `monthly_ai_messages`, `monthly_bookings`, `monthly_whatsapp_messages`, and `monthly_phone_minutes` come from `config/yougo_plans.php`.

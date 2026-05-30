@@ -229,6 +229,8 @@ export type UsageSummary = {
     conversations: number;
     ai_messages: number;
     bookings: number;
+    whatsapp_messages?: number;
+    /** @deprecated Analytics only. Use analytics.whatsapp_conversations. */
     whatsapp_conversations?: number;
     phone_minutes?: number;
   };
@@ -236,8 +238,11 @@ export type UsageSummary = {
     conversations: number | null;
     ai_messages: number | null;
     bookings: number | null;
-    whatsapp_conversations?: number | null;
+    whatsapp_messages?: number | null;
     phone_minutes?: number | null;
+  };
+  analytics?: {
+    whatsapp_conversations?: number;
   };
 };
 

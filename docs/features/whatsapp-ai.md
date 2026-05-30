@@ -98,6 +98,8 @@ The foundation records:
 
 Inbound and outbound WhatsApp messages count toward `monthly_whatsapp_messages`.
 
+`whatsapp_conversation` is kept as an analytics event for understanding WhatsApp conversation volume. It is not a separate plan limit and must not be displayed as a billable usage row unless a future `monthly_whatsapp_conversations` limit is added to plan config.
+
 If the monthly WhatsApp message limit is reached, YouGo does not call the AI. It can send a short fallback asking the customer to contact the business directly.
 
 ## Supported message types

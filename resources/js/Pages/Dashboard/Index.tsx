@@ -2158,8 +2158,16 @@ function UsageSummaryPanel({ summary, action, compact = false }: { summary: Usag
   const t = useT();
   const items = [
     {
+      key: 'conversations',
+      label: t('chatConversationsUsage'),
+      used: summary.usage.conversations,
+      limit: summary.limits.conversations,
+      icon: MessageSquare,
+      tone: 'indigo' as const,
+    },
+    {
       key: 'ai_messages',
-      label: t('aiMessages'),
+      label: t('aiMessagesUsage'),
       used: summary.usage.ai_messages,
       limit: summary.limits.ai_messages,
       icon: Sparkles,
@@ -2167,46 +2175,40 @@ function UsageSummaryPanel({ summary, action, compact = false }: { summary: Usag
     },
     {
       key: 'bookings',
-      label: t('bookings'),
+      label: t('aiBookingsUsage'),
       used: summary.usage.bookings,
       limit: summary.limits.bookings,
       icon: Calendar,
       tone: 'sky' as const,
     },
-    {
-      key: 'conversations',
-      label: t('usageChatConversations'),
-      used: summary.usage.conversations,
-      limit: summary.limits.conversations,
-      icon: MessageSquare,
-      tone: 'indigo' as const,
-    },
-    {
-      key: 'whatsapp_conversations',
-      label: t('usageWhatsappConversations'),
-      used: summary.usage.whatsapp_conversations ?? 0,
-      limit: summary.limits.whatsapp_conversations ?? 0,
+  ];
+  if (planHasService(summary.plan, 'whatsapp_ai')) {
+    items.push({
+      key: 'whatsapp_messages',
+      label: t('whatsappMessagesUsage'),
+      used: summary.usage.whatsapp_messages ?? 0,
+      limit: summary.limits.whatsapp_messages ?? 0,
       icon: SiWhatsapp,
       tone: 'slate' as const,
-      locked: !planHasService(summary.plan, 'whatsapp_ai'),
-    },
-    {
+    });
+  }
+  if (planHasService(summary.plan, 'phone_ai')) {
+    items.push({
       key: 'phone_minutes',
-      label: t('phoneMinutes'),
+      label: t('phoneMinutesUsage'),
       used: summary.usage.phone_minutes ?? 0,
       limit: summary.limits.phone_minutes ?? 0,
       icon: Phone,
       tone: 'slate' as const,
-      locked: !planHasService(summary.plan, 'phone_ai'),
-    },
-  ];
+    });
+  }
 
   return (
     <Card className={`${compact ? 'shrink-0 p-4' : 'p-5'}`}>
       <div className={`flex flex-col lg:flex-row lg:items-center lg:justify-between ${compact ? 'gap-3' : 'gap-4'}`}>
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide app-text-muted">{t('usageThisMonth')}</p>
-          <h2 className="mt-1 text-lg font-semibold app-text">{summary.plan.name} {t('plan')}</h2>
+          <h2 className="mt-1 text-lg font-semibold app-text">{t('currentPlanLabel')}: {summary.plan.name}</h2>
         </div>
         {action}
       </div>
@@ -2220,6 +2222,8 @@ function UsageSummaryPanel({ summary, action, compact = false }: { summary: Usag
 function UsageRing({ label, used, limit, icon: Icon, tone, compact = false, locked = false }: { label: string; used: number; limit: number | null; icon: any; tone: 'indigo' | 'emerald' | 'sky' | 'slate'; compact?: boolean; locked?: boolean }) {
   const t = useT();
   const percentage = limit && limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+  const unavailable = limit === 0;
+  const usageLabel = unavailable ? t('notIncludedInPlan') : t('usedOfLimit', { used: formatUsageNumber(used), limit: formatLimit(limit, t) });
   const size = compact ? 68 : 112;
   const center = size / 2;
   const radius = compact ? 27 : 46;
@@ -2252,7 +2256,7 @@ function UsageRing({ label, used, limit, icon: Icon, tone, compact = false, lock
   return (
     <div className={`${compact ? 'min-h-24 flex-row gap-3 px-3 py-3 text-left' : 'min-h-44 flex-col gap-3 px-3 py-4 text-center'} flex items-center justify-between rounded-lg border app-border app-panel-soft`}>
       <div className={`relative shrink-0 ${compact ? 'h-[68px] w-[68px]' : 'h-28 w-28'}`}>
-        <svg className={`-rotate-90 ${compact ? 'h-[68px] w-[68px]' : 'h-28 w-28'}`} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`${label}: ${used} / ${formatLimit(limit, t)}`}>
+        <svg className={`-rotate-90 ${compact ? 'h-[68px] w-[68px]' : 'h-28 w-28'}`} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`${label}: ${usageLabel}`}>
           <circle cx={center} cy={center} r={radius} fill="none" strokeWidth={stroke} className="stroke-slate-200 dark:stroke-white/10" />
           <circle
             cx={center}
@@ -2278,7 +2282,9 @@ function UsageRing({ label, used, limit, icon: Icon, tone, compact = false, lock
           {locked && <Lock className="h-3.5 w-3.5 shrink-0 app-text-muted" aria-hidden="true" />}
           <span className="min-w-0">{label}</span>
         </p>
-        <p className={`${compact ? 'text-lg' : 'text-xl'} mt-1 font-bold app-text`}>{used} <span className="text-sm font-semibold app-text-muted">/ {formatLimit(limit, t)}</span></p>
+        <p className={`${compact ? 'text-base' : 'text-xl'} mt-1 font-bold app-text`}>
+          {unavailable ? <span className="text-sm font-semibold app-text-muted">{t('notIncludedInPlan')}</span> : usageLabel}
+        </p>
       </div>
     </div>
   );
@@ -2493,6 +2499,10 @@ function canonicalPlanKey(key?: string | null) {
 
 function formatLimit(value: number | null, t: TranslateFn): string {
   if (value === null) return t('unlimited');
+  return new Intl.NumberFormat('en-GB').format(value);
+}
+
+function formatUsageNumber(value: number): string {
   return new Intl.NumberFormat('en-GB').format(value);
 }
 
