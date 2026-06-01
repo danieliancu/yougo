@@ -1377,6 +1377,7 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
                   const active = conversation.id === selected.id;
                   const lastMessage = conversation.messages.at(-1)?.content ?? t('conversationWithoutMessages');
                   const isWhatsapp = isWhatsappConversation(conversation);
+                  const whatsappNumber = conversationWhatsappNumber(conversation);
                   return (
                     <div
                       key={conversation.id}
@@ -1388,12 +1389,15 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
                           onClick={() => setSelectedId(conversation.id)}
                           className="min-w-0 flex-1 text-left"
                         >
-                          <div className="flex min-w-0 items-center gap-2">
+                          <div className="flex min-w-0 items-center justify-between gap-2">
                             <p className="truncate text-sm font-bold app-text">{conversationTitle(conversation, t)}</p>
                             {isWhatsapp && (
-                              <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-green-100 px-1.5 py-0.5 text-[10px] font-bold uppercase text-green-800 dark:bg-green-500/15 dark:text-green-300">
+                              <span
+                                className="inline-flex max-w-[9.5rem] shrink-0 items-center gap-1 rounded-md bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-800 dark:bg-green-500/15 dark:text-green-300"
+                                title={whatsappNumber ?? 'WhatsApp'}
+                              >
                                 <SiWhatsapp className="h-3 w-3" />
-                                WhatsApp
+                                <span className="truncate">{whatsappNumber ?? 'WhatsApp'}</span>
                               </span>
                             )}
                           </div>
@@ -1525,6 +1529,12 @@ function conversationTitle(conversation: Conversation, t?: (key: string, params?
 
 function cleanWhatsappAddress(value?: string | null) {
   return value?.trim().replace(/^whatsapp:/i, '') || null;
+}
+
+function conversationWhatsappNumber(conversation: Conversation) {
+  return cleanWhatsappAddress(conversation.external_contact_id)
+    || cleanWhatsappAddress(conversation.contact_phone)
+    || cleanWhatsappAddress(conversation.external_sender);
 }
 
 function isWhatsappConversation(conversation: Conversation) {
