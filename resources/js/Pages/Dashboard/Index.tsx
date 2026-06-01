@@ -1610,26 +1610,6 @@ function formatProvider(provider?: string | null) {
   return provider.charAt(0).toUpperCase() + provider.slice(1);
 }
 
-function pendingBookingChangeRequests(conversation: Conversation) {
-  const requests = conversation.metadata?.booking_change_requests;
-
-  return Array.isArray(requests)
-    ? requests.filter((request): request is Record<string, unknown> => typeof request === 'object' && request !== null && request.status === 'pending')
-    : [];
-}
-
-function bookingChangeRequestId(request: Record<string, unknown>) {
-  const id = request.id;
-
-  return typeof id === 'string' && id.trim() !== '' ? id : null;
-}
-
-function bookingChangeRequestConversationId(request: Record<string, unknown>) {
-  const id = request.conversation_id;
-
-  return typeof id === 'number' || typeof id === 'string' ? id : null;
-}
-
 function conversationMatchesChannel(conversation: Conversation, filter: 'all' | 'voice' | 'chat' | 'whatsapp') {
   const channel = conversation.channel as string;
 
@@ -5597,21 +5577,6 @@ function Bookings({ salon, query }: { salon: Salon; query: string }) {
     }
   }
 
-  function resolveBookingChangeRequest(request: Record<string, unknown>) {
-    const requestId = bookingChangeRequestId(request);
-    const conversationId = bookingChangeRequestConversationId(request);
-    if (!requestId || !conversationId) return;
-
-    router.patch(
-      `/dashboard/conversations/${conversationId}/booking-change-requests/${requestId}/resolve`,
-      {},
-      {
-        preserveScroll: true,
-        onSuccess: () => toast.success(t('bookingChangeResolvedToast')),
-      },
-    );
-  }
-
   return (
     <div className="space-y-6">
       <ConfirmationModal
@@ -5765,7 +5730,6 @@ function Bookings({ salon, query }: { salon: Salon; query: string }) {
           onEdit={startEditBooking}
           onConfirm={(booking) => router.put(`/bookings/${booking.id}`, { status: 'confirmed' }, { preserveScroll: true })}
           onCancel={(booking) => router.put(`/bookings/${booking.id}`, { status: 'cancelled' }, { preserveScroll: true })}
-          onResolveChangeRequest={resolveBookingChangeRequest}
           onDelete={(booking) => setConfirmation({
             title: t('deleteBooking'),
             message: t('deleteBookingConfirm'),
@@ -5922,7 +5886,6 @@ function BookingsDayCards({
   onEdit,
   onConfirm,
   onCancel,
-  onResolveChangeRequest,
   onDelete,
 }: {
   groups: ReturnType<typeof groupBookingsByDay>;
@@ -5936,7 +5899,6 @@ function BookingsDayCards({
   onEdit: (booking: Salon['bookings'][number]) => void;
   onConfirm: (booking: Salon['bookings'][number]) => void;
   onCancel: (booking: Salon['bookings'][number]) => void;
-  onResolveChangeRequest: (request: Record<string, unknown>) => void;
   onDelete: (booking: Salon['bookings'][number]) => void;
 }) {
   const tableHeaders = [
@@ -5979,7 +5941,7 @@ function BookingsDayCards({
               {bookingTimeRange(booking.time, booking.service?.duration)}
             </td>
             <td className="px-5 py-4 align-top">
-              <BookingStatusCell booking={booking} t={t} isArchive={isArchive} onResolveChangeRequest={onResolveChangeRequest} />
+              <BookingStatusCell booking={booking} t={t} />
             </td>
             <td className="px-5 py-4 align-top font-semibold app-text">{booking.client_name}</td>
             <td className="whitespace-nowrap px-5 py-4 align-top app-text-soft">{booking.client_phone || t('phoneMissingShort')}</td>
@@ -5990,7 +5952,7 @@ function BookingsDayCards({
               <RowActionsMenu label={t('actions')}>
                 {(close) => (
                   <>
-                    {bookingCanBeAmended(booking, isArchive) && booking.status === 'pending' && (
+                    {bookingAllowsDashboardActions(booking, isArchive) && booking.status === 'pending' && (
                       <RowActionButton onClick={() => { close(); onConfirm(booking); }}>
                         <CheckCircle2 className="h-4 w-4 text-green-600" />
                         {t('confirmBooking')}
@@ -6002,13 +5964,13 @@ function BookingsDayCards({
                         {booking.client_phone}
                       </RowActionLink>
                     )}
-                    {bookingCanBeAmended(booking, isArchive) && (
+                    {bookingAllowsDashboardActions(booking, isArchive) && (
                       <RowActionButton onClick={() => { close(); onCancel(booking); }}>
                         <XCircle className="h-4 w-4 text-red-600" />
                         {t('cancelBooking')}
                       </RowActionButton>
                     )}
-                    {bookingCanBeAmended(booking, isArchive) && (
+                    {bookingAllowsDashboardActions(booking, isArchive) && (
                       <RowActionButton onClick={() => { close(); onEdit(booking); }}>
                         <Pencil className="h-4 w-4" />
                         {t('editBooking')}
@@ -6029,57 +5991,16 @@ function BookingsDayCards({
   );
 }
 
-function BookingStatusCell({ booking, t, isArchive, onResolveChangeRequest }: { booking: Salon['bookings'][number]; t: TranslateFn; isArchive: boolean; onResolveChangeRequest: (request: Record<string, unknown>) => void }) {
-  const changeRequests = bookingCanBeAmended(booking, isArchive) ? pendingBookingChangeRequestsForBooking(booking) : [];
-
+function BookingStatusCell({ booking, t }: { booking: Salon['bookings'][number]; t: TranslateFn }) {
   return (
     <div className="space-y-1.5">
       <StatusPill status={booking.status} t={t} />
-      {changeRequests.map((changeRequest, index) => (
-        <div key={bookingChangeRequestId(changeRequest) ?? index} className="max-w-72 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs font-semibold leading-5 text-amber-900 dark:border-amber-400/40 dark:bg-amber-500/15 dark:text-amber-200">
-          <p>{t('bookingChangeRequest')}: {bookingChangeRequestLabel(changeRequest, t)}</p>
-          <p className="mt-1">{String(changeRequest.requested_text ?? '')}</p>
-          <p className="mt-1">{t('sourceWhatsapp')}</p>
-          <p className="mt-1">{t('requestedAt')}: {formatDate(String(changeRequest.requested_at ?? ''))}</p>
-          <p className="mt-1 text-[11px]">{t('bookingNotChangedAutomatically')}</p>
-          <button
-            type="button"
-            onClick={() => onResolveChangeRequest(changeRequest)}
-            className="mt-2 inline-flex h-8 items-center gap-1 rounded-md bg-amber-600 px-2 text-xs font-bold text-white transition hover:bg-amber-700"
-          >
-            <Check className="h-3.5 w-3.5" />
-            {t('markChangeResolved')}
-          </button>
-        </div>
-      ))}
     </div>
   );
 }
 
-function pendingBookingChangeRequestsForBooking(booking: Salon['bookings'][number]) {
-  return (booking.conversations ?? [])
-    .flatMap((conversation) => pendingBookingChangeRequests(conversation).map((request) => ({
-      ...request,
-      conversation_id: conversation.id,
-    })))
-    .sort((a, b) => String(a.requested_at ?? '').localeCompare(String(b.requested_at ?? '')));
-}
-
-function bookingCanBeAmended(booking: Salon['bookings'][number], isArchive: boolean) {
+function bookingAllowsDashboardActions(booking: Salon['bookings'][number], isArchive: boolean) {
   return !isArchive && (booking.status === 'pending' || booking.status === 'confirmed');
-}
-
-function bookingChangeRequestLabel(request: Record<string, unknown>, t: TranslateFn) {
-  const type = typeof request.type === 'string' ? request.type : 'unknown';
-
-  if (type === 'cancel') return t('bookingChangeTypeCancel');
-  if (type === 'reschedule') return t('bookingChangeTypeReschedule');
-  if (type === 'change_service') return t('bookingChangeTypeChangeService');
-  if (type === 'change_location') return t('bookingChangeTypeChangeLocation');
-  if (type === 'add_note') return t('bookingChangeTypeAddNote');
-  if (type === 'new_booking_request') return t('bookingChangeTypeNewBooking');
-
-  return t('bookingChangeTypeUnknown');
 }
 
 function ServiceNotesPill({ notes }: { notes: string }) {

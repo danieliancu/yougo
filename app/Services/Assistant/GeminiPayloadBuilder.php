@@ -68,8 +68,8 @@ class GeminiPayloadBuilder
     private function channelInstructions(?Conversation $conversation): ?string
     {
         return match (AssistantChannelBehavior::normalize($conversation?->channel)) {
-            AssistantChannelBehavior::CHANNEL_WHATSAPP => 'Channel: WhatsApp. The customer is messaging inside the same WhatsApp thread. Never mention the website new-chat button, website widget controls, starting a separate conversation, opening a separate chat, or using the website widget UI. After a booking request is created, the conversation continues here on WhatsApp. If the customer asks to change, cancel, reschedule, add details, change service, change time, change location, or make a new booking after an existing booking, do not confirm the change automatically and do not say the booking was changed, cancelled, confirmed, or created unless the backend actually did it. Treat it as a pending request for the business and respond naturally. Ask for missing details if needed. If enough details are provided, tell the customer that the request has been passed to the team for confirmation. Keep replies short and natural. Raspunde natural si concis pentru WhatsApp, ideal sub 900 de caractere. Nu folosi tabele mari sau markdown lung. Pune cate o singura intrebare pe rand cand colectezi date pentru programare. Nu inventa servicii, preturi, disponibilitate sau program.',
-            AssistantChannelBehavior::CHANNEL_PHONE => 'Channel: Phone. Do not mention website chat UI, buttons, links, or separate chats. Use natural spoken-style interaction. If a booking already exists and the caller asks for changes, treat it as a pending request for the business, not as an automatically confirmed booking edit.',
+            AssistantChannelBehavior::CHANNEL_WHATSAPP => 'Channel: WhatsApp. The customer is messaging inside the same real WhatsApp thread, but YouGo dashboard conversations are separated by booking flow. Never mention the website new-chat button, website widget controls, starting a separate conversation, opening a separate chat, or using the website widget UI. Pending WhatsApp bookings can be cancelled only when the backend deterministically handles a clear customer cancellation request. Do not edit, reschedule, change service, change location, or cancel confirmed bookings automatically. For changes to an existing booking, provide a phone handoff. Do not create amendment requests. If the conversation has no linked booking, continue naturally toward a new inquiry or booking. Keep replies short and natural. Raspunde natural si concis pentru WhatsApp, ideal sub 900 de caractere. Nu folosi tabele mari sau markdown lung. Pune cate o singura intrebare pe rand cand colectezi date pentru programare. Nu inventa servicii, preturi, disponibilitate sau program.',
+            AssistantChannelBehavior::CHANNEL_PHONE => 'Channel: Phone. Do not mention website chat UI, buttons, links, or separate chats. Use natural spoken-style interaction. Do not edit, reschedule, or cancel existing bookings automatically.',
             default => null,
         };
     }
@@ -123,7 +123,7 @@ class GeminiPayloadBuilder
 
         $behavior = AssistantChannelBehavior::for($conversation?->channel);
 
-        if (! $behavior['allows_new_conversation_instruction'] && ! $booking->isAmendable()) {
+        if (! $behavior['allows_new_conversation_instruction'] && $booking->isArchivedForDashboard()) {
             return collect([
                 'Aceasta conversatie are o programare istorica in baza de date.',
                 "status programare istorica: {$booking->status}.",
@@ -153,7 +153,7 @@ class GeminiPayloadBuilder
             'Nu apela checkAvailability sau bookBooking in aceasta conversatie pentru o programare noua.',
             $behavior['allows_new_conversation_instruction']
                 ? 'Daca utilizatorul vrea o alta programare sau o discutie noua, spune-i sa apese pe + si sa inceapa o conversatie noua.'
-                : 'Daca utilizatorul vrea o modificare, anulare, reprogramare, alt serviciu, o programare noua sau detalii suplimentare, nu confirma modificarea automat si nu spune ca programarea a fost modificata, anulata, confirmata sau creata. Trateaza mesajul ca o cerere pending pentru echipa si continua natural pe acelasi canal. Nu mentiona butonul de conversatie noua, controale din widget, conversatie noua, conversatie separata, chat separat sau UI-ul widgetului website.',
+                : 'Pentru WhatsApp, doar anularea clara a unei programari pending poate fi facuta determinist de backend. Nu modifica, nu reprograma, nu schimba serviciul sau locatia si nu crea cereri pending de modificare. Pentru schimbari la o programare existenta, directioneaza clientul catre telefonul echipei. Nu mentiona butonul de conversatie noua, controale din widget, conversatie noua, conversatie separata, chat separat sau UI-ul widgetului website.',
         ])->filter()->implode(' ');
     }
 

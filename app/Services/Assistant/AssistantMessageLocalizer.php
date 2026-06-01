@@ -40,6 +40,44 @@ class AssistantMessageLocalizer
             : 'Am transmis cererea catre echipa pentru confirmare.';
     }
 
+    public function bookingCancelledByCustomer(Salon $salon): string
+    {
+        return $this->localeFor($salon) === 'en'
+            ? 'Your booking has been cancelled. Thank you for letting us know.'
+            : 'Programarea ta a fost anulata. Multumim ca ne-ai anuntat.';
+    }
+
+    public function cancelClarification(Salon $salon): string
+    {
+        return $this->localeFor($salon) === 'en'
+            ? 'Would you like me to cancel your current booking?'
+            : 'Vrei sa anulez programarea ta curenta?';
+    }
+
+    public function bookingChangePhoneHandoff(Salon $salon, array $phoneNumbers = []): string
+    {
+        $phoneNumbers = collect($phoneNumbers)
+            ->map(fn ($phone) => trim((string) $phone))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($this->localeFor($salon) === 'en') {
+            $base = "To change an existing booking, please contact {$salon->name} directly so the team can check availability properly.";
+
+            return $phoneNumbers
+                ? $base.' You can call: '.implode(', ', $phoneNumbers).'.'
+                : $base;
+        }
+
+        $base = "Pentru modificarea unei programari existente, te rugam sa contactezi direct {$salon->name}, ca echipa sa poata verifica disponibilitatea corect.";
+
+        return $phoneNumbers
+            ? $base.' Poti suna la: '.implode(', ', $phoneNumbers).'.'
+            : $base;
+    }
+
     public function bookingChangeRequestedTimeAvailable(Salon $salon, ?string $date, ?string $time): string
     {
         $dateLabel = $this->dateLabel($salon, (string) $date);
@@ -133,9 +171,11 @@ class AssistantMessageLocalizer
 
     public function limitMessage(Salon $salon): string
     {
+        $businessName = trim($salon->name) ?: ($this->localeFor($salon) === 'en' ? 'the business' : 'businessul');
+
         return $this->localeFor($salon) === 'en'
-            ? "You've reached your plan limit for this month. Please upgrade your plan or contact the business directly."
-            : 'Ai atins limita planului pentru această lună. Te rugăm să faci upgrade sau să contactezi direct businessul.';
+            ? "You've reached your plan limit for this month. Please upgrade your plan or contact {$businessName} directly."
+            : "Ai atins limita planului pentru aceasta luna. Te rugam sa faci upgrade sau sa contactezi direct {$businessName}.";
     }
 
     public function geminiMissing(Salon $salon): string

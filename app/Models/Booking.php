@@ -2,18 +2,18 @@
 
 namespace App\Models;
 
+use App\Support\BookingStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Carbon;
 
 class Booking extends Model
 {
     use HasFactory;
 
     public const STATUSES = ['pending', 'confirmed', 'cancelled', 'completed'];
-    public const AMENDABLE_STATUSES = ['pending', 'confirmed'];
+    public const AMENDABLE_STATUSES = ['pending'];
     public const FINAL_STATUSES = ['cancelled', 'completed'];
 
     protected $fillable = [
@@ -67,18 +67,11 @@ class Booking extends Model
 
     public function isAmendable(): bool
     {
-        return in_array($this->status, self::AMENDABLE_STATUSES, true)
-            && ! $this->isArchivedForDashboard();
+        return false;
     }
 
     public function isArchivedForDashboard(): bool
     {
-        if (! $this->date) {
-            return false;
-        }
-
-        $timezone = $this->salon?->timezone ?: config('app.timezone');
-
-        return $this->date->toDateString() < Carbon::now($timezone)->toDateString();
+        return BookingStatus::isArchivedForDashboard($this);
     }
 }

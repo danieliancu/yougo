@@ -4,6 +4,7 @@ namespace App\Services\Notifications;
 
 use App\Mail\NewAiBookingMail;
 use App\Mail\BookingChangeRequestMail;
+use App\Mail\BookingCancelledByCustomerMail;
 use App\Models\Booking;
 use App\Models\Conversation;
 use Illuminate\Support\Facades\Log;
@@ -78,6 +79,34 @@ class BookingNotificationService
                 'booking_id' => $booking->id,
                 'salon_id' => $salon->id,
                 'recipient_email' => $salon->notification_email,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    public function sendCustomerCancelledBookingNotification(Booking $booking, string $cancellationText, string $source = 'WhatsApp'): void
+    {
+        $booking->loadMissing(['salon', 'service', 'location', 'staffMember']);
+        $salon = $booking->salon;
+
+        if (! $salon || ! filled($salon->notification_email)) {
+            return;
+        }
+
+        if (! ($salon->booking_confirmations ?? true)) {
+            return;
+        }
+
+        try {
+            Mail::to($salon->notification_email)->send(
+                new BookingCancelledByCustomerMail($booking, $cancellationText, $source)
+            );
+        } catch (Throwable $exception) {
+            Log::warning('Customer booking cancellation notification could not be sent.', [
+                'booking_id' => $booking->id,
+                'salon_id' => $salon->id,
+                'recipient_email' => $salon->notification_email,
+                'source' => $source,
                 'error' => $exception->getMessage(),
             ]);
         }

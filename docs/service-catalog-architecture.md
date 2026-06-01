@@ -17,7 +17,7 @@ This document explains the rules and must be consulted before changing services 
 ## 4. Current Services
 
 - `website_chat`: public website text chat for conversations and AI booking requests.
-- `whatsapp_ai`: live MVP for WhatsApp conversations, automatic replies, AI booking requests, and booking change requests. Business activation is manual through YouGo/Twilio.
+- `whatsapp_ai`: live MVP for WhatsApp conversations, automatic replies, AI booking requests, pending booking cancellation, and phone handoff for booking changes. Business activation is manual through YouGo/Twilio.
 - `phone_ai`: planned phone call answering, voice replies, and request collection.
 
 ## 5. Service Statuses

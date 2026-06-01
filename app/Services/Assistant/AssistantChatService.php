@@ -4,7 +4,6 @@ namespace App\Services\Assistant;
 
 use App\Models\Salon;
 use App\Models\Conversation;
-use App\Services\Booking\AvailabilityChecker;
 use App\Services\Conversation\ConversationService;
 use App\Services\Modes\Appointment\AppointmentToolHandler;
 use App\Services\Notifications\BookingNotificationService;
@@ -20,7 +19,6 @@ class AssistantChatService
         private readonly AssistantResponseParser $responseParser,
         private readonly ConversationService $conversationService,
         private readonly AppointmentToolHandler $appointmentToolHandler,
-        private readonly AvailabilityChecker $availabilityChecker,
         private readonly BookingNotificationService $bookingNotificationService,
         private readonly UsageLimitService $usageLimitService,
         private readonly AssistantMessageLocalizer $messageLocalizer,
@@ -128,46 +126,14 @@ class AssistantChatService
             }
 
             $channel = (string) ($options['channel'] ?? $conversation->channel);
-            $blocksExistingBookingTools = $conversation->booking_id
-                && (
-                    AssistantChannelBehavior::allowsNewConversationInstruction($channel)
-                    || $conversation->booking?->isAmendable()
-                );
+            $blocksExistingBookingTools = (bool) $conversation->booking_id;
 
             if ($blocksExistingBookingTools) {
                 $booking = $conversation->booking;
 
                 if (! AssistantChannelBehavior::allowsNewConversationInstruction($channel)) {
-                    $availability = $this->appointmentToolHandler->isAvailabilityCall($functionCall)
-                        ? $this->availabilityCheckForExistingBooking($salon, $conversation, $functionCall)
-                        : [];
-
-                    $changeRequest = $this->conversationService->recordPendingBookingChangeRequest(
-                        $conversation,
-                        $this->latestUserMessageText($messages),
-                        AssistantChannelBehavior::normalize($channel),
-                        $this->pendingRequestType($functionCall),
-                        $availability,
-                    );
-                    $this->notifyPendingChangeRequestIfNeeded($conversation, $changeRequest, AssistantChannelBehavior::normalize($channel));
-
-                    if (($availability['availability_status'] ?? null) === 'unavailable') {
-                        $text = $this->messageLocalizer->bookingChangeRequestedTimeUnavailable(
-                            $salon,
-                            $availability['requested_date'] ?? null,
-                            $availability['requested_time'] ?? null,
-                        );
-                        continue;
-                    }
-
-                    if (($availability['availability_status'] ?? null) === 'available') {
-                        $text = $this->messageLocalizer->bookingChangeRequestedTimeAvailable(
-                            $salon,
-                            $availability['requested_date'] ?? null,
-                            $availability['requested_time'] ?? null,
-                        );
-                        continue;
-                    }
+                    $text = $this->messageLocalizer->bookingChangePhoneHandoff($salon);
+                    continue;
                 }
 
                 $text = $this->messageLocalizer->existingBookingRequiresNewConversation($salon, $channel);

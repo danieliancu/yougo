@@ -18,6 +18,8 @@ class BillingUsageTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const LIMIT_MESSAGE_EN_WITH_BUSINESS_NAME = "You've reached your plan limit for this month. Please upgrade your plan or contact YouGo Studio directly.";
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -222,7 +224,7 @@ class BillingUsageTest extends TestCase
         $this->postJson("/widget/{$salon->widget_key}/chat", [
             'messages' => [['role' => 'user', 'content' => 'Buna']],
         ])->assertOk()
-            ->assertJsonPath('message', UsageLimitService::LIMIT_MESSAGE_EN);
+            ->assertJsonPath('message', self::LIMIT_MESSAGE_EN_WITH_BUSINESS_NAME);
 
         $this->postJson("/assistant/{$salon->id}/chat", [
             'messages' => [['role' => 'user', 'content' => 'Buna']],
@@ -239,7 +241,7 @@ class BillingUsageTest extends TestCase
         app(UsageTracker::class)->record($salon, 'booking_created');
 
         $this->expectException(HttpException::class);
-        $this->expectExceptionMessage(UsageLimitService::LIMIT_MESSAGE_EN);
+        $this->expectExceptionMessage(self::LIMIT_MESSAGE_EN_WITH_BUSINESS_NAME);
 
         app(BookingCreator::class)->createFromAiFunctionCall($salon, [
             'client_name' => 'Ana Pop',
@@ -290,7 +292,7 @@ class BillingUsageTest extends TestCase
         $this->postJson("/widget/{$salon->widget_key}/chat", [
             'messages' => [['role' => 'user', 'content' => 'Book me']],
         ])->assertOk()
-            ->assertJsonPath('message', UsageLimitService::LIMIT_MESSAGE_EN);
+            ->assertJsonPath('message', self::LIMIT_MESSAGE_EN_WITH_BUSINESS_NAME);
 
         $this->assertSame(1, $salon->bookings()->count());
         $this->assertSame(0, $salon->usageEvents()->where('event_type', 'booking_created')->count());
@@ -316,7 +318,7 @@ class BillingUsageTest extends TestCase
 
         $this->postJson("/widget/{$salon->widget_key}/chat", [
             'messages' => [['role' => 'user', 'content' => 'Buna']],
-        ])->assertOk()->assertJsonPath('message', UsageLimitService::LIMIT_MESSAGE_EN);
+        ])->assertOk()->assertJsonPath('message', self::LIMIT_MESSAGE_EN_WITH_BUSINESS_NAME);
     }
 
     public function test_billing_dashboard_overview_usage_and_landing_pricing_load(): void

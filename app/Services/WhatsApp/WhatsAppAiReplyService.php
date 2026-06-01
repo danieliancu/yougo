@@ -8,10 +8,10 @@ use App\Models\Salon;
 use App\Models\WhatsappIntegration;
 use App\Services\Assistant\AssistantChatService;
 use App\Services\Assistant\AssistantMessageLocalizer;
-use App\Services\Conversation\ConversationService;
 use App\Services\Notifications\BookingNotificationService;
 use App\Services\Usage\UsageLimitService;
 use App\Services\Usage\UsageTracker;
+use App\Support\BookingStatus;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -23,7 +23,6 @@ class WhatsAppAiReplyService
         private readonly TwilioWhatsAppService $twilio,
         private readonly WhatsAppConversationService $conversations,
         private readonly WhatsAppOutboundGuard $outboundGuard,
-        private readonly ConversationService $conversationService,
         private readonly BookingNotificationService $bookingNotificationService,
         private readonly UsageLimitService $usageLimitService,
         private readonly UsageTracker $usageTracker,
@@ -62,7 +61,9 @@ class WhatsAppAiReplyService
         }
 
         try {
-            $this->recordPendingChangeRequestIfNeeded($conversation, $inboundMessage);
+            if ($this->handleDeterministicPostBookingMessage($salon, $integration, $conversation, $inboundMessage)) {
+                return;
+            }
 
             $result = $this->assistantChatService->replyForConversation($salon, $conversation, [
                 'channel' => 'whatsapp',
@@ -170,16 +171,20 @@ class WhatsAppAiReplyService
 
     private function limitFallback(Salon $salon): string
     {
+        $businessName = trim($salon->name) ?: ($this->messageLocalizer->localeFor($salon) === 'en' ? 'the business' : 'businessul');
+
         return $this->messageLocalizer->localeFor($salon) === 'en'
-            ? "I can't reply automatically on WhatsApp right now. Please contact the business directly."
-            : 'Momentan nu pot raspunde automat pe WhatsApp. Te rugam sa contactezi direct businessul.';
+            ? "I can't reply automatically on WhatsApp right now. Please contact {$businessName} directly."
+            : "Momentan nu pot raspunde automat pe WhatsApp. Te rugam sa contactezi direct {$businessName}.";
     }
 
     private function aiFailureFallback(Salon $salon): string
     {
+        $businessName = trim($salon->name) ?: ($this->messageLocalizer->localeFor($salon) === 'en' ? 'the business' : 'businessul');
+
         return $this->messageLocalizer->localeFor($salon) === 'en'
-            ? "Sorry, I can't reply automatically right now. Please try again later or contact the business directly."
-            : 'Imi pare rau, nu pot raspunde automat acum. Te rugam sa incerci din nou mai tarziu sau sa contactezi direct businessul.';
+            ? "Sorry, I can't reply automatically right now. Please try again later or contact {$businessName} directly."
+            : "Imi pare rau, nu pot raspunde automat acum. Te rugam sa incerci din nou mai tarziu sau sa contactezi direct {$businessName}.";
     }
 
     private function unsupportedTextFallback(Salon $salon): string
@@ -189,54 +194,113 @@ class WhatsAppAiReplyService
             : 'Momentan pot procesa doar mesaje text pe WhatsApp.';
     }
 
-    private function recordPendingChangeRequestIfNeeded(Conversation $conversation, ConversationMessage $inboundMessage): void
+    private function handleDeterministicPostBookingMessage(Salon $salon, WhatsappIntegration $integration, Conversation $conversation, ConversationMessage $inboundMessage): bool
     {
-        if (! $conversation->booking_id || ! $this->looksLikeBookingChangeRequest($inboundMessage->content)) {
-            return;
+        $text = $inboundMessage->content;
+        $booking = $conversation->booking;
+
+        if ($booking) {
+            $booking->loadMissing(['salon', 'location']);
+
+            if (BookingStatus::isPendingCancellationAllowed($booking) && $this->looksLikeClearCancellationRequest($text)) {
+                $metadata = $conversation->metadata ?? [];
+                $cancellations = $metadata['whatsapp_cancellations'] ?? [];
+                $cancellations[] = [
+                    'source' => 'whatsapp',
+                    'cancelled_by' => 'customer',
+                    'cancelled_at' => now()->toISOString(),
+                    'cancellation_text' => $text,
+                    'previous_booking_status' => $booking->status,
+                ];
+
+                $conversation->update([
+                    'metadata' => [
+                        ...$metadata,
+                        'whatsapp_cancellations' => $cancellations,
+                    ],
+                ]);
+
+                $booking->update(['status' => 'cancelled']);
+                $this->bookingNotificationService->sendCustomerCancelledBookingNotification($booking->refresh(), $text, 'WhatsApp');
+
+                $this->sendAndSave($conversation, $integration, $this->messageLocalizer->bookingCancelledByCustomer($salon), [
+                    'channel' => 'whatsapp',
+                    'sent_via' => 'twilio',
+                    'ai_generated' => false,
+                    'status_reason' => 'pending_booking_cancelled_by_customer',
+                ]);
+
+                $conversation->update(['status' => 'completed']);
+
+                return true;
+            }
+
+            if ($this->looksLikeBookingEditRequest($text) || $this->looksLikeAmbiguousCancellationRequest($text)) {
+                $this->sendAndSave($conversation, $integration, $this->messageLocalizer->bookingChangePhoneHandoff($salon, $this->handoffPhoneNumbers($salon, $booking)), [
+                    'channel' => 'whatsapp',
+                    'sent_via' => 'twilio',
+                    'ai_generated' => false,
+                    'status_reason' => 'existing_booking_phone_handoff',
+                ]);
+
+                return true;
+            }
+
+            return false;
         }
 
-        if (! $conversation->booking?->isAmendable()) {
-            return;
-        }
+        if ($this->looksLikeBookingEditRequest($text) || $this->looksLikeAmbiguousCancellationRequest($text)) {
+            $this->sendAndSave($conversation, $integration, $this->messageLocalizer->bookingChangePhoneHandoff($salon, $this->handoffPhoneNumbers($salon)), [
+                'channel' => 'whatsapp',
+                'sent_via' => 'twilio',
+                'ai_generated' => false,
+                'status_reason' => 'existing_booking_phone_handoff',
+            ]);
 
-        $changeRequest = $this->conversationService->recordPendingBookingChangeRequest(
-            $conversation,
-            $inboundMessage->content,
-            'whatsapp',
-            $this->classifyChangeRequest($inboundMessage->content),
-        );
-
-        if (! $changeRequest) {
-            return;
-        }
-
-        if ($this->bookingNotificationService->sendBookingChangeRequestNotification($conversation, $changeRequest)) {
-            $this->conversationService->markBookingChangeRequestNotified($conversation, $changeRequest['id']);
-        }
-    }
-
-    private function looksLikeBookingChangeRequest(string $text): bool
-    {
-        if (preg_match('/\b(alt serviciu|serviciu nou|inca o programare|încă o programare|programare noua|programare nouă|pentru copil|pentru sotie|pentru so[țt]ie|another booking|new booking|another service|for my child|for my wife)\b/iu', $text) === 1) {
             return true;
         }
-        return preg_match('/\b(schimb|modific|reprogram|mut|anul|cancel|alta ora|alt[aă] zi|alt serviciu|change|move|reschedul|cancel|another service|different service|different time)\b/iu', $text) === 1;
+
+        return false;
     }
 
-    private function classifyChangeRequest(string $text): string
+    private function looksLikeClearCancellationRequest(string $text): bool
     {
-        $normalized = mb_strtolower($text);
+        return preg_match('/\b(anuleaz|vreau\s+sa\s+anulez|vreau\s+s[Äƒa]\s+anulez|nu\s+mai\s+vin|cancel(?:\s+my\s+booking)?|i\s+want\s+to\s+cancel|can[’\'`]?t\s+come\s+anymore)\b/iu', $text) === 1;
+    }
 
-        if (preg_match('/\b(alt serviciu|serviciu nou|inca o programare|încă o programare|programare nou[ăa]|another booking|new booking|another service|for my child|for my wife|pentru copil|pentru so[țt]ie)\b/iu', $normalized) === 1) {
-            return 'new_booking_request';
+    private function looksLikeAmbiguousCancellationRequest(string $text): bool
+    {
+        return preg_match('/\b(anulare|anulat|cancel|cancellation)\b/iu', $text) === 1;
+    }
+
+    private function looksLikeBookingEditRequest(string $text): bool
+    {
+        return preg_match('/\b(schimb|modific|reprogram|mut|alta\s+ora|alt[Äƒa]\s+ora|alta\s+zi|alt[Äƒa]\s+zi|alt\s+serviciu|serviciu\s+diferit|change|edit|reschedul|move|different\s+time|different\s+day|different\s+service|change\s+location|change\s+service|amend)\b/iu', $text) === 1;
+    }
+
+    private function handoffPhoneNumbers(Salon $salon, mixed $booking = null): array
+    {
+        $phones = collect([$salon->business_phone]);
+
+        if ($booking?->location?->phone) {
+            $phones->push($booking->location->phone);
         }
 
-        return match (true) {
-            preg_match('/\b(anul|cancel)\b/iu', $normalized) === 1 => 'cancel',
-            preg_match('/\b(reprogram|mut|ora|alt[aă] zi|move|reschedul|different time)\b/iu', $normalized) === 1 => 'reschedule',
-            preg_match('/\b(serviciu|service)\b/iu', $normalized) === 1 => 'change_service',
-            default => 'unknown',
-        };
+        if (! $booking) {
+            $salon->loadMissing('locations');
+            foreach ($salon->locations as $location) {
+                if ($location->phone) {
+                    $phones->push($location->phone);
+                }
+            }
+        }
+
+        return $phones
+            ->map(fn ($phone) => trim((string) $phone))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 
     private function cleanWhatsappAddress(string $value): string
@@ -244,4 +308,3 @@ class WhatsAppAiReplyService
         return preg_replace('/^whatsapp:/i', '', trim($value)) ?? '';
     }
 }
-

@@ -151,8 +151,9 @@ class AssistantPromptTest extends TestCase
         $instruction = $payload['systemInstruction']['parts'][0]['text'];
 
         $this->assertStringContainsString('Channel: WhatsApp', $instruction);
-        $this->assertStringContainsString('same WhatsApp thread', $instruction);
-        $this->assertStringContainsString('pending request for the business', $instruction);
+        $this->assertStringContainsString('same real WhatsApp thread', $instruction);
+        $this->assertStringContainsString('Do not create amendment requests', $instruction);
+        $this->assertStringContainsString('provide a phone handoff', $instruction);
         $this->assertStringNotContainsString('+', $instruction);
         $this->assertStringNotContainsString('start a new conversation', $instruction);
         $this->assertStringNotContainsString('open a new chat', $instruction);

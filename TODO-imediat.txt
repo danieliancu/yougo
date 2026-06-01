@@ -63,6 +63,15 @@ git commit -m "Keep booking status unchanged for change requests"
 
 
 
+
+
+
+
+
+
+
+
+
 hardening:
 1. mutăm WhatsApp AI replies în queue/job
 2. prevenim timeouturi Twilio

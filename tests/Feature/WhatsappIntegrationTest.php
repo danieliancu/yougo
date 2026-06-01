@@ -6,7 +6,7 @@ use App\Models\ConversationMessage;
 use App\Models\Salon;
 use App\Models\User;
 use App\Models\WhatsappIntegration;
-use App\Mail\BookingChangeRequestMail;
+use App\Mail\BookingCancelledByCustomerMail;
 use App\Mail\NewAiBookingMail;
 use App\Services\WhatsApp\TwilioWhatsAppService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -208,6 +208,125 @@ class WhatsappIntegrationTest extends TestCase
         $this->assertSame(1, $salon->usageEvents()->where('event_type', 'whatsapp_message_inbound')->count());
     }
 
+    public function test_whatsapp_inbound_continues_open_conversation_without_booking(): void
+    {
+        config(['twilio.validate_signature' => false]);
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $conversation = $salon->conversations()->create([
+            'channel' => 'whatsapp',
+            'provider' => 'twilio',
+            'external_contact_id' => 'whatsapp:+40711111111',
+            'external_sender' => 'whatsapp:+40700000000',
+            'contact_phone' => 'whatsapp:+40711111111',
+            'status' => 'open',
+            'intent' => 'inquiry',
+            'summary' => 'Open.',
+            'last_message_at' => now(),
+        ]);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => false,
+        ]);
+
+        $this->post('/twilio/whatsapp/webhook', $this->twilioPayload([
+            'MessageSid' => 'SM_CONTINUE_OPEN',
+        ]))->assertOk();
+
+        $this->assertSame(1, $salon->conversations()->count());
+        $this->assertDatabaseHas('conversation_messages', [
+            'conversation_id' => $conversation->id,
+            'provider_message_id' => 'SM_CONTINUE_OPEN',
+        ]);
+    }
+
+    public function test_whatsapp_inbound_continues_open_conversation_with_pending_booking(): void
+    {
+        config(['twilio.validate_signature' => false]);
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $booking = $salon->bookings()->create([
+            'client_name' => 'Maria Client',
+            'client_phone' => '+40711111111',
+            'date' => '2026-06-03',
+            'time' => '10:00',
+            'status' => 'pending',
+            'source' => 'whatsapp',
+        ]);
+        $conversation = $salon->conversations()->create([
+            'booking_id' => $booking->id,
+            'channel' => 'whatsapp',
+            'provider' => 'twilio',
+            'external_contact_id' => 'whatsapp:+40711111111',
+            'external_sender' => 'whatsapp:+40700000000',
+            'contact_phone' => 'whatsapp:+40711111111',
+            'status' => 'open',
+            'intent' => 'booking',
+            'summary' => 'Open.',
+            'last_message_at' => now(),
+        ]);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => false,
+        ]);
+
+        $this->post('/twilio/whatsapp/webhook', $this->twilioPayload([
+            'MessageSid' => 'SM_CONTINUE_PENDING',
+        ]))->assertOk();
+
+        $this->assertSame(1, $salon->conversations()->count());
+        $this->assertDatabaseHas('conversation_messages', [
+            'conversation_id' => $conversation->id,
+            'provider_message_id' => 'SM_CONTINUE_PENDING',
+        ]);
+    }
+
+    public function test_whatsapp_inbound_after_confirmed_booking_creates_new_dashboard_conversation(): void
+    {
+        config(['twilio.validate_signature' => false]);
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $booking = $salon->bookings()->create([
+            'client_name' => 'Maria Client',
+            'client_phone' => '+40711111111',
+            'date' => '2026-06-03',
+            'time' => '10:00',
+            'status' => 'confirmed',
+            'source' => 'whatsapp',
+        ]);
+        $oldConversation = $salon->conversations()->create([
+            'booking_id' => $booking->id,
+            'channel' => 'whatsapp',
+            'provider' => 'twilio',
+            'external_contact_id' => 'whatsapp:+40711111111',
+            'external_sender' => 'whatsapp:+40700000000',
+            'contact_phone' => 'whatsapp:+40711111111',
+            'status' => 'open',
+            'intent' => 'booking',
+            'summary' => 'Open.',
+            'last_message_at' => now(),
+        ]);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => false,
+        ]);
+
+        $this->post('/twilio/whatsapp/webhook', $this->twilioPayload([
+            'MessageSid' => 'SM_SPLIT_CONFIRMED',
+        ]))->assertOk();
+
+        $newConversation = $salon->conversations()->whereKeyNot($oldConversation->id)->firstOrFail();
+        $this->assertSame('completed', $oldConversation->refresh()->status);
+        $this->assertNull($newConversation->booking_id);
+        $this->assertDatabaseHas('conversation_messages', [
+            'conversation_id' => $newConversation->id,
+            'provider_message_id' => 'SM_SPLIT_CONFIRMED',
+        ]);
+    }
+
     public function test_webhook_with_ai_enabled_sends_and_saves_ai_reply(): void
     {
         config([
@@ -258,7 +377,7 @@ class WhatsappIntegrationTest extends TestCase
         $this->post('/twilio/whatsapp/webhook', $this->twilioPayload(['MessageSid' => 'SM_GUARD_RO']))->assertOk();
 
         $outbound = ConversationMessage::query()->where('direction', 'outbound')->latest()->firstOrFail();
-        $this->assertSame('Pot continua aici pe WhatsApp. Dacă dorești o modificare sau o programare nouă, transmit cererea către echipă pentru confirmare.', $outbound->content);
+        $this->assertSame('Putem continua aici pe WhatsApp. Pentru o programare noua te pot ajuta in continuare, iar pentru modificarea unei programari existente te rugam sa contactezi direct echipa.', $outbound->content);
         $this->assertTrue($outbound->metadata['outbound_guard_applied']);
         $this->assertSame('website_chat_instruction_removed', $outbound->metadata['outbound_guard_reason']);
     }
@@ -285,7 +404,7 @@ class WhatsappIntegrationTest extends TestCase
         $this->post('/twilio/whatsapp/webhook', $this->twilioPayload(['MessageSid' => 'SM_GUARD_EN']))->assertOk();
 
         $outbound = ConversationMessage::query()->where('direction', 'outbound')->latest()->firstOrFail();
-        $this->assertSame("We can continue here on WhatsApp. If you want a change or a new booking, I'll pass the request to the team for confirmation.", $outbound->content);
+        $this->assertSame('We can continue here on WhatsApp. I can help with a new booking, and for changes to an existing booking please contact the team directly.', $outbound->content);
         $this->assertTrue($outbound->metadata['outbound_guard_applied']);
         $this->assertSame('website_chat_instruction_removed', $outbound->metadata['outbound_guard_reason']);
     }
@@ -428,7 +547,7 @@ class WhatsappIntegrationTest extends TestCase
         $this->assertDatabaseHas('conversation_messages', [
             'role' => 'assistant',
             'direction' => 'outbound',
-            'content' => 'Imi pare rau, nu pot raspunde automat acum. Te rugam sa incerci din nou mai tarziu sau sa contactezi direct businessul.',
+            'content' => 'Imi pare rau, nu pot raspunde automat acum. Te rugam sa incerci din nou mai tarziu sau sa contactezi direct YouGo Studio.',
         ]);
     }
 
@@ -549,7 +668,7 @@ class WhatsappIntegrationTest extends TestCase
         $this->assertSame('whatsapp', $booking->source);
     }
 
-    public function test_whatsapp_post_booking_change_request_is_recorded_without_automatic_booking_change(): void
+    public function test_whatsapp_confirmed_booking_edit_request_creates_new_conversation_and_uses_phone_handoff(): void
     {
         config([
             'twilio.validate_signature' => false,
@@ -601,7 +720,7 @@ class WhatsappIntegrationTest extends TestCase
             'twilio_sender' => 'whatsapp:+40700000000',
             'ai_enabled' => true,
         ]);
-        $this->fakeGeminiText('Sigur. Am transmis cererea catre echipa pentru confirmare.');
+        $this->fakeGeminiText('Nu ar trebui apelat.');
         $this->fakeTwilioService();
 
         $this->post('/twilio/whatsapp/webhook', $this->twilioPayload([
@@ -609,31 +728,24 @@ class WhatsappIntegrationTest extends TestCase
             'MessageSid' => 'SM_CHANGE',
         ]))->assertOk();
 
-        $conversation->refresh();
+        $oldConversation = $conversation->refresh();
+        $newConversation = $salon->conversations()->whereKeyNot($oldConversation->id)->firstOrFail();
         $booking->refresh();
-        $request = $conversation->metadata['booking_change_requests'][0] ?? null;
+        $outbound = ConversationMessage::query()->where('direction', 'outbound')->latest()->firstOrFail();
 
-        $this->assertNotNull($request);
-        $this->assertSame('reschedule', $request['type']);
-        $this->assertSame('whatsapp', $request['source']);
-        $this->assertSame('pending', $request['status']);
-        $this->assertSame('Vreau sa schimb ora programarii la 12:00', $request['requested_text']);
-        $this->assertSame('confirmed', $request['previous_booking_status']);
-        $this->assertNotEmpty($request['notified_at'] ?? null);
+        $this->assertSame('completed', $oldConversation->status);
+        $this->assertNull($newConversation->booking_id);
+        $this->assertSame([], $newConversation->metadata['booking_change_requests'] ?? []);
         $this->assertSame('confirmed', $booking->status);
         $this->assertSame('10:00', $booking->time);
-        $this->assertDatabaseHas('conversation_messages', [
-            'conversation_id' => $conversation->id,
-            'role' => 'assistant',
-            'direction' => 'outbound',
-            'content' => 'Sigur. Am transmis cererea catre echipa pentru confirmare.',
-        ]);
-        Mail::assertSent(BookingChangeRequestMail::class);
+        $this->assertSame($newConversation->id, $outbound->conversation_id);
+        $this->assertStringContainsString('contactezi direct YouGo Studio', $outbound->content);
+        Mail::assertNothingSent();
         $this->assertStringNotContainsString('+', ConversationMessage::query()->where('direction', 'outbound')->latest()->firstOrFail()->content);
         $this->assertStringNotContainsString('conversatie noua', ConversationMessage::query()->where('direction', 'outbound')->latest()->firstOrFail()->content);
     }
 
-    public function test_whatsapp_existing_booking_tool_call_records_pending_request_without_plus_instruction(): void
+    public function test_whatsapp_confirmed_booking_new_service_request_uses_new_conversation_phone_handoff(): void
     {
         config([
             'twilio.validate_signature' => false,
@@ -680,14 +792,7 @@ class WhatsappIntegrationTest extends TestCase
             'twilio_sender' => 'whatsapp:+40700000000',
             'ai_enabled' => true,
         ]);
-        $this->fakeGeminiFunctionCall('bookBooking', [
-            'client_name' => 'Maria Client',
-            'client_phone' => '+40711111111',
-            'location_id' => (string) $location->id,
-            'service_id' => (string) $service->id,
-            'date' => '2026-06-03',
-            'time' => '12:00',
-        ]);
+        $this->fakeGeminiText('Nu ar trebui apelat.');
         $this->fakeTwilioService();
 
         $this->post('/twilio/whatsapp/webhook', $this->twilioPayload([
@@ -695,19 +800,22 @@ class WhatsappIntegrationTest extends TestCase
             'MessageSid' => 'SM_NEW_SERVICE',
         ]))->assertOk();
 
-        $conversation->refresh();
+        $oldConversation = $conversation->refresh();
+        $newConversation = $salon->conversations()->whereKeyNot($oldConversation->id)->firstOrFail();
         $booking->refresh();
         $outbound = ConversationMessage::query()->where('direction', 'outbound')->latest()->firstOrFail();
 
-        $this->assertSame('new_booking_request', $conversation->metadata['booking_change_requests'][0]['type']);
+        $this->assertSame('completed', $oldConversation->status);
+        $this->assertNull($newConversation->booking_id);
+        $this->assertSame([], $newConversation->metadata['booking_change_requests'] ?? []);
         $this->assertSame('confirmed', $booking->status);
         $this->assertSame('10:00', $booking->time);
-        $this->assertSame('Am transmis cererea catre echipa pentru confirmare.', $outbound->content);
+        $this->assertStringContainsString('contactezi direct YouGo Studio', $outbound->content);
         $this->assertStringNotContainsString('+', $outbound->content);
         $this->assertStringNotContainsString('conversatie noua', $outbound->content);
     }
 
-    public function test_whatsapp_reschedule_request_checks_availability_and_tells_client_when_unavailable(): void
+    public function test_whatsapp_confirmed_booking_reschedule_request_does_not_check_availability_and_uses_phone_handoff(): void
     {
         config([
             'twilio.validate_signature' => false,
@@ -770,12 +878,7 @@ class WhatsappIntegrationTest extends TestCase
             'twilio_sender' => 'whatsapp:+40700000000',
             'ai_enabled' => true,
         ]);
-        $this->fakeGeminiFunctionCall('checkAvailability', [
-            'location_id' => (string) $location->id,
-            'service_id' => (string) $service->id,
-            'date' => '2026-06-03',
-            'preferred_time' => '12:00',
-        ]);
+        $this->fakeGeminiText('Nu ar trebui apelat.');
         $this->fakeTwilioService();
 
         $this->post('/twilio/whatsapp/webhook', $this->twilioPayload([
@@ -783,20 +886,164 @@ class WhatsappIntegrationTest extends TestCase
             'MessageSid' => 'SM_RESCHEDULE_UNAVAILABLE',
         ]))->assertOk();
 
-        $conversation->refresh();
+        $oldConversation = $conversation->refresh();
+        $newConversation = $salon->conversations()->whereKeyNot($oldConversation->id)->firstOrFail();
         $booking->refresh();
-        $request = $conversation->metadata['booking_change_requests'][0] ?? null;
         $outbound = ConversationMessage::query()->where('direction', 'outbound')->latest()->firstOrFail();
 
+        $this->assertSame('completed', $oldConversation->status);
+        $this->assertNull($newConversation->booking_id);
+        $this->assertSame([], $newConversation->metadata['booking_change_requests'] ?? []);
         $this->assertSame('confirmed', $booking->status);
         $this->assertSame('10:00', $booking->time);
-        $this->assertSame('reschedule', $request['type']);
-        $this->assertTrue($request['availability_checked']);
-        $this->assertSame('unavailable', $request['availability_status']);
-        $this->assertSame('2026-06-03', $request['requested_date']);
-        $this->assertSame('12:00', $request['requested_time']);
-        $this->assertStringContainsString('nu este disponibila', $outbound->content);
-        Mail::assertSent(BookingChangeRequestMail::class);
+        $this->assertSame($newConversation->id, $outbound->conversation_id);
+        $this->assertStringContainsString('contactezi direct YouGo Studio', $outbound->content);
+        Mail::assertNothingSent();
+    }
+
+    public function test_whatsapp_pending_booking_can_be_cancelled_by_customer_without_ai(): void
+    {
+        config([
+            'twilio.validate_signature' => false,
+            'services.gemini.key' => 'test-key',
+        ]);
+        Mail::fake();
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $salon->update([
+            'notification_email' => 'owner@example.com',
+            'booking_confirmations' => true,
+            'business_phone' => '+40700000001',
+        ]);
+        $location = $salon->locations()->create([
+            'name' => 'Central',
+            'address' => 'Main Street',
+            'phone' => '+40700000002',
+            'hours' => ['wed' => '09:00 - 18:00'],
+        ]);
+        $service = $salon->services()->create([
+            'name' => 'Tuns',
+            'price' => '100',
+            'duration' => 30,
+            'location_ids' => [$location->id],
+        ]);
+        $booking = $salon->bookings()->create([
+            'location_id' => $location->id,
+            'service_id' => $service->id,
+            'client_name' => 'Maria Client',
+            'client_phone' => '+40711111111',
+            'date' => '2026-06-03',
+            'time' => '10:00',
+            'status' => 'pending',
+            'source' => 'whatsapp',
+        ]);
+        $conversation = $salon->conversations()->create([
+            'booking_id' => $booking->id,
+            'channel' => 'whatsapp',
+            'provider' => 'twilio',
+            'external_contact_id' => 'whatsapp:+40711111111',
+            'external_sender' => 'whatsapp:+40700000000',
+            'contact_name' => 'Maria Client',
+            'contact_phone' => 'whatsapp:+40711111111',
+            'status' => 'open',
+            'intent' => 'booking',
+            'summary' => 'Booking created.',
+            'last_message_at' => now(),
+        ]);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => true,
+        ]);
+        $this->fakeGeminiText('Nu ar trebui apelat.');
+        $this->fakeTwilioService();
+
+        $this->post('/twilio/whatsapp/webhook', $this->twilioPayload([
+            'Body' => 'Vreau sa anulez programarea',
+            'MessageSid' => 'SM_PENDING_CANCEL',
+        ]))->assertOk();
+
+        $conversation->refresh();
+        $booking->refresh();
+        $outbound = ConversationMessage::query()->where('direction', 'outbound')->latest()->firstOrFail();
+
+        $this->assertSame('cancelled', $booking->status);
+        $this->assertSame('completed', $conversation->status);
+        $this->assertSame('Programarea ta a fost anulata. Multumim ca ne-ai anuntat.', $outbound->content);
+        $this->assertSame('Vreau sa anulez programarea', $conversation->metadata['whatsapp_cancellations'][0]['cancellation_text']);
+        $this->assertSame([], $conversation->metadata['booking_change_requests'] ?? []);
+        Mail::assertSent(BookingCancelledByCustomerMail::class);
+    }
+
+    public function test_whatsapp_pending_booking_edit_request_uses_phone_handoff_without_metadata(): void
+    {
+        config([
+            'twilio.validate_signature' => false,
+            'services.gemini.key' => 'test-key',
+        ]);
+        Mail::fake();
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $salon->update(['business_phone' => '+40700000001']);
+        $location = $salon->locations()->create([
+            'name' => 'Central',
+            'address' => 'Main Street',
+            'phone' => '+40700000002',
+            'hours' => ['wed' => '09:00 - 18:00'],
+        ]);
+        $service = $salon->services()->create([
+            'name' => 'Tuns',
+            'price' => '100',
+            'duration' => 30,
+            'location_ids' => [$location->id],
+        ]);
+        $booking = $salon->bookings()->create([
+            'location_id' => $location->id,
+            'service_id' => $service->id,
+            'client_name' => 'Maria Client',
+            'client_phone' => '+40711111111',
+            'date' => '2026-06-03',
+            'time' => '10:00',
+            'status' => 'pending',
+            'source' => 'whatsapp',
+        ]);
+        $conversation = $salon->conversations()->create([
+            'booking_id' => $booking->id,
+            'channel' => 'whatsapp',
+            'provider' => 'twilio',
+            'external_contact_id' => 'whatsapp:+40711111111',
+            'external_sender' => 'whatsapp:+40700000000',
+            'contact_name' => 'Maria Client',
+            'contact_phone' => 'whatsapp:+40711111111',
+            'status' => 'open',
+            'intent' => 'booking',
+            'summary' => 'Booking created.',
+            'last_message_at' => now(),
+        ]);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => true,
+        ]);
+        $this->fakeGeminiText('Nu ar trebui apelat.');
+        $this->fakeTwilioService();
+
+        $this->post('/twilio/whatsapp/webhook', $this->twilioPayload([
+            'Body' => 'Vreau sa schimb ora programarii',
+            'MessageSid' => 'SM_PENDING_EDIT',
+        ]))->assertOk();
+
+        $conversation->refresh();
+        $booking->refresh();
+        $outbound = ConversationMessage::query()->where('direction', 'outbound')->latest()->firstOrFail();
+
+        $this->assertSame('pending', $booking->status);
+        $this->assertSame('10:00', $booking->time);
+        $this->assertSame('open', $conversation->status);
+        $this->assertSame([], $conversation->metadata['booking_change_requests'] ?? []);
+        $this->assertStringContainsString('+40700000001', $outbound->content);
+        $this->assertStringContainsString('+40700000002', $outbound->content);
+        Mail::assertNothingSent();
     }
 
     public function test_whatsapp_final_or_archived_linked_bookings_do_not_record_change_requests(): void
@@ -958,7 +1205,8 @@ class WhatsappIntegrationTest extends TestCase
         $this->assertSame(2, $salon->bookings()->count());
         $this->assertSame('completed', $oldBooking->refresh()->status);
         $this->assertSame([], $conversation->refresh()->metadata['booking_change_requests'] ?? []);
-        $this->assertNotSame($oldBooking->id, $conversation->booking_id);
+        $newConversation = $salon->conversations()->whereKeyNot($conversation->id)->firstOrFail();
+        $this->assertNotSame($oldBooking->id, $newConversation->booking_id);
         $this->assertDatabaseHas('bookings', [
             'salon_id' => $salon->id,
             'client_phone' => '+40711111111',
@@ -990,7 +1238,7 @@ class WhatsappIntegrationTest extends TestCase
         $this->assertDatabaseHas('conversation_messages', [
             'role' => 'assistant',
             'direction' => 'outbound',
-            'content' => 'Momentan nu pot raspunde automat pe WhatsApp. Te rugam sa contactezi direct businessul.',
+            'content' => 'Momentan nu pot raspunde automat pe WhatsApp. Te rugam sa contactezi direct YouGo Studio.',
         ]);
         Http::assertSentCount(0);
     }
@@ -1186,14 +1434,9 @@ class WhatsappIntegrationTest extends TestCase
             'isPhoneConversation(selected) &&',
             'isWhatsappConversation(selected) &&',
             'BookingStatusCell',
-            'pendingBookingChangeRequestsForBooking',
-            'bookingCanBeAmended',
-            "t('bookingChangeTypeCancel')",
-            "t('bookingChangeTypeReschedule')",
             'whatsappOutboundSendStatus',
             'bookingArchiveReadOnly',
-            'markChangeResolved',
-            '/booking-change-requests/${requestId}/resolve',
+            'bookingAllowsDashboardActions',
             "t('sendFailed')",
             "message.direction === 'inbound'",
             "message.direction === 'outbound'",
@@ -1213,10 +1456,20 @@ class WhatsappIntegrationTest extends TestCase
 
         foreach ([
             'selectedPendingRequests',
+            'bookingChangeRequest',
+            'pendingBookingChangeRequest',
             'markChangeResolved',
             '/booking-change-requests/${requestId}/resolve',
         ] as $needle) {
             $this->assertStringNotContainsString($needle, $conversationsSource);
+        }
+
+        foreach ([
+            'markChangeResolved',
+            '/booking-change-requests/${requestId}/resolve',
+            'pendingBookingChangeRequestsForBooking',
+        ] as $needle) {
+            $this->assertStringNotContainsString($needle, $source);
         }
     }
 
@@ -1295,3 +1548,4 @@ class WhatsappIntegrationTest extends TestCase
         });
     }
 }
+

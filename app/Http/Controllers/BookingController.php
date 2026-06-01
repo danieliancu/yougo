@@ -6,6 +6,8 @@ use App\Mail\BookingStatusChangedMail;
 use App\Models\Booking;
 use App\Models\Location;
 use App\Models\Service;
+use App\Services\Conversation\ConversationService;
+use App\Support\BookingStatus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -49,6 +51,10 @@ class BookingController extends Controller
         $newStatus = $data['status'] ?? null;
         if ($newStatus && $newStatus !== $oldStatus) {
             $this->sendStatusChangedEmail($booking, $oldStatus, $newStatus);
+        }
+
+        if ($newStatus && BookingStatus::isClosedForWhatsappAi($booking->refresh())) {
+            app(ConversationService::class)->closeWhatsappConversationsForBooking($booking);
         }
 
         return back()->with('success', 'Status actualizat.');

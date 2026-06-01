@@ -11,12 +11,12 @@ class WhatsAppOutboundGuard
     private const REASON_WEBSITE_CHAT_INSTRUCTION_REMOVED = 'website_chat_instruction_removed';
 
     private const FORBIDDEN_PATTERNS = [
-        'ro_press_plus' => '/\bapas[ăa]\s+pe\s+\+/iu',
+        'ro_press_plus' => '/\bapas[Äƒa]\s+pe\s+\+/iu',
         'ro_plus_button' => '/\bbutonul\s+\+/iu',
-        'ro_start_new_conversation' => '/\b[iî]ncepe\s+o\s+conversa[tț]ie\s+nou[ăa]\b/iu',
-        'ro_new_conversation' => '/\bconversa[tț]ie\s+nou[ăa]\b/iu',
+        'ro_start_new_conversation' => '/\b[iÃ®]ncepe\s+o\s+conversa[tÈ›]ie\s+nou[Äƒa]\b/iu',
+        'ro_new_conversation' => '/\bconversa[tÈ›]ie\s+nou[Äƒa]\b/iu',
         'ro_new_chat' => '/\bchat\s+nou\b/iu',
-        'ro_separate_conversation' => '/\bconversa[tț]ie\s+separat[ăa]\b/iu',
+        'ro_separate_conversation' => '/\bconversa[tÈ›]ie\s+separat[Äƒa]\b/iu',
         'en_press_plus' => '/\bpress\s+(?:the\s+)?\+/iu',
         'en_plus_button' => '/\bplus\s+button\b/iu',
         'en_start_new_conversation' => '/\b(?:start|begin)\s+a\s+new\s+conversation\b/iu',
@@ -64,7 +64,7 @@ class WhatsAppOutboundGuard
         $salon = $conversation->salon;
 
         return $salon && $this->messageLocalizer->localeFor($salon) === 'en'
-            ? "We can continue here on WhatsApp. If you want a change or a new booking, I'll pass the request to the team for confirmation."
-            : 'Pot continua aici pe WhatsApp. Dacă dorești o modificare sau o programare nouă, transmit cererea către echipă pentru confirmare.';
+            ? 'We can continue here on WhatsApp. I can help with a new booking, and for changes to an existing booking please contact the team directly.'
+            : 'Putem continua aici pe WhatsApp. Pentru o programare noua te pot ajuta in continuare, iar pentru modificarea unei programari existente te rugam sa contactezi direct echipa.';
     }
 }

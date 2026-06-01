@@ -1,6 +1,6 @@
 # WhatsApp AI
 
-WhatsApp AI is available as an MVP. It supports Twilio inbound webhooks, automatic AI replies, booking creation, booking change requests, dashboard conversations, usage limits, and manual Twilio activation.
+WhatsApp AI is available as an MVP. It supports Twilio inbound webhooks, automatic AI replies, booking creation, pending booking cancellation, dashboard conversations, usage limits, and manual Twilio activation.
 
 ## Provider
 
@@ -131,49 +131,34 @@ Unsupported in this phase:
 
 ## Post-booking behavior
 
-WhatsApp continues in the same customer thread after a booking request is created.
+WhatsApp continues in the same customer phone thread, but YouGo dashboard conversations are separated by operational booking flow.
 
 The assistant must not ask WhatsApp customers to press the website widget new-conversation control, start a new conversation, or open a new chat.
 
-If the customer asks to change, cancel, reschedule, add details, change service, change time, or change location after an amendable booking exists, YouGo does not automatically edit or cancel the booking. Only `pending` and `confirmed` bookings that are not in the dashboard archive are amendable. The request is stored on `conversations.metadata.booking_change_requests` with:
+One active booking flow maps to one dashboard conversation:
 
-- `type`
-- `requested_text`
-- `source = whatsapp`
-- `status = pending`
-- `requested_at`
-- `previous_booking_status`
+- If the latest WhatsApp dashboard conversation has no booking, new inbound messages continue that conversation.
+- If it has a `pending` WhatsApp booking, new inbound messages continue that conversation.
+- If it has a `confirmed`, `completed`, `cancelled`, or archived booking, the old conversation is closed and the inbound message starts a new dashboard conversation.
 
-The assistant should answer naturally and say the request has been passed to the team for confirmation when enough detail is available.
+The actual booking statuses are `pending`, `confirmed`, `cancelled`, and `completed`. The dashboard archive is based on `booking.date < today`, not a separate booking status.
 
-Recording a pending change request does not change the linked booking status. Booking status remains the operational source of truth and changes only through explicit dashboard/admin actions. YouGo does not change the booking date, time, location, service, staff, cancellation state, or status automatically.
+Pending WhatsApp bookings can be cancelled automatically when the customer clearly asks to cancel. YouGo sets `booking.status = cancelled`, stores cancellation context in conversation metadata, sends the business a cancellation email when booking notifications are configured, tells the customer the booking was cancelled, and closes the dashboard conversation.
 
-`cancelled`, `completed`, and archived bookings cannot receive amendment requests. The dashboard archive is based on `booking.date < today`, not a separate booking status. For WhatsApp and future Phone AI, a historical linked booking is non-blocking: the assistant may continue naturally toward a new booking or a normal inquiry in the same channel instead of treating the thread as dedicated to the old booking.
+Pending bookings cannot be edited or rescheduled automatically. Confirmed, completed, cancelled, and archived bookings cannot be edited, rescheduled, or cancelled automatically by AI. If the customer asks to change an existing booking, YouGo sends a phone handoff message with available salon/location phone numbers when configured.
 
-For reschedule requests where the assistant extracts a target date and time, YouGo checks availability using the existing booking availability rules before replying. The result is stored on the pending change request:
+The old amendment workflow is deprecated. YouGo no longer creates new `booking_change_requests` metadata for WhatsApp edits/reschedules, no longer sends booking change request emails for those attempts, and no longer shows amendment cards or "Change resolved" actions in Conversations or Bookings. Existing historical metadata is left in place but is not shown as an active workflow.
 
-- `availability_checked`
-- `availability_status = available | unavailable | missing_details`
-- `requested_date`
-- `requested_time`
-- `availability_reason`
+Dashboard -> Conversations is transcript-only for this workflow. Dashboard -> Bookings -> List shows normal booking statuses only. Dashboard -> Bookings -> Archive is read-only for operational actions: no edit, cancel, amend, or resolve actions are shown there.
 
-If the requested slot is unavailable, the WhatsApp reply tells the customer that the time is not available and asks for another time. The original booking status remains unchanged so the business can review the request separately.
-
-When a new pending change request is recorded, YouGo sends the business a booking change request email if booking notifications are enabled and `notification_email` is configured. The conversation metadata is marked with `notified_at` after the email is sent.
-
-Dashboard -> Conversations is transcript-only for this workflow. It stores and displays the conversation, but does not show operational amendment cards, list badges, or resolve buttons.
-
-Dashboard -> Bookings -> List keeps the real booking status visible and separately shows pending WhatsApp change requests for active amendable bookings. The business can mark each request as resolved from the Bookings list. Resolved requests remain in metadata history and no longer show as pending. Dashboard -> Bookings -> Archive is read-only for operational actions: no edit, cancel, amend, or resolve actions are shown there.
-
-Full automatic rescheduling, cancellation, and multi-booking-per-thread workflows remain future work.
+Full automatic rescheduling/editing and automatic multi-booking inside one dashboard conversation remain future work.
 
 Future Phone AI must use its own channel behavior policy and must not inherit Website Chat UI instructions.
 
 ## Assistant channel behavior policy
 
 - Website Chat (`chat`, `website`, `website_chat`, `web_widget`): may keep the current new-conversation behavior and website widget instructions.
-- WhatsApp (`whatsapp`): continues in the same thread, records booking changes as pending requests, never mentions website widget controls.
+- WhatsApp (`whatsapp`): continues in the same customer phone thread, separates dashboard conversations by booking flow, allows deterministic cancellation only for pending WhatsApp bookings, uses phone handoff for edits/reschedules, and never mentions website widget controls.
 - Future Phone AI (`phone`, `call`, `voice`): placeholder policy for natural same-interaction handling, without Website Chat UI instructions.
 
 ## Security

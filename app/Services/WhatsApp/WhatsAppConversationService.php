@@ -6,6 +6,7 @@ use App\Models\Conversation;
 use App\Models\ConversationMessage;
 use App\Models\Salon;
 use App\Services\Usage\UsageTracker;
+use App\Support\BookingStatus;
 
 class WhatsAppConversationService
 {
@@ -30,11 +31,22 @@ class WhatsAppConversationService
         $messageSid = (string) ($payload['MessageSid'] ?? '');
 
         $conversation = $salon->conversations()
+            ->with(['booking.salon'])
             ->where('channel', 'whatsapp')
             ->where('provider', 'twilio')
             ->where('external_contact_id', $from)
             ->where('external_sender', $to)
+            ->latest('last_message_at')
+            ->latest('id')
             ->first();
+
+        if ($conversation && ! $this->canContinueConversation($conversation)) {
+            if ($conversation->status !== 'completed') {
+                $conversation->update(['status' => 'completed']);
+            }
+
+            $conversation = null;
+        }
 
         if (! $conversation) {
             $conversation = $salon->conversations()->create([
@@ -46,7 +58,7 @@ class WhatsAppConversationService
                 'contact_phone' => $from,
                 'status' => 'open',
                 'intent' => 'inquiry',
-                'summary' => 'Conversatie WhatsApp primita prin Twilio.',
+                'summary' => $this->newConversationSummary($salon),
                 'metadata' => [
                     'wa_id' => $payload['WaId'] ?? null,
                     'profile_name' => $profileName ?: null,
@@ -88,6 +100,26 @@ class WhatsAppConversationService
         ]);
 
         return $message;
+    }
+
+    private function canContinueConversation(Conversation $conversation): bool
+    {
+        if ($conversation->status !== 'open') {
+            return false;
+        }
+
+        if (! $conversation->booking) {
+            return true;
+        }
+
+        return ! BookingStatus::isClosedForWhatsappAi($conversation->booking);
+    }
+
+    private function newConversationSummary(Salon $salon): string
+    {
+        return ($salon->display_language ?: config('app.locale', 'ro')) === 'en'
+            ? 'New WhatsApp conversation.'
+            : 'Conversatie WhatsApp noua.';
     }
 
     public function saveOutbound(Conversation $conversation, string $body, array $providerResult = [], array $metadata = []): ConversationMessage

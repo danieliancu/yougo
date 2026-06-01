@@ -6,6 +6,7 @@ use App\Models\Booking;
 use App\Models\Conversation;
 use App\Models\Salon;
 use App\Services\Usage\UsageTracker;
+use App\Support\BookingStatus;
 use Illuminate\Support\Str;
 
 class ConversationService
@@ -91,9 +92,26 @@ class ConversationService
             'booking_id' => $booking->id,
             'contact_name' => $booking->client_name,
             'contact_phone' => $booking->client_phone,
-            'status' => 'completed',
+            'status' => $conversation->channel === 'whatsapp' && ! BookingStatus::isClosedForWhatsappAi($booking)
+                ? 'open'
+                : 'completed',
             'intent' => 'booking',
         ]);
+    }
+
+    public function closeWhatsappConversationsForBooking(Booking $booking): void
+    {
+        if (! BookingStatus::isClosedForWhatsappAi($booking)) {
+            return;
+        }
+
+        $booking->conversations()
+            ->where('channel', 'whatsapp')
+            ->where('status', '!=', 'completed')
+            ->update([
+                'status' => 'completed',
+                'last_message_at' => now(),
+            ]);
     }
 
     public function saveAssistantMessageAndSummarize(Conversation $conversation, string $content): void
