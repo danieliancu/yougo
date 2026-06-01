@@ -78,8 +78,9 @@ The WhatsApp reply flow:
 3. Adds WhatsApp-specific prompt instructions for short, natural replies.
 4. Uses configured business data: services, prices, locations, staff, opening hours and localization.
 5. Allows the existing appointment tools to create booking requests.
-6. Sends the AI reply back through Twilio.
-7. Saves the outbound message in the conversation transcript.
+6. Runs a deterministic WhatsApp outbound guard before Twilio send so website chat UI instructions such as pressing `+`, starting a new conversation, opening a new chat, or using a separate conversation are replaced with a safe WhatsApp-specific reply.
+7. Sends the guarded AI reply back through Twilio.
+8. Saves the outbound message in the conversation transcript.
 
 If the assistant creates a booking request, the existing booking notification email behavior is used.
 
@@ -145,7 +146,7 @@ If the customer asks to change, cancel, reschedule, add details, change service,
 
 The assistant should answer naturally and say the request has been passed to the team for confirmation when enough detail is available.
 
-Recording a pending change request also moves the linked booking status back to `pending`, even if it was previously `confirmed`. YouGo does not change the booking date, time, location, service, staff, or cancellation state automatically.
+Recording a pending change request does not change the linked booking status. Booking status remains the operational source of truth and changes only through explicit dashboard/admin actions. YouGo does not change the booking date, time, location, service, staff, cancellation state, or status automatically.
 
 For reschedule requests where the assistant extracts a target date and time, YouGo checks availability using the existing booking availability rules before replying. The result is stored on the pending change request:
 
@@ -155,11 +156,13 @@ For reschedule requests where the assistant extracts a target date and time, You
 - `requested_time`
 - `availability_reason`
 
-If the requested slot is unavailable, the WhatsApp reply tells the customer that the time is not available and asks for another time. The booking still remains `pending` so the business can review the request.
+If the requested slot is unavailable, the WhatsApp reply tells the customer that the time is not available and asks for another time. The original booking status remains unchanged so the business can review the request separately.
 
 When a new pending change request is recorded, YouGo sends the business a booking change request email if booking notifications are enabled and `notification_email` is configured. The conversation metadata is marked with `notified_at` after the email is sent.
 
-Dashboard -> Conversations shows a simple pending change request indicator. Dashboard -> Bookings shows the linked booking as pending and displays the latest pending request text under the status badge.
+Dashboard -> Conversations shows a visible pending change request indicator/card with the request text, type, source, requested time, and original booking status. Dashboard -> Bookings keeps the real booking status visible and separately shows the latest pending change request. The business can mark a request as resolved from Dashboard -> Conversations; resolved requests remain in metadata history and no longer show as pending.
+
+Full automatic rescheduling, cancellation, and multi-booking-per-thread workflows remain future work.
 
 Future Phone AI must use its own channel behavior policy and must not inherit Website Chat UI instructions.
 

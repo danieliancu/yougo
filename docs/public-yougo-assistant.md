@@ -59,8 +59,8 @@ The current WhatsApp AI flow can receive Twilio webhooks, store WhatsApp convers
 Customer-facing assistant behavior is channel-specific:
 
 - Website Chat can keep its widget-specific new conversation behavior.
-- WhatsApp continues in the same thread after a booking. It must not tell customers to use website widget controls, start a separate conversation, or open a separate chat.
-- WhatsApp booking changes, cancellations, reschedules, added details, service changes, time changes, or location changes are pending requests for the business, not automatically confirmed edits. New pending requests are emailed to the business when booking notifications are configured.
+- WhatsApp continues in the same thread after a booking. It must not tell customers to use website widget controls, press `+`, start a separate conversation, or open a separate chat. A deterministic outbound guard also blocks those website-chat instructions before Twilio send.
+- WhatsApp booking changes, cancellations, reschedules, added details, service changes, time changes, location changes, or new booking requests after an existing booking are pending requests for the business, not automatically confirmed edits. They do not change booking status or operational booking details automatically. New pending requests are emailed to the business when booking notifications are configured, shown visibly in Dashboard, and can be marked resolved by the business.
 - Future Phone AI must use its own natural same-interaction policy and must not inherit Website Chat UI instructions.
 
 ## What It Must Not Claim

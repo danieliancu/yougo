@@ -1323,6 +1323,7 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
       : t('noConversations');
   const emptyHelp = channelFilter === 'all' ? t('noConversationsHelp') : t('noFilteredConversationsHelp');
   const lastMessageId = selected?.messages.at(-1)?.id ?? null;
+  const selectedPendingRequests = selected ? pendingBookingChangeRequests(selected) : [];
 
   useEffect(() => {
     const transcript = transcriptRef.current;
@@ -1337,6 +1338,20 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(CONVERSATION_CHANNEL_FILTER_STORAGE_KEY, filter);
     }
+  }
+
+  function resolveBookingChangeRequest(conversation: Conversation, request: Record<string, unknown>) {
+    const requestId = bookingChangeRequestId(request);
+    if (!requestId) return;
+
+    router.patch(
+      `/dashboard/conversations/${conversation.id}/booking-change-requests/${requestId}/resolve`,
+      {},
+      {
+        preserveScroll: true,
+        onSuccess: () => toast.success(t('bookingChangeResolvedToast')),
+      },
+    );
   }
 
   return (
@@ -1439,6 +1454,37 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
               </div>
             </div>
 
+            {selectedPendingRequests.length > 0 && (
+              <div className="mb-5 space-y-3">
+                {selectedPendingRequests.map((request, index) => (
+                  <div key={bookingChangeRequestId(request) ?? index} className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-950 shadow-sm dark:border-amber-400/40 dark:bg-amber-500/15 dark:text-amber-100">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-200 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-900 dark:bg-amber-300/20 dark:text-amber-100">
+                            <AlertTriangle className="h-3.5 w-3.5" />
+                            {t('pendingBookingChangeRequest')}
+                          </span>
+                          <span className="text-xs font-bold">{bookingChangeRequestLabel(request, t)}</span>
+                        </div>
+                        <p className="text-sm font-semibold leading-6">{String(request.requested_text ?? t('noSummary'))}</p>
+                        <div className="mt-3 grid gap-2 text-xs font-medium sm:grid-cols-2">
+                          <span>{t('sourceWhatsapp')}</span>
+                          <span>{t('requestedAt')}: {formatDate(String(request.requested_at ?? ''), salon.timezone)}</span>
+                          <span>{t('previousBookingStatus')}: {String(request.previous_booking_status ?? '-')}</span>
+                          <span>{t('bookingNotChangedAutomatically')}</span>
+                        </div>
+                      </div>
+                      <SecondaryButton type="button" onClick={() => resolveBookingChangeRequest(selected, request)}>
+                        <Check className="h-4 w-4" />
+                        {t('markChangeResolved')}
+                      </SecondaryButton>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <DarkPanel className="mt-6 flex min-h-0 flex-1 flex-col">
               <div className="mb-6 flex items-center gap-2 text-lg font-bold app-text">
                 <FileText className="h-5 w-5" />
@@ -1486,7 +1532,7 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
               <Detail icon={Clock} label={t('duration')} value={formatDuration(selected.duration_seconds)} />
               <Detail icon={User} label={t('contact')} value={conversationTitle(selected, t)} />
               {hasPendingBookingChangeRequest(selected) && (
-                <Detail icon={AlertTriangle} label={t('bookingChangeRequest')} value={latestPendingBookingChangeRequestText(selected) ?? t('statusPending')} />
+                <Detail icon={AlertTriangle} label={t('pendingBookingChangeRequest')} value={latestPendingBookingChangeRequestText(selected) ?? t('statusPending')} />
               )}
             </DarkPanel>
             {isPhoneConversation(selected) && (
@@ -1624,6 +1670,12 @@ function pendingBookingChangeRequests(conversation: Conversation) {
   return Array.isArray(requests)
     ? requests.filter((request): request is Record<string, unknown> => typeof request === 'object' && request !== null && request.status === 'pending')
     : [];
+}
+
+function bookingChangeRequestId(request: Record<string, unknown>) {
+  const id = request.id;
+
+  return typeof id === 'string' && id.trim() !== '' ? id : null;
 }
 
 function hasPendingBookingChangeRequest(conversation: Conversation) {
@@ -6014,9 +6066,11 @@ function BookingStatusCell({ booking, t }: { booking: Salon['bookings'][number];
     <div className="space-y-1.5">
       <StatusPill status={booking.status} t={t} />
       {changeRequest && (
-        <p className="max-w-56 text-xs font-semibold leading-5 text-red-600 dark:text-red-300">
-          {bookingChangeRequestLabel(changeRequest, t)}: {String(changeRequest.requested_text ?? '')}
-        </p>
+        <div className="max-w-60 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs font-semibold leading-5 text-amber-900 dark:border-amber-400/40 dark:bg-amber-500/15 dark:text-amber-200">
+          <p>{t('pendingBookingChangeRequest')}: {bookingChangeRequestLabel(changeRequest, t)}</p>
+          <p className="mt-1">{String(changeRequest.requested_text ?? '')}</p>
+          <p className="mt-1 text-[11px]">{t('bookingNotChangedAutomatically')}</p>
+        </div>
       )}
     </div>
   );

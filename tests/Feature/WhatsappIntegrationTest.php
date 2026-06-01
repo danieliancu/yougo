@@ -239,6 +239,57 @@ class WhatsappIntegrationTest extends TestCase
         $this->assertSame(1, $salon->usageEvents()->where('event_type', 'whatsapp_ai_reply')->count());
     }
 
+    public function test_whatsapp_outbound_guard_replaces_ro_website_chat_instruction_before_send(): void
+    {
+        config([
+            'twilio.validate_signature' => false,
+            'services.gemini.key' => 'test-key',
+        ]);
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => true,
+        ]);
+        $this->fakeGeminiText('Te rog sa apasa pe + si sa incepi o conversatie noua.');
+        $this->fakeTwilioService();
+
+        $this->post('/twilio/whatsapp/webhook', $this->twilioPayload(['MessageSid' => 'SM_GUARD_RO']))->assertOk();
+
+        $outbound = ConversationMessage::query()->where('direction', 'outbound')->latest()->firstOrFail();
+        $this->assertSame('Pot continua aici pe WhatsApp. Dacă dorești o modificare sau o programare nouă, transmit cererea către echipă pentru confirmare.', $outbound->content);
+        $this->assertTrue($outbound->metadata['outbound_guard_applied']);
+        $this->assertSame('website_chat_instruction_removed', $outbound->metadata['outbound_guard_reason']);
+    }
+
+    public function test_whatsapp_outbound_guard_replaces_en_website_chat_instruction_before_send(): void
+    {
+        config([
+            'twilio.validate_signature' => false,
+            'services.gemini.key' => 'test-key',
+        ]);
+        [$salon] = $this->createSalonWithUser([
+            'plan' => 'chat_whatsapp',
+            'display_language' => 'en',
+        ]);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => true,
+        ]);
+        $this->fakeGeminiText('Please start a new conversation for a new booking.');
+        $this->fakeTwilioService();
+
+        $this->post('/twilio/whatsapp/webhook', $this->twilioPayload(['MessageSid' => 'SM_GUARD_EN']))->assertOk();
+
+        $outbound = ConversationMessage::query()->where('direction', 'outbound')->latest()->firstOrFail();
+        $this->assertSame("We can continue here on WhatsApp. If you want a change or a new booking, I'll pass the request to the team for confirmation.", $outbound->content);
+        $this->assertTrue($outbound->metadata['outbound_guard_applied']);
+        $this->assertSame('website_chat_instruction_removed', $outbound->metadata['outbound_guard_reason']);
+    }
+
     public function test_webhook_duplicate_message_does_not_call_ai_twice(): void
     {
         config([
@@ -569,7 +620,7 @@ class WhatsappIntegrationTest extends TestCase
         $this->assertSame('Vreau sa schimb ora programarii la 12:00', $request['requested_text']);
         $this->assertSame('confirmed', $request['previous_booking_status']);
         $this->assertNotEmpty($request['notified_at'] ?? null);
-        $this->assertSame('pending', $booking->status);
+        $this->assertSame('confirmed', $booking->status);
         $this->assertSame('10:00', $booking->time);
         $this->assertDatabaseHas('conversation_messages', [
             'conversation_id' => $conversation->id,
@@ -648,8 +699,8 @@ class WhatsappIntegrationTest extends TestCase
         $booking->refresh();
         $outbound = ConversationMessage::query()->where('direction', 'outbound')->latest()->firstOrFail();
 
-        $this->assertSame('change_service', $conversation->metadata['booking_change_requests'][0]['type']);
-        $this->assertSame('pending', $booking->status);
+        $this->assertSame('new_booking_request', $conversation->metadata['booking_change_requests'][0]['type']);
+        $this->assertSame('confirmed', $booking->status);
         $this->assertSame('10:00', $booking->time);
         $this->assertSame('Am transmis cererea catre echipa pentru confirmare.', $outbound->content);
         $this->assertStringNotContainsString('+', $outbound->content);
@@ -737,7 +788,7 @@ class WhatsappIntegrationTest extends TestCase
         $request = $conversation->metadata['booking_change_requests'][0] ?? null;
         $outbound = ConversationMessage::query()->where('direction', 'outbound')->latest()->firstOrFail();
 
-        $this->assertSame('pending', $booking->status);
+        $this->assertSame('confirmed', $booking->status);
         $this->assertSame('10:00', $booking->time);
         $this->assertSame('reschedule', $request['type']);
         $this->assertTrue($request['availability_checked']);
@@ -849,6 +900,75 @@ class WhatsappIntegrationTest extends TestCase
         $this->assertNotNull($integration->activated_at);
     }
 
+    public function test_user_can_resolve_own_whatsapp_booking_change_request_without_changing_booking_status(): void
+    {
+        [$salon, $user] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $booking = $salon->bookings()->create([
+            'client_name' => 'Maria Client',
+            'client_phone' => '+40711111111',
+            'date' => '2026-06-03',
+            'time' => '10:00',
+            'status' => 'confirmed',
+            'source' => 'whatsapp',
+        ]);
+        $conversation = $salon->conversations()->create([
+            'booking_id' => $booking->id,
+            'channel' => 'whatsapp',
+            'status' => 'completed',
+            'intent' => 'booking',
+            'summary' => 'Booking created.',
+            'last_message_at' => now(),
+            'metadata' => [
+                'booking_change_requests' => [[
+                    'id' => 'req-1',
+                    'type' => 'reschedule',
+                    'requested_text' => 'Vreau la 12',
+                    'source' => 'whatsapp',
+                    'status' => 'pending',
+                    'requested_at' => now()->toISOString(),
+                    'previous_booking_status' => 'confirmed',
+                ]],
+            ],
+        ]);
+
+        $this->actingAs($user)
+            ->patch("/dashboard/conversations/{$conversation->id}/booking-change-requests/req-1/resolve")
+            ->assertRedirect();
+
+        $request = $conversation->refresh()->metadata['booking_change_requests'][0];
+        $this->assertSame('resolved', $request['status']);
+        $this->assertNotEmpty($request['resolved_at']);
+        $this->assertSame($user->id, $request['resolved_by_user_id']);
+        $this->assertSame('confirmed', $booking->refresh()->status);
+    }
+
+    public function test_user_cannot_resolve_another_salons_booking_change_request(): void
+    {
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        [, $otherUser] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $conversation = $salon->conversations()->create([
+            'channel' => 'whatsapp',
+            'status' => 'completed',
+            'intent' => 'booking',
+            'summary' => 'Booking created.',
+            'last_message_at' => now(),
+            'metadata' => [
+                'booking_change_requests' => [[
+                    'id' => 'req-1',
+                    'type' => 'reschedule',
+                    'requested_text' => 'Vreau la 12',
+                    'source' => 'whatsapp',
+                    'status' => 'pending',
+                    'requested_at' => now()->toISOString(),
+                ]],
+            ],
+        ]);
+
+        $this->actingAs($otherUser)
+            ->patch("/dashboard/conversations/{$conversation->id}/booking-change-requests/req-1/resolve")
+            ->assertForbidden();
+    }
+
     public function test_dashboard_whatsapp_settings_source_contains_foundation_ui(): void
     {
         $source = file_get_contents(resource_path('js/Pages/Dashboard/Index.tsx'));
@@ -901,6 +1021,9 @@ class WhatsappIntegrationTest extends TestCase
             "t('bookingChangeTypeCancel')",
             "t('bookingChangeTypeReschedule')",
             'whatsappOutboundSendStatus',
+            'pendingBookingChangeRequest',
+            'markChangeResolved',
+            '/booking-change-requests/${requestId}/resolve',
             "t('sendFailed')",
             "message.direction === 'inbound'",
             "message.direction === 'outbound'",

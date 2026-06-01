@@ -22,9 +22,12 @@ class BookingChangeRequestMail extends Mailable
     public function envelope(): Envelope
     {
         $businessName = $this->conversation->salon?->name ?? 'YouGo';
+        $locale = $this->salonLocale();
 
         return new Envelope(
-            subject: "Cerere de modificare programare pentru {$businessName}",
+            subject: $locale === 'en'
+                ? "Booking change request for {$businessName}"
+                : "Cerere de modificare programare pentru {$businessName}",
         );
     }
 
@@ -33,5 +36,17 @@ class BookingChangeRequestMail extends Mailable
         return new Content(
             view: 'emails.booking-change-request',
         );
+    }
+
+    public function salonLocale(): string
+    {
+        $salon = $this->conversation->salon;
+        $languageMode = $salon?->ai_language_mode;
+
+        if (in_array($languageMode, ['ro', 'en'], true)) {
+            return $languageMode;
+        }
+
+        return $salon?->display_language === 'en' ? 'en' : 'ro';
     }
 }

@@ -79,6 +79,8 @@ Route::middleware('auth')->group(function () {
     Route::delete('/bookings/{booking}', [BookingController::class, 'destroy'])->name('bookings.destroy');
 
     Route::delete('/conversations/{conversation}', [ConversationController::class, 'destroy'])->name('conversations.destroy');
+    Route::patch('/dashboard/conversations/{conversation}/booking-change-requests/{requestId}/resolve', [ConversationController::class, 'resolveBookingChangeRequest'])
+        ->name('conversations.booking-change-requests.resolve');
 
     Route::put('/ai-settings', [AiSettingsController::class, 'update'])->name('ai-settings.update');
     Route::post('/settings/language', [SettingsController::class, 'updateLanguage'])->name('settings.language.update');

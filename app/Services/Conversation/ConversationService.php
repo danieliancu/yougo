@@ -177,11 +177,45 @@ class ConversationService
             ],
         ]);
 
-        if ($conversation->booking && $conversation->booking->status !== 'pending') {
-            $conversation->booking->update(['status' => 'pending']);
+        return $request;
+    }
+
+    public function resolveBookingChangeRequest(Conversation $conversation, string $requestId, int $userId): ?array
+    {
+        $metadata = $conversation->metadata ?? [];
+        $requests = $metadata['booking_change_requests'] ?? [];
+        $resolvedRequest = null;
+
+        $requests = collect($requests)
+            ->map(function (array $request) use ($requestId, $userId, &$resolvedRequest) {
+                if (($request['id'] ?? null) !== $requestId || ($request['status'] ?? null) !== 'pending') {
+                    return $request;
+                }
+
+                $resolvedRequest = [
+                    ...$request,
+                    'status' => 'resolved',
+                    'resolved_at' => now()->toISOString(),
+                    'resolved_by_user_id' => $userId,
+                ];
+
+                return $resolvedRequest;
+            })
+            ->values()
+            ->all();
+
+        if (! $resolvedRequest) {
+            return null;
         }
 
-        return $request;
+        $conversation->update([
+            'metadata' => [
+                ...$metadata,
+                'booking_change_requests' => $requests,
+            ],
+        ]);
+
+        return $resolvedRequest;
     }
 
     public function markBookingChangeRequestNotified(Conversation $conversation, string $requestId): void

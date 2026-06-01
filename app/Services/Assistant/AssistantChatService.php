@@ -136,13 +136,14 @@ class AssistantChatService
                         ? $this->availabilityCheckForExistingBooking($salon, $conversation, $functionCall)
                         : [];
 
-                    $this->conversationService->recordPendingBookingChangeRequest(
+                    $changeRequest = $this->conversationService->recordPendingBookingChangeRequest(
                         $conversation,
                         $this->latestUserMessageText($messages),
                         AssistantChannelBehavior::normalize($channel),
                         $this->pendingRequestType($functionCall),
                         $availability,
                     );
+                    $this->notifyPendingChangeRequestIfNeeded($conversation, $changeRequest, AssistantChannelBehavior::normalize($channel));
 
                     if (($availability['availability_status'] ?? null) === 'unavailable') {
                         $text = $this->messageLocalizer->bookingChangeRequestedTimeUnavailable(
@@ -228,6 +229,21 @@ class AssistantChatService
             'checkAvailability' => 'reschedule',
             default => 'unknown',
         };
+    }
+
+    private function notifyPendingChangeRequestIfNeeded(Conversation $conversation, ?array $changeRequest, string $channel): void
+    {
+        if (! $changeRequest || $channel !== AssistantChannelBehavior::CHANNEL_WHATSAPP) {
+            return;
+        }
+
+        if (($changeRequest['notified_at'] ?? null) || ($changeRequest['status'] ?? null) !== 'pending') {
+            return;
+        }
+
+        if ($this->bookingNotificationService->sendBookingChangeRequestNotification($conversation, $changeRequest)) {
+            $this->conversationService->markBookingChangeRequestNotified($conversation, $changeRequest['id']);
+        }
     }
 
     private function withKnownContactForBooking(array $functionCall, ?array $knownContact, string $channel): array

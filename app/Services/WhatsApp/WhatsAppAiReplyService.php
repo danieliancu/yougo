@@ -22,6 +22,7 @@ class WhatsAppAiReplyService
         private readonly AssistantMessageLocalizer $messageLocalizer,
         private readonly TwilioWhatsAppService $twilio,
         private readonly WhatsAppConversationService $conversations,
+        private readonly WhatsAppOutboundGuard $outboundGuard,
         private readonly ConversationService $conversationService,
         private readonly BookingNotificationService $bookingNotificationService,
         private readonly UsageLimitService $usageLimitService,
@@ -123,6 +124,9 @@ class WhatsAppAiReplyService
     {
         $to = (string) ($conversation->external_contact_id ?? '');
         $from = (string) ($integration->twilio_sender ?? $conversation->external_sender ?? '');
+        $guarded = $this->outboundGuard->guard($conversation, $body, $metadata);
+        $body = $guarded['body'];
+        $metadata = $guarded['metadata'];
 
         try {
             $providerResult = $this->twilio->sendMessage($from, $to, $body);
@@ -209,12 +213,19 @@ class WhatsAppAiReplyService
 
     private function looksLikeBookingChangeRequest(string $text): bool
     {
+        if (preg_match('/\b(alt serviciu|serviciu nou|inca o programare|încă o programare|programare noua|programare nouă|pentru copil|pentru sotie|pentru so[țt]ie|another booking|new booking|another service|for my child|for my wife)\b/iu', $text) === 1) {
+            return true;
+        }
         return preg_match('/\b(schimb|modific|reprogram|mut|anul|cancel|alta ora|alt[aă] zi|alt serviciu|change|move|reschedul|cancel|another service|different service|different time)\b/iu', $text) === 1;
     }
 
     private function classifyChangeRequest(string $text): string
     {
         $normalized = mb_strtolower($text);
+
+        if (preg_match('/\b(alt serviciu|serviciu nou|inca o programare|încă o programare|programare nou[ăa]|another booking|new booking|another service|for my child|for my wife|pentru copil|pentru so[țt]ie)\b/iu', $normalized) === 1) {
+            return 'new_booking_request';
+        }
 
         return match (true) {
             preg_match('/\b(anul|cancel)\b/iu', $normalized) === 1 => 'cancel',
