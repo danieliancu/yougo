@@ -1323,7 +1323,6 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
       : t('noConversations');
   const emptyHelp = channelFilter === 'all' ? t('noConversationsHelp') : t('noFilteredConversationsHelp');
   const lastMessageId = selected?.messages.at(-1)?.id ?? null;
-  const selectedPendingRequests = selected ? pendingBookingChangeRequests(selected) : [];
 
   useEffect(() => {
     const transcript = transcriptRef.current;
@@ -1338,20 +1337,6 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(CONVERSATION_CHANNEL_FILTER_STORAGE_KEY, filter);
     }
-  }
-
-  function resolveBookingChangeRequest(conversation: Conversation, request: Record<string, unknown>) {
-    const requestId = bookingChangeRequestId(request);
-    if (!requestId) return;
-
-    router.patch(
-      `/dashboard/conversations/${conversation.id}/booking-change-requests/${requestId}/resolve`,
-      {},
-      {
-        preserveScroll: true,
-        onSuccess: () => toast.success(t('bookingChangeResolvedToast')),
-      },
-    );
   }
 
   return (
@@ -1415,11 +1400,6 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
                           <p className="mt-1 truncate text-xs app-text-muted">{lastMessage}</p>
                           <div className="mt-2 flex flex-wrap gap-1.5">
                             <IntentPill intent={conversation.intent} compact bookingStatus={conversation.booking?.status} />
-                            {hasPendingBookingChangeRequest(conversation) && (
-                              <span className="inline-flex min-w-28 justify-center rounded-md bg-amber-100 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
-                                {t('bookingChangeRequest')}
-                              </span>
-                            )}
                           </div>
                         </button>
                         <button
@@ -1453,37 +1433,6 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
                 <IntentPill intent={selected.intent} bookingStatus={selected.booking?.status} />
               </div>
             </div>
-
-            {selectedPendingRequests.length > 0 && (
-              <div className="mb-5 space-y-3">
-                {selectedPendingRequests.map((request, index) => (
-                  <div key={bookingChangeRequestId(request) ?? index} className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-950 shadow-sm dark:border-amber-400/40 dark:bg-amber-500/15 dark:text-amber-100">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0">
-                        <div className="mb-2 flex flex-wrap items-center gap-2">
-                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-200 px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-900 dark:bg-amber-300/20 dark:text-amber-100">
-                            <AlertTriangle className="h-3.5 w-3.5" />
-                            {t('pendingBookingChangeRequest')}
-                          </span>
-                          <span className="text-xs font-bold">{bookingChangeRequestLabel(request, t)}</span>
-                        </div>
-                        <p className="text-sm font-semibold leading-6">{String(request.requested_text ?? t('noSummary'))}</p>
-                        <div className="mt-3 grid gap-2 text-xs font-medium sm:grid-cols-2">
-                          <span>{t('sourceWhatsapp')}</span>
-                          <span>{t('requestedAt')}: {formatDate(String(request.requested_at ?? ''), salon.timezone)}</span>
-                          <span>{t('previousBookingStatus')}: {String(request.previous_booking_status ?? '-')}</span>
-                          <span>{t('bookingNotChangedAutomatically')}</span>
-                        </div>
-                      </div>
-                      <SecondaryButton type="button" onClick={() => resolveBookingChangeRequest(selected, request)}>
-                        <Check className="h-4 w-4" />
-                        {t('markChangeResolved')}
-                      </SecondaryButton>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
 
             <DarkPanel className="mt-6 flex min-h-0 flex-1 flex-col">
               <div className="mb-6 flex items-center gap-2 text-lg font-bold app-text">
@@ -1531,9 +1480,6 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
               <Detail icon={Calendar} label={t('dateAndTime')} value={formatDate(selected.last_message_at || selected.created_at, salon.timezone)} />
               <Detail icon={Clock} label={t('duration')} value={formatDuration(selected.duration_seconds)} />
               <Detail icon={User} label={t('contact')} value={conversationTitle(selected, t)} />
-              {hasPendingBookingChangeRequest(selected) && (
-                <Detail icon={AlertTriangle} label={t('pendingBookingChangeRequest')} value={latestPendingBookingChangeRequestText(selected) ?? t('statusPending')} />
-              )}
             </DarkPanel>
             {isPhoneConversation(selected) && (
               <DarkPanel>
@@ -1678,15 +1624,10 @@ function bookingChangeRequestId(request: Record<string, unknown>) {
   return typeof id === 'string' && id.trim() !== '' ? id : null;
 }
 
-function hasPendingBookingChangeRequest(conversation: Conversation) {
-  return pendingBookingChangeRequests(conversation).length > 0;
-}
+function bookingChangeRequestConversationId(request: Record<string, unknown>) {
+  const id = request.conversation_id;
 
-function latestPendingBookingChangeRequestText(conversation: Conversation) {
-  const request = pendingBookingChangeRequests(conversation).at(-1);
-  const text = request?.requested_text;
-
-  return typeof text === 'string' && text.trim() !== '' ? text : null;
+  return typeof id === 'number' || typeof id === 'string' ? id : null;
 }
 
 function conversationMatchesChannel(conversation: Conversation, filter: 'all' | 'voice' | 'chat' | 'whatsapp') {
@@ -5656,6 +5597,21 @@ function Bookings({ salon, query }: { salon: Salon; query: string }) {
     }
   }
 
+  function resolveBookingChangeRequest(request: Record<string, unknown>) {
+    const requestId = bookingChangeRequestId(request);
+    const conversationId = bookingChangeRequestConversationId(request);
+    if (!requestId || !conversationId) return;
+
+    router.patch(
+      `/dashboard/conversations/${conversationId}/booking-change-requests/${requestId}/resolve`,
+      {},
+      {
+        preserveScroll: true,
+        onSuccess: () => toast.success(t('bookingChangeResolvedToast')),
+      },
+    );
+  }
+
   return (
     <div className="space-y-6">
       <ConfirmationModal
@@ -5782,6 +5738,12 @@ function Bookings({ salon, query }: { salon: Salon; query: string }) {
         <BookingStat icon={Calendar} value={stats.cancelled} label={t('cancelled')} tone="red" />
       </div>
 
+      {view === 'archive' && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900 dark:border-amber-400/40 dark:bg-amber-500/15 dark:text-amber-100">
+          {t('bookingArchiveReadOnly')}
+        </div>
+      )}
+
       {(view === 'list' || view === 'archive') && (
         <BookingsDayCards
           groups={groupedBookings}
@@ -5799,9 +5761,11 @@ function Bookings({ salon, query }: { salon: Salon; query: string }) {
             />
           ) : undefined}
           t={t}
+          isArchive={view === 'archive'}
           onEdit={startEditBooking}
           onConfirm={(booking) => router.put(`/bookings/${booking.id}`, { status: 'confirmed' }, { preserveScroll: true })}
           onCancel={(booking) => router.put(`/bookings/${booking.id}`, { status: 'cancelled' }, { preserveScroll: true })}
+          onResolveChangeRequest={resolveBookingChangeRequest}
           onDelete={(booking) => setConfirmation({
             title: t('deleteBooking'),
             message: t('deleteBookingConfirm'),
@@ -5954,9 +5918,11 @@ function BookingsDayCards({
   onDateChange,
   dateHeader,
   t,
+  isArchive,
   onEdit,
   onConfirm,
   onCancel,
+  onResolveChangeRequest,
   onDelete,
 }: {
   groups: ReturnType<typeof groupBookingsByDay>;
@@ -5966,9 +5932,11 @@ function BookingsDayCards({
   onDateChange: (next: string[]) => void;
   dateHeader?: ReactNode;
   t: TranslateFn;
+  isArchive: boolean;
   onEdit: (booking: Salon['bookings'][number]) => void;
   onConfirm: (booking: Salon['bookings'][number]) => void;
   onCancel: (booking: Salon['bookings'][number]) => void;
+  onResolveChangeRequest: (request: Record<string, unknown>) => void;
   onDelete: (booking: Salon['bookings'][number]) => void;
 }) {
   const tableHeaders = [
@@ -6011,7 +5979,7 @@ function BookingsDayCards({
               {bookingTimeRange(booking.time, booking.service?.duration)}
             </td>
             <td className="px-5 py-4 align-top">
-              <BookingStatusCell booking={booking} t={t} />
+              <BookingStatusCell booking={booking} t={t} isArchive={isArchive} onResolveChangeRequest={onResolveChangeRequest} />
             </td>
             <td className="px-5 py-4 align-top font-semibold app-text">{booking.client_name}</td>
             <td className="whitespace-nowrap px-5 py-4 align-top app-text-soft">{booking.client_phone || t('phoneMissingShort')}</td>
@@ -6022,7 +5990,7 @@ function BookingsDayCards({
               <RowActionsMenu label={t('actions')}>
                 {(close) => (
                   <>
-                    {(booking.status === 'pending' || booking.status === 'cancelled') && (
+                    {bookingCanBeAmended(booking, isArchive) && booking.status === 'pending' && (
                       <RowActionButton onClick={() => { close(); onConfirm(booking); }}>
                         <CheckCircle2 className="h-4 w-4 text-green-600" />
                         {t('confirmBooking')}
@@ -6034,16 +6002,18 @@ function BookingsDayCards({
                         {booking.client_phone}
                       </RowActionLink>
                     )}
-                    {booking.status !== 'cancelled' && (
+                    {bookingCanBeAmended(booking, isArchive) && (
                       <RowActionButton onClick={() => { close(); onCancel(booking); }}>
                         <XCircle className="h-4 w-4 text-red-600" />
                         {t('cancelBooking')}
                       </RowActionButton>
                     )}
-                    <RowActionButton onClick={() => { close(); onEdit(booking); }}>
-                      <Pencil className="h-4 w-4" />
-                      {t('editBooking')}
-                    </RowActionButton>
+                    {bookingCanBeAmended(booking, isArchive) && (
+                      <RowActionButton onClick={() => { close(); onEdit(booking); }}>
+                        <Pencil className="h-4 w-4" />
+                        {t('editBooking')}
+                      </RowActionButton>
+                    )}
                     <RowActionButton tone="danger" onClick={() => { close(); onDelete(booking); }}>
                       <Trash2 className="h-4 w-4" />
                       {t('deleteBooking')}
@@ -6059,29 +6029,44 @@ function BookingsDayCards({
   );
 }
 
-function BookingStatusCell({ booking, t }: { booking: Salon['bookings'][number]; t: TranslateFn }) {
-  const changeRequest = latestPendingBookingChangeRequestForBooking(booking);
+function BookingStatusCell({ booking, t, isArchive, onResolveChangeRequest }: { booking: Salon['bookings'][number]; t: TranslateFn; isArchive: boolean; onResolveChangeRequest: (request: Record<string, unknown>) => void }) {
+  const changeRequests = bookingCanBeAmended(booking, isArchive) ? pendingBookingChangeRequestsForBooking(booking) : [];
 
   return (
     <div className="space-y-1.5">
       <StatusPill status={booking.status} t={t} />
-      {changeRequest && (
-        <div className="max-w-60 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs font-semibold leading-5 text-amber-900 dark:border-amber-400/40 dark:bg-amber-500/15 dark:text-amber-200">
-          <p>{t('pendingBookingChangeRequest')}: {bookingChangeRequestLabel(changeRequest, t)}</p>
+      {changeRequests.map((changeRequest, index) => (
+        <div key={bookingChangeRequestId(changeRequest) ?? index} className="max-w-72 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs font-semibold leading-5 text-amber-900 dark:border-amber-400/40 dark:bg-amber-500/15 dark:text-amber-200">
+          <p>{t('bookingChangeRequest')}: {bookingChangeRequestLabel(changeRequest, t)}</p>
           <p className="mt-1">{String(changeRequest.requested_text ?? '')}</p>
+          <p className="mt-1">{t('sourceWhatsapp')}</p>
+          <p className="mt-1">{t('requestedAt')}: {formatDate(String(changeRequest.requested_at ?? ''))}</p>
           <p className="mt-1 text-[11px]">{t('bookingNotChangedAutomatically')}</p>
+          <button
+            type="button"
+            onClick={() => onResolveChangeRequest(changeRequest)}
+            className="mt-2 inline-flex h-8 items-center gap-1 rounded-md bg-amber-600 px-2 text-xs font-bold text-white transition hover:bg-amber-700"
+          >
+            <Check className="h-3.5 w-3.5" />
+            {t('markChangeResolved')}
+          </button>
         </div>
-      )}
+      ))}
     </div>
   );
 }
 
-function latestPendingBookingChangeRequestForBooking(booking: Salon['bookings'][number]) {
-  const requests = (booking.conversations ?? [])
-    .flatMap((conversation) => pendingBookingChangeRequests(conversation))
+function pendingBookingChangeRequestsForBooking(booking: Salon['bookings'][number]) {
+  return (booking.conversations ?? [])
+    .flatMap((conversation) => pendingBookingChangeRequests(conversation).map((request) => ({
+      ...request,
+      conversation_id: conversation.id,
+    })))
     .sort((a, b) => String(a.requested_at ?? '').localeCompare(String(b.requested_at ?? '')));
+}
 
-  return requests.at(-1) ?? null;
+function bookingCanBeAmended(booking: Salon['bookings'][number], isArchive: boolean) {
+  return !isArchive && (booking.status === 'pending' || booking.status === 'confirmed');
 }
 
 function bookingChangeRequestLabel(request: Record<string, unknown>, t: TranslateFn) {

@@ -135,7 +135,7 @@ WhatsApp continues in the same customer thread after a booking request is create
 
 The assistant must not ask WhatsApp customers to press the website widget new-conversation control, start a new conversation, or open a new chat.
 
-If the customer asks to change, cancel, reschedule, add details, change service, change time, or change location after a booking exists, YouGo does not automatically edit or cancel the booking. The request is stored on `conversations.metadata.booking_change_requests` with:
+If the customer asks to change, cancel, reschedule, add details, change service, change time, or change location after an amendable booking exists, YouGo does not automatically edit or cancel the booking. Only `pending` and `confirmed` bookings that are not in the dashboard archive are amendable. The request is stored on `conversations.metadata.booking_change_requests` with:
 
 - `type`
 - `requested_text`
@@ -147,6 +147,8 @@ If the customer asks to change, cancel, reschedule, add details, change service,
 The assistant should answer naturally and say the request has been passed to the team for confirmation when enough detail is available.
 
 Recording a pending change request does not change the linked booking status. Booking status remains the operational source of truth and changes only through explicit dashboard/admin actions. YouGo does not change the booking date, time, location, service, staff, cancellation state, or status automatically.
+
+`cancelled`, `completed`, and archived bookings cannot receive amendment requests. The dashboard archive is based on `booking.date < today`, not a separate booking status. For WhatsApp and future Phone AI, a historical linked booking is non-blocking: the assistant may continue naturally toward a new booking or a normal inquiry in the same channel instead of treating the thread as dedicated to the old booking.
 
 For reschedule requests where the assistant extracts a target date and time, YouGo checks availability using the existing booking availability rules before replying. The result is stored on the pending change request:
 
@@ -160,7 +162,9 @@ If the requested slot is unavailable, the WhatsApp reply tells the customer that
 
 When a new pending change request is recorded, YouGo sends the business a booking change request email if booking notifications are enabled and `notification_email` is configured. The conversation metadata is marked with `notified_at` after the email is sent.
 
-Dashboard -> Conversations shows a visible pending change request indicator/card with the request text, type, source, requested time, and original booking status. Dashboard -> Bookings keeps the real booking status visible and separately shows the latest pending change request. The business can mark a request as resolved from Dashboard -> Conversations; resolved requests remain in metadata history and no longer show as pending.
+Dashboard -> Conversations is transcript-only for this workflow. It stores and displays the conversation, but does not show operational amendment cards, list badges, or resolve buttons.
+
+Dashboard -> Bookings -> List keeps the real booking status visible and separately shows pending WhatsApp change requests for active amendable bookings. The business can mark each request as resolved from the Bookings list. Resolved requests remain in metadata history and no longer show as pending. Dashboard -> Bookings -> Archive is read-only for operational actions: no edit, cancel, amend, or resolve actions are shown there.
 
 Full automatic rescheduling, cancellation, and multi-booking-per-thread workflows remain future work.
 

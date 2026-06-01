@@ -195,6 +195,10 @@ class WhatsAppAiReplyService
             return;
         }
 
+        if (! $conversation->booking?->isAmendable()) {
+            return;
+        }
+
         $changeRequest = $this->conversationService->recordPendingBookingChangeRequest(
             $conversation,
             $inboundMessage->content,

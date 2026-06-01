@@ -799,6 +799,175 @@ class WhatsappIntegrationTest extends TestCase
         Mail::assertSent(BookingChangeRequestMail::class);
     }
 
+    public function test_whatsapp_final_or_archived_linked_bookings_do_not_record_change_requests(): void
+    {
+        config([
+            'twilio.validate_signature' => false,
+            'services.gemini.key' => 'test-key',
+        ]);
+        Mail::fake();
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $salon->update([
+            'notification_email' => 'owner@example.com',
+            'booking_confirmations' => true,
+        ]);
+        $location = $salon->locations()->create([
+            'name' => 'Central',
+            'address' => 'Main Street',
+            'hours' => [
+                'mon' => '10:00 - 18:00',
+                'tue' => '10:00 - 18:00',
+                'wed' => '10:00 - 18:00',
+                'thu' => '10:00 - 18:00',
+                'fri' => '10:00 - 18:00',
+                'sat' => '10:00 - 18:00',
+                'sun' => '10:00 - 18:00',
+            ],
+        ]);
+        $service = $salon->services()->create([
+            'name' => 'Tuns',
+            'price' => '100',
+            'duration' => 30,
+            'location_ids' => [$location->id],
+        ]);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => true,
+        ]);
+        $this->fakeGeminiText('Pot continua aici pe WhatsApp pentru o programare noua.');
+        $this->fakeTwilioService();
+
+        $cases = [
+            ['status' => 'completed', 'date' => now()->addDays(2)->toDateString(), 'phone' => '+40711111111', 'sid' => 'SM_COMPLETED_CHANGE'],
+            ['status' => 'cancelled', 'date' => now()->addDays(2)->toDateString(), 'phone' => '+40722222222', 'sid' => 'SM_CANCELLED_CHANGE'],
+            ['status' => 'confirmed', 'date' => now()->subDay()->toDateString(), 'phone' => '+40733333333', 'sid' => 'SM_ARCHIVED_CHANGE'],
+        ];
+
+        foreach ($cases as $case) {
+            $booking = $salon->bookings()->create([
+                'location_id' => $location->id,
+                'service_id' => $service->id,
+                'client_name' => 'Maria Client',
+                'client_phone' => $case['phone'],
+                'date' => $case['date'],
+                'time' => '10:00',
+                'status' => $case['status'],
+                'source' => 'whatsapp',
+            ]);
+            $conversation = $salon->conversations()->create([
+                'booking_id' => $booking->id,
+                'channel' => 'whatsapp',
+                'provider' => 'twilio',
+                'external_contact_id' => 'whatsapp:'.$case['phone'],
+                'external_sender' => 'whatsapp:+40700000000',
+                'contact_name' => 'Maria Client',
+                'contact_phone' => 'whatsapp:'.$case['phone'],
+                'status' => 'completed',
+                'intent' => 'booking',
+                'summary' => 'Booking created.',
+                'last_message_at' => now(),
+            ]);
+
+            $this->post('/twilio/whatsapp/webhook', $this->twilioPayload([
+                'From' => 'whatsapp:'.$case['phone'],
+                'WaId' => ltrim($case['phone'], '+'),
+                'Body' => 'Vreau sa schimb ora programarii la 12:00',
+                'MessageSid' => $case['sid'],
+            ]))->assertOk();
+
+            $this->assertSame([], $conversation->refresh()->metadata['booking_change_requests'] ?? []);
+            $this->assertSame($case['status'], $booking->refresh()->status);
+            $this->assertSame('10:00', $booking->time);
+        }
+
+        Mail::assertNothingSent();
+    }
+
+    public function test_whatsapp_historical_completed_booking_does_not_block_new_booking(): void
+    {
+        config([
+            'twilio.validate_signature' => false,
+            'services.gemini.key' => 'test-key',
+        ]);
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $location = $salon->locations()->create([
+            'name' => 'Central',
+            'address' => 'Main Street',
+            'hours' => [
+                'mon' => '10:00 - 18:00',
+                'tue' => '10:00 - 18:00',
+                'wed' => '10:00 - 18:00',
+                'thu' => '10:00 - 18:00',
+                'fri' => '10:00 - 18:00',
+                'sat' => '10:00 - 18:00',
+                'sun' => '10:00 - 18:00',
+            ],
+        ]);
+        $service = $salon->services()->create([
+            'name' => 'Tuns',
+            'price' => '100',
+            'duration' => 30,
+            'location_ids' => [$location->id],
+        ]);
+        $oldBooking = $salon->bookings()->create([
+            'location_id' => $location->id,
+            'service_id' => $service->id,
+            'client_name' => 'Maria Client',
+            'client_phone' => '+40711111111',
+            'date' => now()->addDays(2)->toDateString(),
+            'time' => '10:00',
+            'status' => 'completed',
+            'source' => 'whatsapp',
+        ]);
+        $conversation = $salon->conversations()->create([
+            'booking_id' => $oldBooking->id,
+            'channel' => 'whatsapp',
+            'provider' => 'twilio',
+            'external_contact_id' => 'whatsapp:+40711111111',
+            'external_sender' => 'whatsapp:+40700000000',
+            'contact_name' => 'Maria Client',
+            'contact_phone' => 'whatsapp:+40711111111',
+            'status' => 'completed',
+            'intent' => 'booking',
+            'summary' => 'Booking created.',
+            'last_message_at' => now(),
+        ]);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => true,
+        ]);
+        $this->fakeGeminiFunctionCall('bookBooking', [
+            'client_name' => 'Maria Client',
+            'client_phone' => '+40711111111',
+            'location_id' => (string) $location->id,
+            'service_id' => (string) $service->id,
+            'date' => now()->addDays(3)->toDateString(),
+            'time' => '12:00',
+        ]);
+        $this->fakeTwilioService();
+
+        $this->post('/twilio/whatsapp/webhook', $this->twilioPayload([
+            'Body' => 'Vreau inca o programare pentru copil la 12:00',
+            'MessageSid' => 'SM_HISTORICAL_NEW_BOOKING',
+        ]))->assertOk();
+
+        $this->assertSame(2, $salon->bookings()->count());
+        $this->assertSame('completed', $oldBooking->refresh()->status);
+        $this->assertSame([], $conversation->refresh()->metadata['booking_change_requests'] ?? []);
+        $this->assertNotSame($oldBooking->id, $conversation->booking_id);
+        $this->assertDatabaseHas('bookings', [
+            'salon_id' => $salon->id,
+            'client_phone' => '+40711111111',
+            'time' => '12:00',
+            'status' => 'pending',
+            'source' => 'whatsapp',
+        ]);
+    }
+
     public function test_webhook_whatsapp_monthly_limit_sends_limit_fallback_without_ai(): void
     {
         config([
@@ -1017,11 +1186,12 @@ class WhatsappIntegrationTest extends TestCase
             'isPhoneConversation(selected) &&',
             'isWhatsappConversation(selected) &&',
             'BookingStatusCell',
-            'latestPendingBookingChangeRequestForBooking',
+            'pendingBookingChangeRequestsForBooking',
+            'bookingCanBeAmended',
             "t('bookingChangeTypeCancel')",
             "t('bookingChangeTypeReschedule')",
             'whatsappOutboundSendStatus',
-            'pendingBookingChangeRequest',
+            'bookingArchiveReadOnly',
             'markChangeResolved',
             '/booking-change-requests/${requestId}/resolve',
             "t('sendFailed')",
@@ -1033,6 +1203,20 @@ class WhatsappIntegrationTest extends TestCase
             "t('yougoBadge')",
         ] as $needle) {
             $this->assertStringContainsString($needle, $source);
+        }
+
+        $conversationsSource = substr(
+            $source,
+            strpos($source, 'function Conversations('),
+            strpos($source, 'function conversationTitle') - strpos($source, 'function Conversations('),
+        );
+
+        foreach ([
+            'selectedPendingRequests',
+            'markChangeResolved',
+            '/booking-change-requests/${requestId}/resolve',
+        ] as $needle) {
+            $this->assertStringNotContainsString($needle, $conversationsSource);
         }
     }
 

@@ -123,6 +123,20 @@ class GeminiPayloadBuilder
 
         $behavior = AssistantChannelBehavior::for($conversation?->channel);
 
+        if (! $behavior['allows_new_conversation_instruction'] && ! $booking->isAmendable()) {
+            return collect([
+                'Aceasta conversatie are o programare istorica in baza de date.',
+                "status programare istorica: {$booking->status}.",
+                "data istorica: {$booking->date?->format('Y-m-d')}.",
+                "ora istorica: {$booking->time}.",
+                $booking->service ? "serviciu istoric: {$booking->service->name}." : null,
+                'Programarea istorica nu mai poate fi modificata, anulata sau reprogramata automat.',
+                'Nu trata conversatia ca dedicata programarii istorice.',
+                'Daca utilizatorul cere un serviciu, o ora sau o programare, continua natural catre o programare noua pe acelasi canal.',
+                'Nu mentiona butonul de conversatie noua, controale din widget, conversatie noua, conversatie separata, chat separat sau UI-ul widgetului website.',
+            ])->filter()->implode(' ');
+        }
+
         return collect([
             'Aceasta conversatie are deja o programare in baza de date.',
             'Statusul curent din baza de date este sursa de adevar pentru raspunsurile despre aceasta programare.',

@@ -127,9 +127,15 @@ class AssistantChatService
                 continue;
             }
 
-            if ($conversation->booking_id) {
+            $channel = (string) ($options['channel'] ?? $conversation->channel);
+            $blocksExistingBookingTools = $conversation->booking_id
+                && (
+                    AssistantChannelBehavior::allowsNewConversationInstruction($channel)
+                    || $conversation->booking?->isAmendable()
+                );
+
+            if ($blocksExistingBookingTools) {
                 $booking = $conversation->booking;
-                $channel = (string) ($options['channel'] ?? $conversation->channel);
 
                 if (! AssistantChannelBehavior::allowsNewConversationInstruction($channel)) {
                     $availability = $this->appointmentToolHandler->isAvailabilityCall($functionCall)
