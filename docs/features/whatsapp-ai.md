@@ -139,13 +139,16 @@ One active booking flow maps to one dashboard conversation:
 
 - If the latest WhatsApp dashboard conversation has no booking, new inbound messages continue that conversation.
 - If it has a `pending` WhatsApp booking, new inbound messages continue that conversation.
-- If it has a `confirmed`, `completed`, `cancelled`, or archived booking, the old conversation is closed and the inbound message starts a new dashboard conversation.
+- If it has a `confirmed`, `completed`, `cancelled`, or archived booking, short courtesy messages such as thanks/ok may stay in the old transcript.
+- If it has a `confirmed`, `completed`, `cancelled`, or archived booking and the inbound message looks operational (new booking, service request, edit, cancellation, date/time question, or booking intent), the old conversation is closed and the inbound message starts a new dashboard conversation.
 
 The actual booking statuses are `pending`, `confirmed`, `cancelled`, and `completed`. The dashboard archive is based on `booking.date < today`, not a separate booking status.
 
 Pending WhatsApp bookings can be cancelled automatically when the customer clearly asks to cancel. YouGo sets `booking.status = cancelled`, stores cancellation context in conversation metadata, sends the business a cancellation email when booking notifications are configured, tells the customer the booking was cancelled, and closes the dashboard conversation.
 
 Pending bookings cannot be edited or rescheduled automatically. Confirmed, completed, cancelled, and archived bookings cannot be edited, rescheduled, or cancelled automatically by AI. If the customer asks to change an existing booking, YouGo sends a phone handoff message with available salon/location phone numbers when configured.
+
+Website Chat follows the same booking status policy for existing bookings. A pending AI-created Website Chat booking can be cancelled automatically by clear customer intent. Edit/reschedule/change requests receive phone handoff. The `+` instruction remains available only for starting a new booking or separate flow, not as the answer to every post-booking issue.
 
 The old amendment workflow is deprecated. YouGo no longer creates new `booking_change_requests` metadata for WhatsApp edits/reschedules, no longer sends booking change request emails for those attempts, and no longer shows amendment cards or "Change resolved" actions in Conversations or Bookings. Existing historical metadata is left in place but is not shown as an active workflow.
 

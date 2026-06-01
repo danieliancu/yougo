@@ -327,6 +327,101 @@ class WhatsappIntegrationTest extends TestCase
         ]);
     }
 
+    public function test_whatsapp_courtesy_after_closed_booking_stays_in_old_transcript(): void
+    {
+        config(['twilio.validate_signature' => false]);
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => false,
+        ]);
+
+        foreach ([
+            ['status' => 'confirmed', 'sid' => 'SM_COURTESY_CONFIRMED', 'body' => 'multumesc'],
+            ['status' => 'completed', 'sid' => 'SM_COURTESY_COMPLETED', 'body' => 'ok'],
+            ['status' => 'cancelled', 'sid' => 'SM_COURTESY_CANCELLED', 'body' => 'see you'],
+        ] as $case) {
+            $booking = $salon->bookings()->create([
+                'client_name' => 'Maria Client',
+                'client_phone' => '+40711111111',
+                'date' => '2026-06-03',
+                'time' => '10:00',
+                'status' => $case['status'],
+                'source' => 'whatsapp',
+            ]);
+            $conversation = $salon->conversations()->create([
+                'booking_id' => $booking->id,
+                'channel' => 'whatsapp',
+                'provider' => 'twilio',
+                'external_contact_id' => 'whatsapp:+40711111111',
+                'external_sender' => 'whatsapp:+40700000000',
+                'contact_phone' => 'whatsapp:+40711111111',
+                'status' => 'completed',
+                'intent' => 'booking',
+                'summary' => 'Booking created.',
+                'last_message_at' => now(),
+            ]);
+
+            $this->post('/twilio/whatsapp/webhook', $this->twilioPayload([
+                'Body' => $case['body'],
+                'MessageSid' => $case['sid'],
+            ]))->assertOk();
+
+            $this->assertDatabaseHas('conversation_messages', [
+                'conversation_id' => $conversation->id,
+                'provider_message_id' => $case['sid'],
+            ]);
+        }
+
+        $this->assertSame(3, $salon->conversations()->count());
+    }
+
+    public function test_whatsapp_operational_after_cancelled_booking_creates_new_dashboard_conversation(): void
+    {
+        config(['twilio.validate_signature' => false]);
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $booking = $salon->bookings()->create([
+            'client_name' => 'Maria Client',
+            'client_phone' => '+40711111111',
+            'date' => '2026-06-03',
+            'time' => '10:00',
+            'status' => 'cancelled',
+            'source' => 'whatsapp',
+        ]);
+        $oldConversation = $salon->conversations()->create([
+            'booking_id' => $booking->id,
+            'channel' => 'whatsapp',
+            'provider' => 'twilio',
+            'external_contact_id' => 'whatsapp:+40711111111',
+            'external_sender' => 'whatsapp:+40700000000',
+            'contact_phone' => 'whatsapp:+40711111111',
+            'status' => 'completed',
+            'intent' => 'booking',
+            'summary' => 'Booking created.',
+            'last_message_at' => now(),
+        ]);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => false,
+        ]);
+
+        $this->post('/twilio/whatsapp/webhook', $this->twilioPayload([
+            'Body' => 'vreau o programare maine la 10',
+            'MessageSid' => 'SM_OPERATIONAL_AFTER_CANCELLED',
+        ]))->assertOk();
+
+        $newConversation = $salon->conversations()->whereKeyNot($oldConversation->id)->firstOrFail();
+        $this->assertNull($newConversation->booking_id);
+        $this->assertDatabaseHas('conversation_messages', [
+            'conversation_id' => $newConversation->id,
+            'provider_message_id' => 'SM_OPERATIONAL_AFTER_CANCELLED',
+        ]);
+    }
+
     public function test_webhook_with_ai_enabled_sends_and_saves_ai_reply(): void
     {
         config([

@@ -2,12 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Mail\BookingCancelledByCustomerMail;
 use App\Models\Salon;
 use App\Models\User;
 use App\Services\Assistant\AssistantMessageLocalizer;
 use Carbon\CarbonInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -334,7 +336,7 @@ class AssistantWidgetTest extends TestCase
             'service_id' => $service->id,
             'client_name' => 'Ion Pop',
             'client_phone' => '0700000000',
-            'date' => '2026-05-05',
+            'date' => '2026-06-05',
             'time' => '10:00',
             'status' => 'pending',
             'source' => 'ai_assistant',
@@ -403,7 +405,7 @@ class AssistantWidgetTest extends TestCase
             'service_id' => $service->id,
             'client_name' => 'Ion Pop',
             'client_phone' => '0700000000',
-            'date' => '2026-05-05',
+            'date' => '2026-06-05',
             'time' => '10:00',
             'status' => 'pending',
             'source' => 'ai_assistant',
@@ -446,6 +448,118 @@ class AssistantWidgetTest extends TestCase
             ->assertJsonPath('booking.id', $booking->id);
 
         $this->assertSame(1, $salon->bookings()->count());
+    }
+
+    public function test_pending_website_chat_booking_can_be_cancelled_by_customer_without_ai(): void
+    {
+        config(['services.gemini.key' => 'test-key']);
+        Mail::fake();
+
+        $salon = $this->createSalon([
+            'notification_email' => 'owner@example.com',
+            'booking_confirmations' => true,
+        ]);
+        $location = $salon->locations()->create([
+            'name' => 'Central',
+            'address' => 'Main Street',
+            'hours' => ['tue' => '10:00 - 18:00'],
+        ]);
+        $service = $salon->services()->create([
+            'name' => 'Tuns',
+            'price' => '100',
+            'duration' => 30,
+            'location_ids' => [$location->id],
+        ]);
+        $booking = $salon->bookings()->create([
+            'location_id' => $location->id,
+            'service_id' => $service->id,
+            'client_name' => 'Ion Pop',
+            'client_phone' => '0700000000',
+            'date' => '2026-06-05',
+            'time' => '10:00',
+            'status' => 'pending',
+            'source' => 'ai_assistant',
+        ]);
+        $conversation = $salon->conversations()->create([
+            'booking_id' => $booking->id,
+            'channel' => 'chat',
+            'status' => 'completed',
+            'intent' => 'booking',
+            'summary' => 'Booking created.',
+            'last_message_at' => now(),
+        ]);
+
+        Http::fake(['*' => Http::response(['candidates' => []], 200)]);
+
+        $this->postJson("/assistant/{$salon->id}/chat", [
+            'conversation_id' => $conversation->id,
+            'messages' => [
+                ['role' => 'user', 'content' => 'anuleaza programarea'],
+            ],
+        ])->assertOk()
+            ->assertJsonPath('message', 'Programarea ta a fost anulata. Multumim ca ne-ai anuntat.')
+            ->assertJsonPath('booking.id', $booking->id);
+
+        $this->assertSame('cancelled', $booking->refresh()->status);
+        $this->assertSame('completed', $conversation->refresh()->status);
+        $this->assertSame('anuleaza programarea', $conversation->metadata['customer_cancellations'][0]['cancellation_text']);
+        Mail::assertSent(BookingCancelledByCustomerMail::class);
+        Http::assertNothingSent();
+    }
+
+    public function test_pending_website_chat_booking_edit_request_uses_phone_handoff(): void
+    {
+        config(['services.gemini.key' => 'test-key']);
+        Mail::fake();
+
+        $salon = $this->createSalon(['business_phone' => '+40700000001']);
+        $location = $salon->locations()->create([
+            'name' => 'Central',
+            'address' => 'Main Street',
+            'phone' => '+40700000002',
+            'hours' => ['tue' => '10:00 - 18:00'],
+        ]);
+        $service = $salon->services()->create([
+            'name' => 'Tuns',
+            'price' => '100',
+            'duration' => 30,
+            'location_ids' => [$location->id],
+        ]);
+        $booking = $salon->bookings()->create([
+            'location_id' => $location->id,
+            'service_id' => $service->id,
+            'client_name' => 'Ion Pop',
+            'client_phone' => '0700000000',
+            'date' => '2026-06-05',
+            'time' => '10:00',
+            'status' => 'pending',
+            'source' => 'ai_assistant',
+        ]);
+        $conversation = $salon->conversations()->create([
+            'booking_id' => $booking->id,
+            'channel' => 'chat',
+            'status' => 'completed',
+            'intent' => 'booking',
+            'summary' => 'Booking created.',
+            'last_message_at' => now(),
+        ]);
+
+        Http::fake(['*' => Http::response(['candidates' => []], 200)]);
+
+        $this->postJson("/assistant/{$salon->id}/chat", [
+            'conversation_id' => $conversation->id,
+            'messages' => [
+                ['role' => 'user', 'content' => 'ah, schimba, sa fie la 18'],
+            ],
+        ])->assertOk()
+            ->assertJsonPath('booking.id', $booking->id)
+            ->assertJsonFragment(['message' => 'Pentru modificarea unei programari existente, te rugam sa contactezi direct YouGo Studio, ca echipa sa poata verifica disponibilitatea corect. Poti suna la: +40700000001, +40700000002.']);
+
+        $this->assertSame('pending', $booking->refresh()->status);
+        $this->assertSame('10:00', $booking->time);
+        $this->assertSame([], $conversation->refresh()->metadata['booking_change_requests'] ?? []);
+        Mail::assertNothingSent();
+        Http::assertNothingSent();
     }
 
     public function test_existing_booking_message_is_language_aware(): void

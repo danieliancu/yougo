@@ -235,7 +235,18 @@ class WhatsAppAiReplyService
                 return true;
             }
 
-            if ($this->looksLikeBookingEditRequest($text) || $this->looksLikeAmbiguousCancellationRequest($text)) {
+            if ($this->looksLikeClearCancellationRequest($text) || $this->looksLikeAmbiguousCancellationRequest($text)) {
+                $this->sendAndSave($conversation, $integration, $this->messageLocalizer->bookingCancellationPhoneHandoff($salon, $this->handoffPhoneNumbers($salon, $booking)), [
+                    'channel' => 'whatsapp',
+                    'sent_via' => 'twilio',
+                    'ai_generated' => false,
+                    'status_reason' => 'existing_booking_phone_handoff',
+                ]);
+
+                return true;
+            }
+
+            if ($this->looksLikeBookingEditRequest($text)) {
                 $this->sendAndSave($conversation, $integration, $this->messageLocalizer->bookingChangePhoneHandoff($salon, $this->handoffPhoneNumbers($salon, $booking)), [
                     'channel' => 'whatsapp',
                     'sent_via' => 'twilio',
@@ -249,7 +260,18 @@ class WhatsAppAiReplyService
             return false;
         }
 
-        if ($this->looksLikeBookingEditRequest($text) || $this->looksLikeAmbiguousCancellationRequest($text)) {
+        if ($this->looksLikeClearCancellationRequest($text) || $this->looksLikeAmbiguousCancellationRequest($text)) {
+            $this->sendAndSave($conversation, $integration, $this->messageLocalizer->bookingCancellationPhoneHandoff($salon, $this->handoffPhoneNumbers($salon)), [
+                'channel' => 'whatsapp',
+                'sent_via' => 'twilio',
+                'ai_generated' => false,
+                'status_reason' => 'existing_booking_phone_handoff',
+            ]);
+
+            return true;
+        }
+
+        if ($this->looksLikeBookingEditRequest($text)) {
             $this->sendAndSave($conversation, $integration, $this->messageLocalizer->bookingChangePhoneHandoff($salon, $this->handoffPhoneNumbers($salon)), [
                 'channel' => 'whatsapp',
                 'sent_via' => 'twilio',
@@ -265,7 +287,7 @@ class WhatsAppAiReplyService
 
     private function looksLikeClearCancellationRequest(string $text): bool
     {
-        return preg_match('/\b(anuleaz|vreau\s+sa\s+anulez|vreau\s+s[Äƒa]\s+anulez|nu\s+mai\s+vin|cancel(?:\s+my\s+booking)?|i\s+want\s+to\s+cancel|can[’\'`]?t\s+come\s+anymore)\b/iu', $text) === 1;
+        return preg_match('/\b(anuleaz[Äƒăa]?|vreau\s+sa\s+anulez|vreau\s+s[Äƒăa]\s+anulez|nu\s+mai\s+vin|cancel(?:\s+my\s+booking)?|i\s+want\s+to\s+cancel|can[’\'`]?t\s+come\s+anymore)\b/iu', $text) === 1;
     }
 
     private function looksLikeAmbiguousCancellationRequest(string $text): bool
@@ -275,7 +297,7 @@ class WhatsAppAiReplyService
 
     private function looksLikeBookingEditRequest(string $text): bool
     {
-        return preg_match('/\b(schimb|modific|reprogram|mut|alta\s+ora|alt[Äƒa]\s+ora|alta\s+zi|alt[Äƒa]\s+zi|alt\s+serviciu|serviciu\s+diferit|change|edit|reschedul|move|different\s+time|different\s+day|different\s+service|change\s+location|change\s+service|amend)\b/iu', $text) === 1;
+        return preg_match('/\b(schimb[Äƒăa]?|modific[Äƒăa]?|reprogram|mut[Äƒăa]?|alta\s+ora|alt[Äƒăa]\s+ora|alta\s+zi|alt[Äƒăa]\s+zi|alt\s+serviciu|serviciu\s+diferit|change|edit|reschedul|move|different\s+time|different\s+day|different\s+service|change\s+location|change\s+service|amend)\b/iu', $text) === 1;
     }
 
     private function handoffPhoneNumbers(Salon $salon, mixed $booking = null): array

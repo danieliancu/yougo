@@ -78,6 +78,30 @@ class AssistantMessageLocalizer
             : $base;
     }
 
+    public function bookingCancellationPhoneHandoff(Salon $salon, array $phoneNumbers = []): string
+    {
+        $phoneNumbers = collect($phoneNumbers)
+            ->map(fn ($phone) => trim((string) $phone))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($this->localeFor($salon) === 'en') {
+            $base = 'To cancel an already confirmed booking, please contact the team directly.';
+
+            return $phoneNumbers
+                ? $base.' You can call: '.implode(', ', $phoneNumbers).'.'
+                : $base;
+        }
+
+        $base = 'Pentru anularea unei programari deja confirmate, te rugam sa contactezi direct echipa.';
+
+        return $phoneNumbers
+            ? $base.' Poti suna la: '.implode(', ', $phoneNumbers).'.'
+            : $base;
+    }
+
     public function bookingChangeRequestedTimeAvailable(Salon $salon, ?string $date, ?string $time): string
     {
         $dateLabel = $this->dateLabel($salon, (string) $date);

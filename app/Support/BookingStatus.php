@@ -12,11 +12,16 @@ class BookingStatus
     public const CANCELLED = 'cancelled';
     public const COMPLETED = 'completed';
 
-    public static function isPendingCancellationAllowed(Booking $booking): bool
+    public static function canCustomerCancelAutomatically(Booking $booking): bool
     {
         return $booking->status === self::PENDING
-            && $booking->source === 'whatsapp'
+            && in_array($booking->source, ['ai_assistant', 'whatsapp'], true)
             && ! self::isArchivedForDashboard($booking);
+    }
+
+    public static function isPendingCancellationAllowed(Booking $booking): bool
+    {
+        return self::canCustomerCancelAutomatically($booking);
     }
 
     public static function isClosedForWhatsappAi(Booking $booking): bool
@@ -32,6 +37,11 @@ class BookingStatus
     }
 
     public static function isEditableByAi(Booking $booking): bool
+    {
+        return false;
+    }
+
+    public static function canAiEditOrReschedule(Booking $booking): bool
     {
         return false;
     }

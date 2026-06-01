@@ -9,6 +9,7 @@ use App\Services\Modes\Appointment\AppointmentToolHandler;
 use App\Services\Notifications\BookingNotificationService;
 use App\Services\Usage\UsageLimitService;
 use App\Support\AssistantChannelBehavior;
+use App\Support\BookingStatus;
 use Illuminate\Support\Facades\Http;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -43,6 +44,19 @@ class AssistantChatService
 
         $conversation = $this->conversationService->resolve($salon, $data['conversation_id'] ?? null, $channel);
         $this->conversationService->saveLatestUserMessage($conversation, $data['messages']);
+
+        if ($this->handleDeterministicPostBookingMessage($salon, $conversation, $data['messages'], $channel)) {
+            $conversation->refresh();
+
+            return [
+                'body' => [
+                    'message' => $conversation->messages()->where('role', 'assistant')->latest()->value('content'),
+                    'conversation_id' => $conversation->id,
+                    'booking' => $conversation->booking?->load(['location', 'service']),
+                ],
+                'status' => 200,
+            ];
+        }
 
         if ($channel === 'web_widget' && ! $this->usageLimitService->canSendAiMessage($salon)) {
             $this->conversationService->updateTiming($conversation);
@@ -187,6 +201,105 @@ class AssistantChatService
             ],
             'status' => 200,
         ];
+    }
+
+    private function handleDeterministicPostBookingMessage(Salon $salon, Conversation $conversation, array $messages, string $channel): bool
+    {
+        $booking = $conversation->booking;
+        if (! $booking) {
+            return false;
+        }
+
+        $text = $this->latestUserMessageText($messages);
+        if ($text === '') {
+            return false;
+        }
+
+        if (BookingStatus::canCustomerCancelAutomatically($booking) && $this->looksLikeClearCancellationRequest($text)) {
+            $this->storeCancellationMetadata($conversation, $text, $channel);
+            $booking->update(['status' => 'cancelled']);
+            $this->bookingNotificationService->sendCustomerCancelledBookingNotification($booking->refresh(), $text, $channel === 'web_widget' ? 'Website Chat' : $channel);
+            $this->conversationService->saveAssistantMessageAndSummarize($conversation, $this->messageLocalizer->bookingCancelledByCustomer($salon));
+            $conversation->update(['status' => 'completed']);
+
+            return true;
+        }
+
+        if ($this->looksLikeClearCancellationRequest($text) || $this->looksLikeAmbiguousCancellationRequest($text)) {
+            $this->conversationService->saveAssistantMessageAndSummarize($conversation, $this->messageLocalizer->bookingCancellationPhoneHandoff($salon, $this->handoffPhoneNumbers($salon, $booking)));
+            $this->conversationService->updateTiming($conversation);
+
+            return true;
+        }
+
+        if ($this->looksLikeBookingEditRequest($text)) {
+            $this->conversationService->saveAssistantMessageAndSummarize($conversation, $this->messageLocalizer->bookingChangePhoneHandoff($salon, $this->handoffPhoneNumbers($salon, $booking)));
+            $this->conversationService->updateTiming($conversation);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private function storeCancellationMetadata(Conversation $conversation, string $text, string $channel): void
+    {
+        $metadata = $conversation->metadata ?? [];
+        $cancellations = $metadata['customer_cancellations'] ?? [];
+        $cancellations[] = [
+            'cancelled_by' => 'ai_customer',
+            'cancelled_source' => $channel === 'web_widget' ? 'website_chat' : $channel,
+            'cancelled_at' => now()->toISOString(),
+            'cancellation_text' => $text,
+            'previous_booking_status' => $conversation->booking?->status,
+        ];
+
+        $conversation->update([
+            'metadata' => [
+                ...$metadata,
+                'customer_cancellations' => $cancellations,
+            ],
+        ]);
+    }
+
+    private function looksLikeClearCancellationRequest(string $text): bool
+    {
+        return preg_match('/\b(anuleaz[Äƒăa]?|vreau\s+sa\s+anulez|vreau\s+s[Äƒăa]\s+anulez|nu\s+mai\s+vin|cancel(?:\s+(?:my\s+)?(?:booking|appointment))?|i\s+want\s+to\s+cancel|can[’\'`]?t\s+come\s+anymore)\b/iu', $text) === 1;
+    }
+
+    private function looksLikeAmbiguousCancellationRequest(string $text): bool
+    {
+        return preg_match('/\b(anulare|anulat|cancel|cancellation)\b/iu', $text) === 1;
+    }
+
+    private function looksLikeBookingEditRequest(string $text): bool
+    {
+        return preg_match('/\b(schimb[Äƒăa]?|modific[Äƒăa]?|reprogram|mut[Äƒăa]?|alta\s+ora|alt[Äƒăa]\s+ora|alta\s+zi|alt[Äƒăa]\s+zi|alt\s+serviciu|serviciu\s+diferit|change|edit|reschedul|move|different\s+time|different\s+day|different\s+service|change\s+location|change\s+service|amend)\b/iu', $text) === 1;
+    }
+
+    private function handoffPhoneNumbers(Salon $salon, mixed $booking = null): array
+    {
+        $phones = collect([$salon->business_phone]);
+
+        if ($booking?->location?->phone) {
+            $phones->push($booking->location->phone);
+        }
+
+        if (! $booking) {
+            $salon->loadMissing('locations');
+            foreach ($salon->locations as $location) {
+                if ($location->phone) {
+                    $phones->push($location->phone);
+                }
+            }
+        }
+
+        return $phones
+            ->map(fn ($phone) => trim((string) $phone))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 
     private function latestUserMessageText(array $messages): string

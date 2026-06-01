@@ -40,7 +40,7 @@ class WhatsAppConversationService
             ->latest('id')
             ->first();
 
-        if ($conversation && ! $this->canContinueConversation($conversation)) {
+        if ($conversation && ! $this->canContinueConversation($conversation, $body)) {
             if ($conversation->status !== 'completed') {
                 $conversation->update(['status' => 'completed']);
             }
@@ -102,17 +102,37 @@ class WhatsAppConversationService
         return $message;
     }
 
-    private function canContinueConversation(Conversation $conversation): bool
+    private function canContinueConversation(Conversation $conversation, string $body): bool
     {
-        if ($conversation->status !== 'open') {
+        if ($conversation->status !== 'open' && ! $this->isCourtesyMessage($body)) {
             return false;
         }
 
         if (! $conversation->booking) {
+            return $conversation->status === 'open' || $this->isCourtesyMessage($body);
+        }
+
+        if (! BookingStatus::isClosedForWhatsappAi($conversation->booking)) {
             return true;
         }
 
-        return ! BookingStatus::isClosedForWhatsappAi($conversation->booking);
+        return $this->isCourtesyMessage($body) && ! $this->isOperationalMessage($body);
+    }
+
+    private function isCourtesyMessage(string $body): bool
+    {
+        $body = trim(mb_strtolower($body));
+
+        if ($body === '') {
+            return false;
+        }
+
+        return preg_match('/^(mersi|merci|multumesc|mul[Èțt]umesc|ms|ok|okay|bine|perfect|super|ne vedem|ne vedem atunci|o zi buna|o zi bun[Äăa]|thanks|thank you|thx|great|sounds good|see you|see you then)[.! ]*$/iu', $body) === 1;
+    }
+
+    private function isOperationalMessage(string $body): bool
+    {
+        return preg_match('/\b(vreau|programare|programez|serviciu|mai vreau|schimb|modific|mut|reprogram|anuleaz|anulare|la ce ora|la ce or[Äăa]|maine|m[âa]ine|luni|marti|mar[Èțt]i|miercuri|joi|vineri|sambata|s[âa]mb[Äăa]ta|duminica|ora\s*\d{1,2}|la\s*\d{1,2}|tuns|spalat|sp[Äăa]lat|epilat|booking|book me|another booking|another service|can you book|change|reschedule|move it|cancel|what time|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|at\s*\d{1,2})\b/iu', $body) === 1;
     }
 
     private function newConversationSummary(Salon $salon): string
