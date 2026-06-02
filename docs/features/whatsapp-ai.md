@@ -20,6 +20,15 @@ Phone AI remains planned and is not part of the WhatsApp MVP.
 6. The admin manually activates the integration.
 7. Once active, the business owner can toggle WhatsApp AI on or off.
 
+After the business requests activation, Dashboard -> WhatsApp Settings explains the guided setup process and lets the business request a setup call. YouGo receives the setup request by email at the configured `MAIL_WHATSAPP_SETUP_REQUEST_TO` address, which defaults to `dani.iancu@yahoo.com`.
+
+Security rules for setup:
+
+- Customers should never send Facebook, Meta, or WhatsApp passwords to YouGo.
+- YouGo should never ask for authentication codes or two-factor codes.
+- If Meta/Facebook login is needed, the customer logs in themselves during the guided setup call.
+- A video call is recommended because Meta steps may need to be completed together, but the customer can request a phone call.
+
 Activation states:
 
 - `needs activation`: the plan includes WhatsApp AI, but the business has not requested setup yet.
@@ -53,12 +62,13 @@ Activation behavior:
 Admin checklist:
 
 1. Review the requested number in YouGo.
-2. Configure and approve the WhatsApp sender in Twilio/Meta manually.
-3. Verify the sender is live.
-4. Run `php artisan yougo:whatsapp-activate {salon_id} whatsapp:+...`.
-5. Confirm the dashboard shows the integration as active.
-6. Test one inbound and one outbound WhatsApp message.
-7. Ensure the queue worker and delivery status callback URL are active.
+2. Review the setup request email and schedule a video or phone setup call.
+3. Configure and approve the WhatsApp sender in Twilio/Meta manually.
+4. Verify the sender is live.
+5. Run `php artisan yougo:whatsapp-activate {salon_id} whatsapp:+...`.
+6. Confirm the dashboard shows the integration as active.
+7. Test one inbound and one outbound WhatsApp message.
+8. Ensure the queue worker and delivery status callback URL are active.
 
 ## Plan access
 

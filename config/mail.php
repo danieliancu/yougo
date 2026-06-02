@@ -115,4 +115,6 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    'whatsapp_setup_request_to' => env('MAIL_WHATSAPP_SETUP_REQUEST_TO', 'dani.iancu@yahoo.com'),
+
 ];

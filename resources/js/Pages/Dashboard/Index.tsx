@@ -82,6 +82,23 @@ type ImportedServiceCandidate = {
   duplicate?: boolean;
 };
 
+type WhatsappSetupRequestForm = {
+  business_name: string;
+  contact_person: string;
+  contact_email: string;
+  contact_phone: string;
+  requested_whatsapp_number: string;
+  whatsapp_display_name: string;
+  website_or_social_link: string;
+  has_meta_business_account: 'yes' | 'no' | 'not_sure' | '';
+  number_currently_used_on_whatsapp_app: 'yes' | 'no' | 'not_sure' | '';
+  can_receive_sms_or_call: 'yes' | 'no' | '';
+  preferred_meeting_type: 'video_call' | 'phone_call' | '';
+  preferred_availability: string;
+  notes: string;
+};
+type WhatsappAvailabilityPeriod = 'morning' | 'afternoon' | 'evening';
+
 const CONVERSATION_CHANNEL_FILTER_STORAGE_KEY = 'yougo.dashboard.conversations.channelFilter';
 
 const SERVICE_IMPORT_MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -5071,24 +5088,131 @@ function VoiceCalls({ query: _query }: { query: string }) {
 
 function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
   const t = useT();
+  const { auth } = usePage<Props>().props;
   const [integration, setIntegration] = useState<WhatsappIntegration | null>(salon.whatsapp_integration ?? null);
   const [requestedNumber, setRequestedNumber] = useState(integration?.requested_number ?? salon.business_phone ?? '');
+  const [setupForm, setSetupForm] = useState<WhatsappSetupRequestForm>({
+    business_name: salon.name ?? '',
+    contact_person: auth.user?.name ?? '',
+    contact_email: auth.user?.email ?? salon.notification_email ?? '',
+    contact_phone: salon.business_phone ?? '',
+    requested_whatsapp_number: integration?.requested_number ?? integration?.display_number ?? salon.business_phone ?? '',
+    whatsapp_display_name: salon.name ?? '',
+    website_or_social_link: salon.website ?? '',
+    has_meta_business_account: '',
+    number_currently_used_on_whatsapp_app: '',
+    can_receive_sms_or_call: '',
+    preferred_meeting_type: 'video_call',
+    preferred_availability: '',
+    notes: '',
+  });
+  const [setupErrors, setSetupErrors] = useState<Record<string, string>>({});
+  const [availabilityDate, setAvailabilityDate] = useState('');
+  const [availabilityDates, setAvailabilityDates] = useState<string[]>([]);
+  const [availabilityPeriods, setAvailabilityPeriods] = useState<WhatsappAvailabilityPeriod[]>([]);
   const [aiEnabled, setAiEnabled] = useState(Boolean(integration?.ai_enabled));
   const [testTo, setTestTo] = useState('');
   const [testMessage, setTestMessage] = useState(t('whatsappDefaultTestMessage'));
-  const [busy, setBusy] = useState<'request' | 'toggle' | 'test' | null>(null);
+  const [busy, setBusy] = useState<'request' | 'toggle' | 'test' | 'setup' | null>(null);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const hasWhatsappPlan = planHasService(plan, 'whatsapp_ai');
   const status = integration?.status ?? 'not_connected';
   const active = status === 'active';
   const activationRequested = status === 'requested';
+  const submittedWhatsappNumber = integration?.requested_number || (active ? integration?.display_number : '') || '';
+  const canSubmitActivationRequest = !active && !activationRequested && !submittedWhatsappNumber;
+  const showSetupOnboarding = hasWhatsappPlan && Boolean(submittedWhatsappNumber);
+  const setupChecklistKeys = [
+    'whatsappSetupChecklistMetaAccount',
+    'whatsappSetupChecklistPhoneAccess',
+    'whatsappSetupChecklistDisplayName',
+    'whatsappSetupChecklistWebsiteSocial',
+    'whatsappSetupChecklistCurrentApp',
+    'whatsappSetupChecklistApiIntegration',
+  ];
+  const yesNoNotSureOptions = [
+    { value: 'yes', label: t('yes') },
+    { value: 'no', label: t('no') },
+    { value: 'not_sure', label: t('notSure') },
+  ];
+  const yesNoOptions = [
+    { value: 'yes', label: t('yes') },
+    { value: 'no', label: t('no') },
+  ];
+  const meetingTypeOptions = [
+    { value: 'video_call', label: t('whatsappSetupVideoCall') },
+    { value: 'phone_call', label: t('whatsappSetupPhoneCall') },
+  ];
+  const availabilityPeriodOptions: Array<{ value: WhatsappAvailabilityPeriod; label: string }> = [
+    { value: 'morning', label: t('whatsappAvailabilityMorning') },
+    { value: 'afternoon', label: t('whatsappAvailabilityAfternoon') },
+    { value: 'evening', label: t('whatsappAvailabilityEvening') },
+  ];
 
   useEffect(() => {
     setIntegration(salon.whatsapp_integration ?? null);
     setAiEnabled(Boolean(salon.whatsapp_integration?.ai_enabled));
     setRequestedNumber(salon.whatsapp_integration?.requested_number ?? salon.business_phone ?? '');
-  }, [salon.whatsapp_integration, salon.business_phone]);
+    setSetupForm((current) => ({
+      ...current,
+      business_name: current.business_name || salon.name || '',
+      contact_person: current.contact_person || auth.user?.name || '',
+      contact_email: current.contact_email || auth.user?.email || salon.notification_email || '',
+      contact_phone: current.contact_phone || salon.business_phone || '',
+      requested_whatsapp_number: salon.whatsapp_integration?.requested_number || salon.whatsapp_integration?.display_number || current.requested_whatsapp_number || salon.business_phone || '',
+      whatsapp_display_name: current.whatsapp_display_name || salon.name || '',
+      website_or_social_link: current.website_or_social_link || salon.website || '',
+    }));
+  }, [salon.whatsapp_integration, salon.business_phone, salon.name, salon.notification_email, salon.website, auth.user]);
+
+  function updateSetupForm<K extends keyof WhatsappSetupRequestForm>(key: K, value: WhatsappSetupRequestForm[K]) {
+    setSetupForm((current) => ({ ...current, [key]: value }));
+    setSetupErrors((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  }
+
+  function preferredAvailabilityValue(dates: string[], periods: WhatsappAvailabilityPeriod[]) {
+    const dateText = dates.length > 0 ? dates.join(', ') : '';
+    const periodText = periods.map((period) => availabilityPeriodOptions.find((option) => option.value === period)?.label ?? period).join(', ');
+
+    return [dateText ? `${t('whatsappAvailabilityDates')}: ${dateText}` : '', periodText ? `${t('whatsappAvailabilityPeriods')}: ${periodText}` : '']
+      .filter(Boolean)
+      .join(' | ');
+  }
+
+  function setPreferredAvailability(dates: string[], periods: WhatsappAvailabilityPeriod[]) {
+    updateSetupForm('preferred_availability', preferredAvailabilityValue(dates, periods));
+  }
+
+  function addAvailabilityDate() {
+    if (!availabilityDate || availabilityDates.includes(availabilityDate)) {
+      return;
+    }
+
+    const nextDates = [...availabilityDates, availabilityDate].sort();
+    setAvailabilityDates(nextDates);
+    setAvailabilityDate('');
+    setPreferredAvailability(nextDates, availabilityPeriods);
+  }
+
+  function removeAvailabilityDate(date: string) {
+    const nextDates = availabilityDates.filter((value) => value !== date);
+    setAvailabilityDates(nextDates);
+    setPreferredAvailability(nextDates, availabilityPeriods);
+  }
+
+  function toggleAvailabilityPeriod(period: WhatsappAvailabilityPeriod, checked: boolean) {
+    const nextPeriods = checked
+      ? Array.from(new Set([...availabilityPeriods, period]))
+      : availabilityPeriods.filter((value) => value !== period);
+
+    setAvailabilityPeriods(nextPeriods);
+    setPreferredAvailability(availabilityDates, nextPeriods);
+  }
 
   async function requestActivation() {
     setBusy('request');
@@ -5112,7 +5236,12 @@ function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
         throw new Error(jsonErrorMessage(data, t('whatsappActivationRequestFailed')));
       }
 
-      setIntegration(data.integration ?? null);
+      const nextIntegration = data.integration ?? null;
+      setIntegration(nextIntegration);
+      setSetupForm((current) => ({
+        ...current,
+        requested_whatsapp_number: nextIntegration?.requested_number || requestedNumber,
+      }));
       setNotice(t('whatsappActivationRequestedMessage'));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t('whatsappActivationRequestFailed'));
@@ -5183,6 +5312,47 @@ function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
     }
   }
 
+  async function submitSetupRequest() {
+    setBusy('setup');
+    setNotice('');
+    setError('');
+    setSetupErrors({});
+    const submitDates = availabilityDate && !availabilityDates.includes(availabilityDate)
+      ? [...availabilityDates, availabilityDate].sort()
+      : availabilityDates;
+    const submitAvailability = preferredAvailabilityValue(submitDates, availabilityPeriods);
+    const setupPayload = {
+      ...setupForm,
+      preferred_availability: submitAvailability,
+    };
+
+    try {
+      const response = await fetch('/dashboard/whatsapp/setup-request', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          ...csrfHeaders(),
+        },
+        body: JSON.stringify(setupPayload),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const payload = data as { errors?: Record<string, string[]> };
+        setSetupErrors(Object.fromEntries(Object.entries(payload.errors ?? {}).map(([field, messages]) => [field, messages[0] ?? t('whatsappSetupRequestFailed')])));
+        throw new Error(jsonErrorMessage(data, t('whatsappSetupRequestFailed')));
+      }
+
+      setNotice(t('whatsappSetupRequestSent'));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t('whatsappSetupRequestFailed'));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Card className="p-6">
@@ -5224,24 +5394,187 @@ function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
                 </div>
               )}
 
+              <div>
+                <h3 className="text-base font-bold app-text">{t('whatsappStepOneTitle')}</h3>
+                <p className="mt-1 text-sm app-text-muted">{t('whatsappStepOneHelp')}</p>
+              </div>
+
               <Field label={t('whatsappBusinessNumber')}>
                 <Input
                   value={requestedNumber}
                   onChange={(event) => setRequestedNumber(event.target.value)}
                   placeholder="+407xxxxxxxx"
-                  disabled={active || activationRequested}
+                  disabled={!canSubmitActivationRequest}
                 />
               </Field>
 
               <div className="flex flex-wrap items-center gap-3">
-                <Button type="button" onClick={requestActivation} disabled={busy !== null || active || activationRequested || requestedNumber.trim() === ''}>
+                <Button type="button" onClick={requestActivation} disabled={busy !== null || !canSubmitActivationRequest || requestedNumber.trim() === ''}>
                   <Smartphone className="h-4 w-4" />
                   {busy === 'request' ? t('saving') : t('requestWhatsappActivation')}
                 </Button>
-                {!active && (
-                  <p className="max-w-xl text-sm app-text-muted">{t(activationRequested ? 'whatsappActivationRequestedHelp' : 'whatsappSetupUnderReview')}</p>
+                {!showSetupOnboarding && !active && (
+                  <p className="max-w-xl text-sm app-text-muted">{t('whatsappSetupUnderReview')}</p>
                 )}
               </div>
+
+              {showSetupOnboarding && (
+                <div className="space-y-5 rounded-lg border p-4 app-border app-panel-soft">
+                  <div>
+                    <h3 className="text-base font-bold app-text">{t('whatsappSetupNextTitle')}</h3>
+                    <p className="mt-2 text-sm leading-6 app-text-muted">{t('whatsappSetupNextCopy')}</p>
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-bold app-text">{t('whatsappSetupChecklistTitle')}</h4>
+                    <ul className="mt-3 space-y-2 text-sm app-text-muted">
+                      {setupChecklistKeys.map((key) => (
+                        <li key={key} className="flex gap-2">
+                          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                          <span>{t(key)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-900">
+                    {t('whatsappSetupCallExplanation')}
+                  </p>
+
+                  <div className="space-y-4">
+                    <h4 className="text-base font-bold app-text">{t('whatsappSetupRequestTitle')}</h4>
+                    <div className="rounded-lg border px-4 py-3 text-sm app-border app-panel">
+                      <span className="font-semibold app-text">{t('whatsappSetupRequestedNumber')}: </span>
+                      <span className="app-text-muted">{setupForm.requested_whatsapp_number || submittedWhatsappNumber}</span>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Field label={t('whatsappSetupBusinessName')} error={setupErrors.business_name}>
+                        <Input value={setupForm.business_name} onChange={(event) => updateSetupForm('business_name', event.target.value)} />
+                      </Field>
+                      <Field label={t('whatsappSetupContactPerson')} error={setupErrors.contact_person}>
+                        <Input value={setupForm.contact_person} onChange={(event) => updateSetupForm('contact_person', event.target.value)} />
+                      </Field>
+                      <Field label={t('whatsappSetupContactEmail')} error={setupErrors.contact_email}>
+                        <Input type="email" value={setupForm.contact_email} onChange={(event) => updateSetupForm('contact_email', event.target.value)} />
+                      </Field>
+                      <Field label={t('whatsappSetupContactPhone')} error={setupErrors.contact_phone}>
+                        <Input value={setupForm.contact_phone} onChange={(event) => updateSetupForm('contact_phone', event.target.value)} />
+                      </Field>
+                      <Field label={t('whatsappSetupDisplayName')} error={setupErrors.whatsapp_display_name}>
+                        <Input value={setupForm.whatsapp_display_name} onChange={(event) => updateSetupForm('whatsapp_display_name', event.target.value)} />
+                      </Field>
+                      <Field label={t('whatsappSetupWebsiteSocial')} error={setupErrors.website_or_social_link}>
+                        <Input value={setupForm.website_or_social_link} onChange={(event) => updateSetupForm('website_or_social_link', event.target.value)} />
+                      </Field>
+                      <Field label={t('whatsappSetupMetaAccount')} error={setupErrors.has_meta_business_account}>
+                        <div className="flex flex-wrap gap-3">
+                          {yesNoNotSureOptions.map((option) => (
+                            <label key={option.value} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm app-border app-panel">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                checked={setupForm.has_meta_business_account === option.value}
+                                onChange={(event) => updateSetupForm('has_meta_business_account', event.target.checked ? option.value as WhatsappSetupRequestForm['has_meta_business_account'] : '')}
+                              />
+                              <span className="app-text-soft">{option.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </Field>
+                      <Field label={t('whatsappSetupNumberInApp')} error={setupErrors.number_currently_used_on_whatsapp_app}>
+                        <div className="flex flex-wrap gap-3">
+                          {yesNoNotSureOptions.map((option) => (
+                            <label key={option.value} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm app-border app-panel">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                checked={setupForm.number_currently_used_on_whatsapp_app === option.value}
+                                onChange={(event) => updateSetupForm('number_currently_used_on_whatsapp_app', event.target.checked ? option.value as WhatsappSetupRequestForm['number_currently_used_on_whatsapp_app'] : '')}
+                              />
+                              <span className="app-text-soft">{option.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </Field>
+                      <Field label={t('whatsappSetupCanReceiveSmsCall')} error={setupErrors.can_receive_sms_or_call}>
+                        <div className="flex flex-wrap gap-3">
+                          {yesNoOptions.map((option) => (
+                            <label key={option.value} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm app-border app-panel">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                checked={setupForm.can_receive_sms_or_call === option.value}
+                                onChange={(event) => updateSetupForm('can_receive_sms_or_call', event.target.checked ? option.value as WhatsappSetupRequestForm['can_receive_sms_or_call'] : '')}
+                              />
+                              <span className="app-text-soft">{option.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </Field>
+                      <Field label={t('whatsappSetupMeetingType')} error={setupErrors.preferred_meeting_type}>
+                        <div className="flex flex-wrap gap-3">
+                          {meetingTypeOptions.map((option) => (
+                            <label key={option.value} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm app-border app-panel">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                checked={setupForm.preferred_meeting_type === option.value}
+                                onChange={(event) => updateSetupForm('preferred_meeting_type', event.target.checked ? option.value as WhatsappSetupRequestForm['preferred_meeting_type'] : '')}
+                              />
+                              <span className="app-text-soft">{option.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </Field>
+                    </div>
+                    <div className="space-y-3">
+                      <Field label={t('whatsappSetupAvailabilityDates')} error={setupErrors.preferred_availability}>
+                        <div className="flex flex-col gap-3 sm:flex-row">
+                          <Input type="date" value={availabilityDate} onChange={(event) => setAvailabilityDate(event.target.value)} />
+                          <SecondaryButton type="button" onClick={addAvailabilityDate} disabled={!availabilityDate}>
+                            <Plus className="h-4 w-4" />
+                            {t('whatsappSetupAddDate')}
+                          </SecondaryButton>
+                        </div>
+                      </Field>
+                      {availabilityDates.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {availabilityDates.map((date) => (
+                            <span key={date} className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm app-border app-panel">
+                              <span className="app-text-soft">{date}</span>
+                              <button type="button" className="text-slate-500 hover:text-red-600" onClick={() => removeAvailabilityDate(date)} aria-label={t('remove')}>
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <Field label={t('whatsappSetupAvailabilityPeriods')}>
+                        <div className="flex flex-wrap gap-3">
+                          {availabilityPeriodOptions.map((option) => (
+                            <label key={option.value} className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm app-border app-panel">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                checked={availabilityPeriods.includes(option.value)}
+                                onChange={(event) => toggleAvailabilityPeriod(option.value, event.target.checked)}
+                              />
+                              <span className="app-text-soft">{option.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </Field>
+                    </div>
+                    <Field label={t('whatsappSetupNotes')} error={setupErrors.notes}>
+                      <textarea className="min-h-24 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm app-panel app-text" value={setupForm.notes} onChange={(event) => updateSetupForm('notes', event.target.value)} />
+                    </Field>
+                    <Button type="button" onClick={submitSetupRequest} disabled={busy !== null}>
+                      <Calendar className="h-4 w-4" />
+                      {busy === 'setup' ? t('saving') : t('whatsappSetupSubmit')}
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               <div className="rounded-lg border p-4 app-border app-panel-soft">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

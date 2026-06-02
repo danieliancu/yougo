@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\WhatsappSetupRequestMail;
 use App\Models\Conversation;
 use App\Models\Salon;
 use App\Models\WhatsappIntegration;
@@ -10,6 +11,7 @@ use App\Services\WhatsApp\WhatsAppConversationService;
 use App\Support\YouGoServices;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
 class WhatsappSettingsController extends Controller
@@ -64,6 +66,64 @@ class WhatsappSettingsController extends Controller
 
         return response()->json([
             'integration' => $this->serializeIntegration($integration->refresh()),
+        ]);
+    }
+
+    public function setupRequest(Request $request): JsonResponse
+    {
+        $salon = $this->salon($request);
+        $this->ensureWhatsappPlan($salon);
+
+        $data = $request->validate([
+            'business_name' => ['nullable', 'string', 'max:255'],
+            'contact_person' => ['required', 'string', 'max:255'],
+            'contact_email' => ['required', 'email', 'max:255'],
+            'contact_phone' => ['required', 'string', 'max:80'],
+            'requested_whatsapp_number' => ['required', 'string', 'max:80'],
+            'whatsapp_display_name' => ['nullable', 'string', 'max:255'],
+            'website_or_social_link' => ['nullable', 'string', 'max:500'],
+            'has_meta_business_account' => ['nullable', 'in:yes,no,not_sure'],
+            'number_currently_used_on_whatsapp_app' => ['nullable', 'in:yes,no,not_sure'],
+            'can_receive_sms_or_call' => ['nullable', 'in:yes,no'],
+            'preferred_meeting_type' => ['required', 'in:video_call,phone_call'],
+            'preferred_availability' => ['required', 'string', 'max:1000'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+            'username' => ['prohibited'],
+            'password' => ['prohibited'],
+            'facebook_password' => ['prohibited'],
+            'meta_password' => ['prohibited'],
+            'two_factor_code' => ['prohibited'],
+            '2fa_code' => ['prohibited'],
+        ]);
+
+        $form = [
+            'business_name' => $data['business_name'] ?? $salon->name,
+            'contact_person' => $data['contact_person'],
+            'contact_email' => $data['contact_email'],
+            'contact_phone' => $data['contact_phone'],
+            'requested_whatsapp_number' => $data['requested_whatsapp_number'],
+            'whatsapp_display_name' => $data['whatsapp_display_name'] ?? '',
+            'website_or_social_link' => $data['website_or_social_link'] ?? '',
+            'has_meta_business_account' => $data['has_meta_business_account'] ?? '',
+            'number_currently_used_on_whatsapp_app' => $data['number_currently_used_on_whatsapp_app'] ?? '',
+            'can_receive_sms_or_call' => $data['can_receive_sms_or_call'] ?? '',
+            'preferred_meeting_type' => $data['preferred_meeting_type'],
+            'preferred_availability' => $data['preferred_availability'],
+            'notes' => $data['notes'] ?? '',
+        ];
+
+        Mail::to(config('mail.whatsapp_setup_request_to'))->send(
+            new WhatsappSetupRequestMail(
+                salon: $salon,
+                user: $request->user(),
+                form: $form,
+                integration: $salon->whatsappIntegration,
+            ),
+        );
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'whatsapp_setup_request_sent',
         ]);
     }
 

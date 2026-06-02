@@ -90,6 +90,8 @@ Route::middleware('auth')->group(function () {
     Route::put('/widget-settings', [WidgetController::class, 'updateSettings'])->name('widget-settings.update');
     Route::post('/dashboard/whatsapp/request-activation', [WhatsappSettingsController::class, 'requestActivation'])
         ->name('dashboard.whatsapp.request-activation');
+    Route::post('/dashboard/whatsapp/setup-request', [WhatsappSettingsController::class, 'setupRequest'])
+        ->name('dashboard.whatsapp.setup-request');
     Route::patch('/dashboard/whatsapp/toggle', [WhatsappSettingsController::class, 'toggle'])
         ->name('dashboard.whatsapp.toggle');
     Route::post('/dashboard/whatsapp/test-message', [WhatsappSettingsController::class, 'testMessage'])

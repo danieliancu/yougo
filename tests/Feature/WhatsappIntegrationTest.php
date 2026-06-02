@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Jobs\ProcessWhatsAppInboundMessage;
 use App\Mail\BookingCancelledByCustomerMail;
 use App\Mail\NewAiBookingMail;
+use App\Mail\WhatsappSetupRequestMail;
 use App\Models\ConversationMessage;
 use App\Models\Salon;
 use App\Models\User;
@@ -100,6 +101,86 @@ class WhatsappIntegrationTest extends TestCase
             ->assertJsonValidationErrors('requested_number');
 
         $this->assertNull($salon->refresh()->whatsappIntegration);
+    }
+
+    public function test_setup_request_requires_auth(): void
+    {
+        $this->postJson('/dashboard/whatsapp/setup-request', $this->validWhatsappSetupRequest())
+            ->assertUnauthorized();
+    }
+
+    public function test_setup_request_validates_required_fields(): void
+    {
+        [, $user] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+
+        $this->actingAs($user)
+            ->postJson('/dashboard/whatsapp/setup-request', [])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'contact_person',
+                'contact_email',
+                'contact_phone',
+                'requested_whatsapp_number',
+                'preferred_meeting_type',
+                'preferred_availability',
+            ]);
+    }
+
+    public function test_authenticated_user_can_submit_setup_request_email_without_changing_integration(): void
+    {
+        Mail::fake();
+        config(['mail.whatsapp_setup_request_to' => 'dani.iancu@yahoo.com']);
+
+        [$salon, $user] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $integration = $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'requested',
+            'requested_number' => '+40711111111',
+            'requested_at' => now(),
+        ]);
+
+        $payload = $this->validWhatsappSetupRequest([
+            'business_name' => 'YouGo Studio',
+            'requested_whatsapp_number' => '+40711111111',
+            'preferred_meeting_type' => 'video_call',
+        ]);
+
+        $this->actingAs($user)
+            ->postJson('/dashboard/whatsapp/setup-request', $payload)
+            ->assertOk()
+            ->assertJsonPath('message', 'whatsapp_setup_request_sent');
+
+        $integration->refresh();
+        $this->assertSame('requested', $integration->status);
+        $this->assertNull($integration->twilio_sender);
+        $this->assertNull($integration->activated_at);
+
+        Mail::assertSent(WhatsappSetupRequestMail::class, function (WhatsappSetupRequestMail $mail) use ($payload, $salon, $user) {
+            return $mail->hasTo('dani.iancu@yahoo.com')
+                && $mail->salon->is($salon)
+                && $mail->user?->is($user)
+                && $mail->form['requested_whatsapp_number'] === $payload['requested_whatsapp_number']
+                && $mail->form['preferred_meeting_type'] === 'video_call'
+                && ! array_key_exists('password', $mail->form)
+                && ! array_key_exists('two_factor_code', $mail->form);
+        });
+    }
+
+    public function test_setup_request_rejects_sensitive_login_fields(): void
+    {
+        Mail::fake();
+        [, $user] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+
+        $this->actingAs($user)
+            ->postJson('/dashboard/whatsapp/setup-request', [
+                ...$this->validWhatsappSetupRequest(),
+                'password' => 'secret',
+                'two_factor_code' => '123456',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['password', 'two_factor_code']);
+
+        Mail::assertNothingSent();
     }
 
     public function test_toggle_requires_active_integration_and_whatsapp_plan(): void
@@ -1890,6 +1971,7 @@ class WhatsappIntegrationTest extends TestCase
         foreach ([
             'WhatsAppSettings',
             '/dashboard/whatsapp/request-activation',
+            '/dashboard/whatsapp/setup-request',
             '/dashboard/whatsapp/toggle',
             '/dashboard/whatsapp/test-message',
             'whatsappRequiresUpgrade',
@@ -1897,11 +1979,28 @@ class WhatsappIntegrationTest extends TestCase
             'activationRequested',
             'activated',
             'activationError',
-            'whatsappActivationRequestedHelp',
             'Planul tau nu include WhatsApp AI.',
             'Your plan does not include WhatsApp AI.',
             'Enter your WhatsApp Business number. The YouGo team will configure it and let you know when it is active.',
-            'Your request has been sent. The YouGo team will configure the number.',
+            'Enter your WhatsApp Business number',
+            'Your request has been sent. To continue activation, complete the details below and choose how you prefer to complete the setup: video call or phone call.',
+            'What happens next for WhatsApp AI activation?',
+            'Setup call details',
+            'Send setup details',
+            'We received your setup details. The YouGo team will contact you to arrange the call.',
+            'We will not ask for your Facebook password or authentication codes.',
+            'whatsappSetupVideoCall',
+            'whatsappSetupPhoneCall',
+            'whatsappSetupAvailabilityDates',
+            'whatsappSetupAvailabilityPeriods',
+            'whatsappAvailabilityMorning',
+            'whatsappAvailabilityAfternoon',
+            'whatsappAvailabilityEvening',
+            'type="date"',
+            'availabilityPeriods',
+            'preferred_meeting_type',
+            'video_call',
+            'phone_call',
         ] as $needle) {
             $this->assertStringContainsString($needle, $source.$translations);
         }
@@ -1912,9 +2011,21 @@ class WhatsappIntegrationTest extends TestCase
             'Twilio sender',
             'senderului Twilio',
             'configured in Twilio',
+            'facebook_password',
+            'meta_password',
+            'two_factor_code',
+            '2fa_code',
         ] as $needle) {
-            $this->assertStringNotContainsString($needle, $source.$translations);
+            $this->assertStringNotContainsString($needle, $source);
         }
+
+        $whatsappSettingsSource = substr(
+            $source,
+            strpos($source, 'function WhatsAppSettings('),
+            strpos($source, 'function WhatsappActivationBadge') - strpos($source, 'function WhatsAppSettings('),
+        );
+
+        $this->assertStringNotContainsString('<select', $whatsappSettingsSource);
     }
 
     public function test_dashboard_whatsapp_conversation_ui_source_contains_channel_specific_polish(): void
@@ -2005,6 +2116,25 @@ class WhatsappIntegrationTest extends TestCase
         ], $attributes));
 
         return [$salon, $user];
+    }
+
+    private function validWhatsappSetupRequest(array $overrides = []): array
+    {
+        return array_merge([
+            'business_name' => 'YouGo Studio',
+            'contact_person' => 'Maria Owner',
+            'contact_email' => 'owner@example.com',
+            'contact_phone' => '+40711111111',
+            'requested_whatsapp_number' => '+40722222222',
+            'whatsapp_display_name' => 'YouGo Studio',
+            'website_or_social_link' => 'https://example.com',
+            'has_meta_business_account' => 'yes',
+            'number_currently_used_on_whatsapp_app' => 'not_sure',
+            'can_receive_sms_or_call' => 'yes',
+            'preferred_meeting_type' => 'video_call',
+            'preferred_availability' => 'Tuesday after 14:00',
+            'notes' => 'Prefer English setup call.',
+        ], $overrides);
     }
 
     private function twilioPayload(array $overrides = []): array
