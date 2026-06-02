@@ -87,6 +87,12 @@ class PlatformAdminTest extends TestCase
             'status' => WhatsappIntegration::STATUS_REQUESTED,
             'requested_number' => '+40711111111',
             'requested_at' => now(),
+            'metadata' => [
+                'latest_setup_request' => [
+                    'contact_person' => 'Maria Owner',
+                    'preferred_meeting_type' => 'video_call',
+                ],
+            ],
         ]);
 
         $this->actingAs($admin)
@@ -97,6 +103,25 @@ class PlatformAdminTest extends TestCase
                 ->where('payload.items.0.business_name', 'Belle')
                 ->where('payload.items.0.requested_number', '+40711111111')
                 ->where('payload.items.0.activation_command', "php artisan yougo:whatsapp-activate {$salon->id} whatsapp:+40711111111"));
+    }
+
+    public function test_requested_without_setup_details_does_not_appear_in_onboarding_queue(): void
+    {
+        $admin = User::factory()->create(['is_platform_admin' => true]);
+        $salon = $this->createSalon(['name' => 'No Setup Details']);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => WhatsappIntegration::STATUS_REQUESTED,
+            'requested_number' => '+40711111111',
+            'requested_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->get('/platform-admin/whatsapp-onboarding')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('PlatformAdmin/Index')
+                ->where('payload.items', []));
     }
 
     public function test_setup_request_metadata_is_stored_without_password_or_code_fields(): void

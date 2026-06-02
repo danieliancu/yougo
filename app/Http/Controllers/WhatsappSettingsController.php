@@ -69,7 +69,7 @@ class WhatsappSettingsController extends Controller
         ]);
     }
 
-    public function setupRequest(Request $request): JsonResponse
+    public function setupRequest(Request $request, TwilioWhatsAppService $twilio): JsonResponse
     {
         $salon = $this->salon($request);
         $this->ensureWhatsappPlan($salon);
@@ -79,7 +79,7 @@ class WhatsappSettingsController extends Controller
             'contact_person' => ['required', 'string', 'max:255'],
             'contact_email' => ['required', 'email', 'max:255'],
             'contact_phone' => ['required', 'string', 'max:80'],
-            'requested_whatsapp_number' => ['required', 'string', 'max:80'],
+            'requested_whatsapp_number' => ['required', 'string', 'max:80', 'regex:/^\+?[0-9\s().-]+$/'],
             'whatsapp_display_name' => ['nullable', 'string', 'max:255'],
             'website_or_social_link' => ['nullable', 'string', 'max:500'],
             'has_meta_business_account' => ['nullable', 'in:yes,no,not_sure'],
@@ -96,12 +96,20 @@ class WhatsappSettingsController extends Controller
             '2fa_code' => ['prohibited'],
         ]);
 
+        $requestedWhatsappNumber = $twilio->normalizeInternationalPhoneNumber($data['requested_whatsapp_number']);
+
+        if (! preg_match('/^\+\d{8,15}$/', $requestedWhatsappNumber)) {
+            throw ValidationException::withMessages([
+                'requested_whatsapp_number' => __('Please enter the number in international format, for example +447...'),
+            ]);
+        }
+
         $form = [
             'business_name' => $data['business_name'] ?? $salon->name,
             'contact_person' => $data['contact_person'],
             'contact_email' => $data['contact_email'],
             'contact_phone' => $data['contact_phone'],
-            'requested_whatsapp_number' => $data['requested_whatsapp_number'],
+            'requested_whatsapp_number' => $requestedWhatsappNumber,
             'whatsapp_display_name' => $data['whatsapp_display_name'] ?? '',
             'website_or_social_link' => $data['website_or_social_link'] ?? '',
             'has_meta_business_account' => $data['has_meta_business_account'] ?? '',
@@ -125,6 +133,8 @@ class WhatsappSettingsController extends Controller
         $metadata = $integration->metadata ?? [];
         $integration->forceFill([
             'requested_number' => $integration->requested_number ?: $form['requested_whatsapp_number'],
+            'status' => $integration->status === WhatsappIntegration::STATUS_ACTIVE ? $integration->status : WhatsappIntegration::STATUS_REQUESTED,
+            'requested_at' => $integration->requested_at ?: now(),
             'metadata' => [
                 ...$metadata,
                 'latest_setup_request' => [

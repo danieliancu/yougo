@@ -14,15 +14,16 @@ Phone AI remains planned and is not part of the WhatsApp MVP.
 
 1. The business owner opens Dashboard -> WhatsApp Settings.
 2. They enter their WhatsApp Business number in international format, for example `+407...` or `+447...`.
-3. They click Request activation.
-4. YouGo stores `whatsapp_integrations.requested_number` as a normalized `+...` number, sets `status = requested`, and records `requested_at`.
-5. A YouGo admin configures the WhatsApp sender in Twilio.
-6. The admin manually activates the integration.
-7. Once active, the business owner can toggle WhatsApp AI on or off.
+3. They click Request activation to reveal the setup guidance and setup-call details form.
+4. They submit the setup-call details.
+5. YouGo stores `whatsapp_integrations.requested_number`, sets `status = requested`, records `requested_at`, and saves sanitized setup metadata.
+6. A YouGo admin configures the WhatsApp sender in Twilio.
+7. The admin manually activates the integration.
+8. Once active, the business owner can toggle WhatsApp AI on or off.
 
 After the business requests activation, Dashboard -> WhatsApp Settings explains the guided setup process and lets the business request a setup call. YouGo receives the setup request by email at the configured `MAIL_WHATSAPP_SETUP_REQUEST_TO` address, which defaults to `dani.iancu@yahoo.com`.
 
-The latest sanitized setup request is also visible to promoted operators in Platform Admin under `/platform-admin/whatsapp-onboarding`. Platform Admin can display setup-call details and a copyable manual activation command, but it does not provision Twilio or Meta senders automatically.
+The latest sanitized setup request is also visible to promoted operators in Platform Admin under `/platform-admin/whatsapp-onboarding`. The requested queue only includes businesses that submitted the setup-call details form. Platform Admin can display setup-call details and a copyable manual activation command, but it does not provision Twilio or Meta senders automatically.
 
 Security rules for setup:
 

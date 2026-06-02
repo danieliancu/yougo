@@ -993,7 +993,7 @@ function SettingsPage({ salon }: { salon: Salon }) {
     <form onSubmit={submit} className="-m-5 min-h-[calc(100vh-4rem)] p-5 app-bg lg:-m-8 lg:p-8">
       <div className="space-y-6">
         <SettingsPanel icon={User} title={t('profile')} subtitle={t('profileSubtitle')}>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <DarkField label={t('fullName')} error={form.errors.name}>
               <DarkInput value={form.data.name} onChange={(event) => form.setData('name', event.target.value)} />
             </DarkField>
@@ -1011,7 +1011,7 @@ function SettingsPage({ salon }: { salon: Salon }) {
 
         <SettingsPanel icon={Globe2} title={t('languageRegion')} subtitle={t('languageRegionSubtitle')}>
           <p className="mb-5 text-sm text-sky-300">{t('localizationHelp')}</p>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <DarkField label={t('country')} error={form.errors.country}>
               <DarkSelect value={form.data.country} onChange={(event) => updateCountry(event.target.value)}>
                 {localization.countries.map((country) => (
@@ -1033,18 +1033,20 @@ function SettingsPage({ salon }: { salon: Salon }) {
                 ))}
               </DarkSelect>
             </DarkField>
-            <DarkField label={t('currency')}>
-              <DarkInput value={form.data.currency} disabled />
-            </DarkField>
-            <DarkField label={t('phonePrefix')}>
-              <DarkInput value={form.data.phone_prefix} disabled />
-            </DarkField>
-            <DarkField label={t('displayLanguage')} error={form.errors.display_language}>
-              <DarkSelect value={form.data.display_language} onChange={(event) => form.setData('display_language', event.target.value)}>
-                <option value="ro">RO Romana</option>
-                <option value="en">EN English</option>
-              </DarkSelect>
-            </DarkField>
+            <div className="grid gap-3 sm:grid-cols-3 md:col-span-2 xl:col-span-1">
+              <DarkField label={t('currency')}>
+                <DarkInput value={form.data.currency} disabled />
+              </DarkField>
+              <DarkField label={t('phonePrefix')}>
+                <DarkInput value={form.data.phone_prefix} disabled />
+              </DarkField>
+              <DarkField label={t('displayLanguage')} error={form.errors.display_language}>
+                <DarkSelect value={form.data.display_language} onChange={(event) => form.setData('display_language', event.target.value)}>
+                  <option value="ro">RO</option>
+                  <option value="en">EN</option>
+                </DarkSelect>
+              </DarkField>
+            </div>
           </div>
         </SettingsPanel>
 
@@ -1073,7 +1075,7 @@ function SettingsPage({ salon }: { salon: Salon }) {
             <p className="mt-2 text-xs text-sky-300">{t('logoHint')}</p>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <DarkField label={t('businessName')} error={form.errors.business_name}>
               <DarkInput value={form.data.business_name} onChange={(event) => form.setData('business_name', event.target.value)} />
             </DarkField>
@@ -1109,16 +1111,16 @@ function SettingsPage({ salon }: { salon: Salon }) {
             <DarkInput value={form.data.notification_email} onChange={(event) => form.setData('notification_email', event.target.value)} placeholder={t('notificationEmailPlaceholder')} />
           </DarkField>
           <p className="mt-2 text-sm text-sky-300">{t('notificationEmailHelp')}</p>
-          <div className="mt-7 divide-y divide-slate-800">
-            <div className="py-4">
-              <p className="font-medium app-text">{t('emailNotificationsTitle')}</p>
-              <p className="mt-0.5 text-sm app-text-muted">{t('emailNotificationsDescription')}</p>
-              <div className="mt-3 divide-y divide-slate-800/60">
-                <ToggleRow title={t('newBookingEmailsTitle')} subtitle={t('newBookingEmailsDescription')} checked={form.data.booking_confirmations} onChange={(checked) => form.setData('booking_confirmations', checked)} disabled={!paidEmailSettingsAvailable} helper={!paidEmailSettingsAvailable ? t('availableOnPaidPlans') : undefined} />
-                <ToggleRow title={t('bookingStatusEmailsTitle')} subtitle={t('bookingStatusEmailsDescription')} checked={form.data.booking_status_email_notifications} onChange={(checked) => form.setData('booking_status_email_notifications', checked)} disabled={!paidEmailSettingsAvailable} helper={!paidEmailSettingsAvailable ? t('availableOnPaidPlans') : undefined} />
-              </div>
+          <div className="mt-7 grid gap-4 lg:grid-cols-3">
+            <div className="rounded-lg border border-slate-800/70 px-4 app-panel-soft">
+              <ToggleRow title={t('newBookingEmailsTitle')} subtitle={t('newBookingEmailsDescription')} checked={form.data.booking_confirmations} onChange={(checked) => form.setData('booking_confirmations', checked)} disabled={!paidEmailSettingsAvailable} helper={!paidEmailSettingsAvailable ? t('availableOnPaidPlans') : undefined} />
             </div>
-            <ToggleRow title={t('missedCallAlerts')} subtitle={t('missedCallAlertsHelp')} checked={form.data.missed_call_alerts} onChange={(checked) => form.setData('missed_call_alerts', checked)} disabled={!missedCallAlertsAvailable} helper={!missedCallAlertsAvailable ? t('availableWithPhoneAi') : undefined} />
+            <div className="rounded-lg border border-slate-800/70 px-4 app-panel-soft">
+              <ToggleRow title={t('bookingStatusEmailsTitle')} subtitle={t('bookingStatusEmailsDescription')} checked={form.data.booking_status_email_notifications} onChange={(checked) => form.setData('booking_status_email_notifications', checked)} disabled={!paidEmailSettingsAvailable} helper={!paidEmailSettingsAvailable ? t('availableOnPaidPlans') : undefined} />
+            </div>
+            <div className="rounded-lg border border-slate-800/70 px-4 app-panel-soft">
+              <ToggleRow title={t('missedCallAlerts')} subtitle={t('missedCallAlertsHelp')} checked={form.data.missed_call_alerts} onChange={(checked) => form.setData('missed_call_alerts', checked)} disabled={!missedCallAlertsAvailable} helper={!missedCallAlertsAvailable ? t('availableWithPhoneAi') : undefined} />
+            </div>
           </div>
         </SettingsPanel>
 
@@ -1289,15 +1291,29 @@ function PlanServicesOverview({ services, currentPlan, whatsappIntegration }: { 
             subtitle={t(service.subtitle_key)}
             productStatus={serviceStatusLabel(service, t)}
             entitlementStatus={serviceEntitlementLabel(service, currentPlan, t)}
-            activationStatus={service.key === 'whatsapp_ai' ? whatsappActivationStateLabel(currentPlan, whatsappIntegration, t) : undefined}
+            activationStatus={service.key === 'whatsapp_ai' ? whatsappBillingActivationLabel(currentPlan, whatsappIntegration, t) : undefined}
             productTone={service.implementation_status === 'live' ? 'active' : 'planned'}
             entitlementTone={planHasService(currentPlan, service.key) ? 'active' : 'upgrade'}
-            activationTone={service.key === 'whatsapp_ai' ? whatsappActivationStateTone(currentPlan, whatsappIntegration) : undefined}
+            activationTone={service.key === 'whatsapp_ai' ? whatsappBillingActivationTone(currentPlan, whatsappIntegration) : undefined}
           />
         ))}
       </div>
     </Card>
   );
+}
+
+function whatsappBillingActivationLabel(plan: Plan | undefined | null, integration: WhatsappIntegration | undefined | null, t: TranslateFn) {
+  if (!planHasService(plan, 'whatsapp_ai')) return t('requiresActivation');
+  if (integration?.status === 'active') return t('available');
+
+  return t('requiresActivation');
+}
+
+function whatsappBillingActivationTone(plan: Plan | undefined | null, integration: WhatsappIntegration | undefined | null): 'active' | 'upgrade' | 'planned' | 'error' | 'neutral' {
+  if (!planHasService(plan, 'whatsapp_ai')) return 'upgrade';
+  if (integration?.status === 'active') return 'active';
+
+  return 'upgrade';
 }
 
 function whatsappActivationStateLabel(plan: Plan | undefined | null, integration: WhatsappIntegration | undefined | null, t: TranslateFn) {
@@ -5119,6 +5135,7 @@ function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
   const { auth } = usePage<Props>().props;
   const [integration, setIntegration] = useState<WhatsappIntegration | null>(salon.whatsapp_integration ?? null);
   const [requestedNumber, setRequestedNumber] = useState(integration?.requested_number ?? salon.business_phone ?? '');
+  const [localSubmittedWhatsappNumber, setLocalSubmittedWhatsappNumber] = useState(integration?.requested_number || (integration?.status === 'active' ? integration?.display_number : '') || '');
   const [setupForm, setSetupForm] = useState<WhatsappSetupRequestForm>({
     business_name: salon.name ?? '',
     contact_person: auth.user?.name ?? '',
@@ -5148,7 +5165,7 @@ function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
   const status = integration?.status ?? 'not_connected';
   const active = status === 'active';
   const activationRequested = status === 'requested';
-  const submittedWhatsappNumber = integration?.requested_number || (active ? integration?.display_number : '') || '';
+  const submittedWhatsappNumber = integration?.requested_number || (active ? integration?.display_number : '') || localSubmittedWhatsappNumber;
   const canSubmitActivationRequest = !active && !activationRequested && !submittedWhatsappNumber;
   const showSetupOnboarding = hasWhatsappPlan && Boolean(submittedWhatsappNumber);
   const setupChecklistKeys = [
@@ -5182,6 +5199,9 @@ function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
     setIntegration(salon.whatsapp_integration ?? null);
     setAiEnabled(Boolean(salon.whatsapp_integration?.ai_enabled));
     setRequestedNumber(salon.whatsapp_integration?.requested_number ?? salon.business_phone ?? '');
+    if (salon.whatsapp_integration?.requested_number || salon.whatsapp_integration?.display_number) {
+      setLocalSubmittedWhatsappNumber(salon.whatsapp_integration.requested_number || salon.whatsapp_integration.display_number || '');
+    }
     setSetupForm((current) => ({
       ...current,
       business_name: current.business_name || salon.name || '',
@@ -5248,27 +5268,15 @@ function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
     setError('');
 
     try {
-      const response = await fetch('/dashboard/whatsapp/request-activation', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          ...csrfHeaders(),
-        },
-        body: JSON.stringify({ requested_number: requestedNumber }),
-      });
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(jsonErrorMessage(data, t('whatsappActivationRequestFailed')));
+      const nextRequestedNumber = requestedNumber.trim();
+      if (!nextRequestedNumber) {
+        throw new Error(t('whatsappActivationRequestFailed'));
       }
 
-      const nextIntegration = data.integration ?? null;
-      setIntegration(nextIntegration);
+      setLocalSubmittedWhatsappNumber(nextRequestedNumber);
       setSetupForm((current) => ({
         ...current,
-        requested_whatsapp_number: nextIntegration?.requested_number || requestedNumber,
+        requested_whatsapp_number: nextRequestedNumber,
       }));
       setNotice(t('whatsappActivationRequestedMessage'));
     } catch (caught) {

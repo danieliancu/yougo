@@ -1970,7 +1970,6 @@ class WhatsappIntegrationTest extends TestCase
 
         foreach ([
             'WhatsAppSettings',
-            '/dashboard/whatsapp/request-activation',
             '/dashboard/whatsapp/setup-request',
             '/dashboard/whatsapp/toggle',
             '/dashboard/whatsapp/test-message',
@@ -1983,7 +1982,7 @@ class WhatsappIntegrationTest extends TestCase
             'Your plan does not include WhatsApp AI.',
             'Enter your WhatsApp Business number. The YouGo team will configure it and let you know when it is active.',
             'Enter your WhatsApp Business number',
-            'Your request has been sent. To continue activation, complete the details below and choose how you prefer to complete the setup: video call or phone call.',
+            'To continue activation, complete the details below and choose how you prefer to complete the setup: video call or phone call.',
             'What happens next for WhatsApp AI activation?',
             'Setup call details',
             'Send setup details',
@@ -2015,6 +2014,7 @@ class WhatsappIntegrationTest extends TestCase
             'meta_password',
             'two_factor_code',
             '2fa_code',
+            '/dashboard/whatsapp/request-activation',
         ] as $needle) {
             $this->assertStringNotContainsString($needle, $source);
         }

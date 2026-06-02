@@ -137,7 +137,11 @@ class PlatformAdminService
 
         return [
             'status' => $status ?: WhatsappIntegration::STATUS_REQUESTED,
-            'items' => $query->limit(100)->get()->map(fn (WhatsappIntegration $integration) => $this->onboardingRow($integration))->values(),
+            'items' => $query->limit(200)->get()
+                ->filter(fn (WhatsappIntegration $integration) => $this->shouldShowInOnboardingStatus($integration, $status ?: WhatsappIntegration::STATUS_REQUESTED))
+                ->take(100)
+                ->map(fn (WhatsappIntegration $integration) => $this->onboardingRow($integration))
+                ->values(),
         ];
     }
 
@@ -173,8 +177,10 @@ class PlatformAdminService
             'whatsapp_requested' => WhatsappIntegration::query()
                 ->with(['salon.user'])
                 ->where('status', WhatsappIntegration::STATUS_REQUESTED)
-                ->limit(50)
+                ->limit(100)
                 ->get()
+                ->filter(fn (WhatsappIntegration $integration) => $this->hasSetupRequest($integration))
+                ->take(50)
                 ->map(fn (WhatsappIntegration $integration) => $this->onboardingRow($integration))
                 ->values(),
             'active_ai_disabled' => WhatsappIntegration::query()
@@ -226,6 +232,20 @@ class PlatformAdminService
                 'ai_enabled' => (bool) $salon->whatsappIntegration?->ai_enabled,
             ],
         ];
+    }
+
+    private function shouldShowInOnboardingStatus(WhatsappIntegration $integration, ?string $status): bool
+    {
+        if (($status ?: WhatsappIntegration::STATUS_REQUESTED) !== WhatsappIntegration::STATUS_REQUESTED) {
+            return true;
+        }
+
+        return $this->hasSetupRequest($integration);
+    }
+
+    private function hasSetupRequest(WhatsappIntegration $integration): bool
+    {
+        return filled($integration->metadata['latest_setup_request'] ?? null);
     }
 
     private function onboardingRow(WhatsappIntegration $integration): array

@@ -47,6 +47,8 @@ Passwords, Meta/Facebook credentials, authentication codes, and two-factor codes
 
 ## WhatsApp Activation
 
+The WhatsApp Onboarding requested queue includes integrations only after the business submits the setup-call details form. Clicking the first dashboard activation button only reveals setup guidance and does not create an admin queue item.
+
 Platform Admin generates the manual activation command from the requested number when possible:
 
 ```bash
