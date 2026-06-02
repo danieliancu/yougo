@@ -76,19 +76,9 @@ Etapa 2 — Delivery status callbacks
 
 
 
-
-
-
-
-
-
-
-
-
 - schimbari de design in settings (pregatit in studio)
 
 - pregatire un admin dashboard in care sa fiu informat cu tot ce se intampla (pregatit in openai)
-
 
 
 - sistemul funcționează corect, dar experiența arată că trebuie să educăm businessul să confirme programările în dashboard după ce le confirmă telefonic.

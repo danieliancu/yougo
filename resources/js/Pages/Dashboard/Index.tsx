@@ -1224,6 +1224,7 @@ function IntegrationRow({
   productStatus,
   entitlementStatus,
   activationStatus,
+  activationHref,
   productTone,
   entitlementTone,
   activationTone,
@@ -1234,6 +1235,7 @@ function IntegrationRow({
   productStatus: string;
   entitlementStatus: string;
   activationStatus?: string;
+  activationHref?: string;
   productTone: 'active' | 'planned';
   entitlementTone: 'active' | 'upgrade';
   activationTone?: 'active' | 'upgrade' | 'planned' | 'error' | 'neutral';
@@ -1260,7 +1262,13 @@ function IntegrationRow({
       <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
         <span className={`rounded-md px-3 py-1 text-xs font-bold ${badgeClass(productTone)}`}>{productStatus}</span>
         <span className={`rounded-md px-3 py-1 text-xs font-bold ${badgeClass(entitlementTone)}`}>{entitlementStatus}</span>
-        {activationStatus && <span className={`rounded-md px-3 py-1 text-xs font-bold ${badgeClass(activationTone ?? 'neutral')}`}>{activationStatus}</span>}
+        {activationStatus && activationHref ? (
+          <Link href={activationHref} className={`rounded-md px-3 py-1 text-xs font-bold transition hover:opacity-85 ${badgeClass(activationTone ?? 'neutral')}`}>
+            {activationStatus}
+          </Link>
+        ) : activationStatus ? (
+          <span className={`rounded-md px-3 py-1 text-xs font-bold ${badgeClass(activationTone ?? 'neutral')}`}>{activationStatus}</span>
+        ) : null}
       </div>
     </div>
   );
@@ -1292,6 +1300,7 @@ function PlanServicesOverview({ services, currentPlan, whatsappIntegration }: { 
             productStatus={serviceStatusLabel(service, t)}
             entitlementStatus={serviceEntitlementLabel(service, currentPlan, t)}
             activationStatus={service.key === 'whatsapp_ai' ? whatsappBillingActivationLabel(currentPlan, whatsappIntegration, t) : undefined}
+            activationHref={service.key === 'whatsapp_ai' ? '/dashboard/whatsapp' : undefined}
             productTone={service.implementation_status === 'live' ? 'active' : 'planned'}
             entitlementTone={planHasService(currentPlan, service.key) ? 'active' : 'upgrade'}
             activationTone={service.key === 'whatsapp_ai' ? whatsappBillingActivationTone(currentPlan, whatsappIntegration) : undefined}
@@ -5160,6 +5169,7 @@ function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
   const [testMessage, setTestMessage] = useState(t('whatsappDefaultTestMessage'));
   const [busy, setBusy] = useState<'request' | 'toggle' | 'test' | 'setup' | null>(null);
   const [notice, setNotice] = useState('');
+  const [setupNotice, setSetupNotice] = useState('');
   const [error, setError] = useState('');
   const hasWhatsappPlan = planHasService(plan, 'whatsapp_ai');
   const status = integration?.status ?? 'not_connected';
@@ -5265,6 +5275,7 @@ function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
   async function requestActivation() {
     setBusy('request');
     setNotice('');
+    setSetupNotice('');
     setError('');
 
     try {
@@ -5289,6 +5300,7 @@ function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
   async function toggleAi(next: boolean) {
     setBusy('toggle');
     setNotice('');
+    setSetupNotice('');
     setError('');
 
     try {
@@ -5321,6 +5333,7 @@ function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
   async function sendTestMessage() {
     setBusy('test');
     setNotice('');
+    setSetupNotice('');
     setError('');
 
     try {
@@ -5351,6 +5364,7 @@ function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
   async function submitSetupRequest() {
     setBusy('setup');
     setNotice('');
+    setSetupNotice('');
     setError('');
     setSetupErrors({});
     const submitDates = availabilityDate && !availabilityDates.includes(availabilityDate)
@@ -5381,7 +5395,7 @@ function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
         throw new Error(jsonErrorMessage(data, t('whatsappSetupRequestFailed')));
       }
 
-      setNotice(t('whatsappSetupRequestSent'));
+      setSetupNotice(t('whatsappSetupRequestSent'));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t('whatsappSetupRequestFailed'));
     } finally {
@@ -5608,6 +5622,11 @@ function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
                       <Calendar className="h-4 w-4" />
                       {busy === 'setup' ? t('saving') : t('whatsappSetupSubmit')}
                     </Button>
+                    {setupNotice && (
+                      <p className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+                        {setupNotice}
+                      </p>
+                    )}
                   </div>
                 </div>
               )}

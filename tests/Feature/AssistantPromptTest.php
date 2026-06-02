@@ -226,12 +226,198 @@ class AssistantPromptTest extends TestCase
         $this->assertNotContains('client_phone', $required);
     }
 
+    public function test_whatsapp_new_conversation_includes_recent_confirmed_booking_context_by_phone(): void
+    {
+        $salon = $this->createSalon();
+        $service = $salon->services()->create([
+            'name' => 'Tuns si coafat',
+            'price' => '150',
+            'duration' => 60,
+        ]);
+        $salon->bookings()->create([
+            'service_id' => $service->id,
+            'client_name' => 'Maria Client',
+            'client_phone' => '+40711111111',
+            'date' => '2026-06-02',
+            'time' => '17:00',
+            'status' => 'confirmed',
+            'source' => 'ai_assistant',
+        ]);
+        $conversation = $salon->conversations()->create([
+            'channel' => 'whatsapp',
+            'provider' => 'twilio',
+            'external_contact_id' => 'whatsapp:+40711111111',
+            'external_sender' => 'whatsapp:+40700000000',
+            'contact_phone' => 'whatsapp:+40711111111',
+            'status' => 'open',
+            'intent' => 'inquiry',
+            'last_message_at' => now(),
+        ]);
+
+        $payload = app(GeminiPayloadBuilder::class)->build($salon, [
+            ['role' => 'user', 'content' => 'a fost confirmata, da?'],
+        ], $conversation, [
+            'phone' => 'whatsapp:+40711111111',
+            'channel' => 'whatsapp',
+        ]);
+        $instruction = $payload['systemInstruction']['parts'][0]['text'];
+
+        $this->assertStringContainsString('Recent customer booking context:', $instruction);
+        $this->assertStringContainsString('status: confirmed.', $instruction);
+        $this->assertStringContainsString('data: 2026-06-02.', $instruction);
+        $this->assertStringContainsString('ora: 17:00.', $instruction);
+        $this->assertStringContainsString('serviciu: Tuns si coafat.', $instruction);
+        $this->assertStringContainsString('Do not answer generically that AI-created bookings are pending', $instruction);
+        $this->assertStringNotContainsString('Programarile create de AI raman pending si trebuie confirmate de echipa.', $instruction);
+        $this->assertNull($conversation->refresh()->booking_id);
+    }
+
+    public function test_whatsapp_recent_pending_cancelled_and_completed_context_statuses_are_included(): void
+    {
+        foreach (['pending', 'cancelled', 'completed'] as $status) {
+            $salon = $this->createSalon();
+            $phone = '+4071111111'.array_search($status, ['pending', 'cancelled', 'completed'], true);
+            $salon->bookings()->create([
+                'client_name' => 'Maria Client',
+                'client_phone' => $phone,
+                'date' => '2026-06-02',
+                'time' => '17:00',
+                'status' => $status,
+                'source' => 'ai_assistant',
+            ]);
+            $conversation = $salon->conversations()->create([
+                'channel' => 'whatsapp',
+                'provider' => 'twilio',
+                'external_contact_id' => 'whatsapp:'.$phone,
+                'external_sender' => 'whatsapp:+40700000000',
+                'contact_phone' => 'whatsapp:'.$phone,
+                'status' => 'open',
+                'intent' => 'inquiry',
+                'last_message_at' => now(),
+            ]);
+
+            $payload = app(GeminiPayloadBuilder::class)->build($salon, [
+                ['role' => 'user', 'content' => 'ce status are programarea?'],
+            ], $conversation, [
+                'phone' => 'whatsapp:'.$phone,
+                'channel' => 'whatsapp',
+            ]);
+            $instruction = $payload['systemInstruction']['parts'][0]['text'];
+
+            $this->assertStringContainsString("status: {$status}.", $instruction);
+            $this->assertStringContainsString('Recent customer booking context:', $instruction);
+        }
+    }
+
+    public function test_recent_booking_context_does_not_cross_salon_or_phone_boundaries(): void
+    {
+        $salon = $this->createSalon();
+        $otherSalon = $this->createSalon();
+        $otherSalon->bookings()->create([
+            'client_name' => 'Other Salon Client',
+            'client_phone' => '+40711111111',
+            'date' => '2026-06-02',
+            'time' => '17:00',
+            'status' => 'confirmed',
+        ]);
+        $salon->bookings()->create([
+            'client_name' => 'Wrong Phone Client',
+            'client_phone' => '+40722222222',
+            'date' => '2026-06-02',
+            'time' => '18:00',
+            'status' => 'confirmed',
+        ]);
+        $conversation = $salon->conversations()->create([
+            'channel' => 'whatsapp',
+            'provider' => 'twilio',
+            'external_contact_id' => 'whatsapp:+40711111111',
+            'external_sender' => 'whatsapp:+40700000000',
+            'contact_phone' => 'whatsapp:+40711111111',
+            'status' => 'open',
+            'intent' => 'inquiry',
+            'last_message_at' => now(),
+        ]);
+
+        $payload = app(GeminiPayloadBuilder::class)->build($salon, [
+            ['role' => 'user', 'content' => 'a fost confirmata?'],
+        ], $conversation, [
+            'phone' => 'whatsapp:+40711111111',
+            'channel' => 'whatsapp',
+        ]);
+        $instruction = $payload['systemInstruction']['parts'][0]['text'];
+
+        $this->assertStringNotContainsString('Recent customer booking context:', $instruction);
+        $this->assertStringNotContainsString('Other Salon Client', $instruction);
+        $this->assertStringNotContainsString('Wrong Phone Client', $instruction);
+    }
+
+    public function test_current_conversation_booking_takes_priority_over_recent_context(): void
+    {
+        $salon = $this->createSalon();
+        $oldBooking = $salon->bookings()->create([
+            'client_name' => 'Old Booking',
+            'client_phone' => '+40711111111',
+            'date' => '2026-06-02',
+            'time' => '17:00',
+            'status' => 'confirmed',
+        ]);
+        $currentBooking = $salon->bookings()->create([
+            'client_name' => 'Current Booking',
+            'client_phone' => '+40711111111',
+            'date' => '2026-06-03',
+            'time' => '10:00',
+            'status' => 'pending',
+        ]);
+        $conversation = $salon->conversations()->create([
+            'booking_id' => $currentBooking->id,
+            'channel' => 'whatsapp',
+            'provider' => 'twilio',
+            'external_contact_id' => 'whatsapp:+40711111111',
+            'external_sender' => 'whatsapp:+40700000000',
+            'contact_phone' => 'whatsapp:+40711111111',
+            'status' => 'open',
+            'intent' => 'booking',
+            'last_message_at' => now(),
+        ]);
+
+        $payload = app(GeminiPayloadBuilder::class)->build($salon, [
+            ['role' => 'user', 'content' => 'ce status are programarea?'],
+        ], $conversation, [
+            'phone' => 'whatsapp:+40711111111',
+            'channel' => 'whatsapp',
+        ]);
+        $instruction = $payload['systemInstruction']['parts'][0]['text'];
+
+        $this->assertStringContainsString('Aceasta conversatie are deja o programare in baza de date.', $instruction);
+        $this->assertStringContainsString('status curent: pending.', $instruction);
+        $this->assertStringNotContainsString('Recent customer booking context:', $instruction);
+        $this->assertSame($currentBooking->id, $conversation->refresh()->booking_id);
+        $this->assertNotSame($oldBooking->id, $conversation->booking_id);
+    }
+
     public function test_website_chat_still_requires_phone_when_configured(): void
     {
         $salon = $this->createSalon(['ai_collect_phone' => true]);
+        $salon->bookings()->create([
+            'client_name' => 'Website Client',
+            'client_phone' => '+40711111111',
+            'date' => '2026-06-02',
+            'time' => '17:00',
+            'status' => 'confirmed',
+        ]);
+        $conversation = $salon->conversations()->create([
+            'channel' => 'chat',
+            'contact_phone' => '+40711111111',
+            'status' => 'open',
+            'intent' => 'inquiry',
+            'last_message_at' => now(),
+        ]);
 
         $payload = app(GeminiPayloadBuilder::class)->build($salon, [
             ['role' => 'user', 'content' => 'Vreau o programare'],
+        ], $conversation, [
+            'phone' => '+40711111111',
+            'channel' => 'chat',
         ]);
         $instruction = $payload['systemInstruction']['parts'][0]['text'];
         $required = $payload['tools'][0]['functionDeclarations'][0]['parameters']['required'];
@@ -239,6 +425,7 @@ class AssistantPromptTest extends TestCase
         $this->assertContains('client_phone', $required);
         $this->assertStringContainsString('Cere telefonul clientului inainte de creare.', $instruction);
         $this->assertStringNotContainsString('already known from WhatsApp', $instruction);
+        $this->assertStringNotContainsString('Recent customer booking context:', $instruction);
     }
 
     private function createSalon(array $attributes = []): Salon

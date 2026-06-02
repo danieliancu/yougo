@@ -10,10 +10,9 @@ class AppointmentPromptContextBuilder
 {
     public function __construct(
         private readonly AppointmentRequiredFieldsResolver $requiredFieldsResolver,
-    ) {
-    }
+    ) {}
 
-    public function build(Salon $salon): string
+    public function build(Salon $salon, bool $hasBookingContext = false): string
     {
         return collect([
             'Appointment mode este activ pentru acest business.',
@@ -22,7 +21,7 @@ class AppointmentPromptContextBuilder
             'Categorii disponibile: '.($this->categoryDetails($salon) ?: 'nu exista categorii configurate').'.',
             'Staff disponibil: '.($this->staffDetails($salon) ?: 'nu exista staff configurat').'.',
             'Campuri obligatorii pentru programare: '.implode(', ', $this->requiredFieldsResolver->resolve($salon)).'.',
-            $this->bookingPolicy($salon),
+            $this->bookingPolicy($salon, $hasBookingContext),
             'Daca exista date de contact anterioare in prompt, nu le folosi automat. Daca utilizatorul confirma ca vrea sa le refoloseasca, nu mai cere nume sau telefon si continua doar cu detaliile lipsa ale programarii: serviciu, locatie, data, ora si staff daca este relevant. Daca utilizatorul refuza sau ignora intrebarea, cere date de contact noi inainte de bookBooking.',
             'Daca clientul cere un anumit membru al echipei, foloseste staff_id doar daca acel ID este listat la serviciul selectat. Nu inventa niciodata staff_id si nu transforma numele legacy de staff in ID.',
             'Nu ghici capacitatea. Sistemul valideaza automat capacitatea locatiei si serviciului inainte de crearea programarii.',
@@ -47,7 +46,7 @@ class AppointmentPromptContextBuilder
                     $location->address ? "adresa: {$location->address}" : null,
                     $location->phone ? "telefon: {$location->phone}" : null,
                     $location->email ? "email: {$location->email}" : null,
-                    $location->max_concurrent_bookings ? "capacitate maxima simultana: {$location->max_concurrent_bookings}" : "capacitate maxima simultana: implicit 1",
+                    $location->max_concurrent_bookings ? "capacitate maxima simultana: {$location->max_concurrent_bookings}" : 'capacitate maxima simultana: implicit 1',
                     $hours ? "program: {$hours}" : null,
                 ])->filter()->implode(', ');
             })
@@ -65,9 +64,9 @@ class AppointmentPromptContextBuilder
                     "ID {$service->id}: {$service->name}",
                     $service->type ? "categorie: {$service->type}" : null,
                     $staff ? "staff: {$staff}" : null,
-                    filled($service->price) ? "pret sau tarif: ".BusinessLocalization::formatServicePrice($service->price, $salon, $service->currency) : null,
+                    filled($service->price) ? 'pret sau tarif: '.BusinessLocalization::formatServicePrice($service->price, $salon, $service->currency) : null,
                     $service->duration ? "durata: {$service->duration} minute" : null,
-                    $service->max_concurrent_bookings ? "capacitate maxima simultana serviciu: {$service->max_concurrent_bookings}" : "capacitate maxima simultana serviciu: implicit 1",
+                    $service->max_concurrent_bookings ? "capacitate maxima simultana serviciu: {$service->max_concurrent_bookings}" : 'capacitate maxima simultana serviciu: implicit 1',
                     "disponibil la locatiile ID: {$locationIds}",
                     filled($service->notes) ? "note: {$service->notes}" : null,
                 ])->filter()->implode(', ');
@@ -121,7 +120,7 @@ class AppointmentPromptContextBuilder
         return collect($service->staff ?? [])->filter()->implode(', ');
     }
 
-    private function bookingPolicy(Salon $salon): string
+    private function bookingPolicy(Salon $salon, bool $hasBookingContext): string
     {
         if (! ($salon->ai_booking_enabled ?? true)) {
             return 'Politica programari: AI booking este dezactivat. Nu crea programari si nu folosi functia bookBooking. Poti raspunde la intrebari despre business, servicii, preturi, locatie si program.';
@@ -132,7 +131,9 @@ class AppointmentPromptContextBuilder
             : 'Telefonul clientului este optional.';
 
         $confirmationRule = ($salon->booking_confirmations ?? true)
-            ? 'Inainte sa folosesti bookBooking, recapituleaza datele si cere confirmarea clientului daca nu a confirmat deja explicit. Programarile create de AI raman pending si trebuie confirmate de echipa.'
+            ? ($hasBookingContext
+                ? 'Inainte sa folosesti bookBooking pentru o programare noua, recapituleaza datele si cere confirmarea clientului daca nu a confirmat deja explicit. Pentru intrebari despre o programare existenta, foloseste contextul concret din baza de date, nu o explicatie generica despre programari pending.'
+                : 'Inainte sa folosesti bookBooking, recapituleaza datele si cere confirmarea clientului daca nu a confirmat deja explicit. Programarile create de AI raman pending si trebuie confirmate de echipa.')
             : null;
 
         return collect([

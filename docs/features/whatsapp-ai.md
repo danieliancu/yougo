@@ -260,6 +260,19 @@ One active booking flow maps to one dashboard conversation:
 
 The actual booking statuses are `pending`, `confirmed`, `cancelled`, and `completed`. The dashboard archive is based on `booking.date < today`, not a separate booking status.
 
+When a new WhatsApp dashboard conversation is created for the same real customer phone and has no `booking_id`, the AI prompt can include read-only context about the latest relevant booking for that same salon and phone number. This lets the assistant answer questions like "was my booking confirmed?" using the dashboard booking status instead of a generic pending-booking explanation.
+
+This previous booking context:
+
+- matches by normalized WhatsApp/customer phone inside the same salon;
+- can include `pending`, `confirmed`, `cancelled`, and `completed` bookings;
+- includes status, date, time, service, location, staff, client name, and phone when available;
+- does not attach `booking_id` to the new conversation;
+- does not reopen the old dashboard conversation;
+- does not allow automatic edits, reschedules, or cancellations for confirmed, completed, cancelled, or historical bookings.
+
+Dashboard booking status remains the source of truth. Previous booking context is only prompt context for accurate answers.
+
 Pending WhatsApp bookings can be cancelled automatically when the customer clearly asks to cancel. YouGo sets `booking.status = cancelled`, stores cancellation context in conversation metadata, sends the business a cancellation email when booking notifications are configured, tells the customer the booking was cancelled, and closes the dashboard conversation.
 
 Pending bookings cannot be edited or rescheduled automatically. Confirmed, completed, cancelled, and archived bookings cannot be edited, rescheduled, or cancelled automatically by AI. If the customer asks to change an existing booking, YouGo sends a phone handoff message with available salon/location phone numbers when configured.

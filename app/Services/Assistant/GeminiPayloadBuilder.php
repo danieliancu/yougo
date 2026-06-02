@@ -4,10 +4,10 @@ namespace App\Services\Assistant;
 
 use App\Models\Conversation;
 use App\Models\Salon;
-use App\Support\AssistantChannelBehavior;
-use App\Support\BusinessLocalization;
 use App\Services\Modes\Appointment\AppointmentPromptContextBuilder;
 use App\Services\Modes\Appointment\AppointmentToolDefinitions;
+use App\Support\AssistantChannelBehavior;
+use App\Support\BusinessLocalization;
 use App\Support\BusinessTaxonomy;
 
 class GeminiPayloadBuilder
@@ -15,8 +15,8 @@ class GeminiPayloadBuilder
     public function __construct(
         private readonly AppointmentPromptContextBuilder $appointmentPromptContextBuilder,
         private readonly AppointmentToolDefinitions $appointmentToolDefinitions,
-    ) {
-    }
+        private readonly CustomerBookingContextService $customerBookingContext,
+    ) {}
 
     public function build(Salon $salon, array $messages, ?Conversation $conversation = null, ?array $knownContact = null): array
     {
@@ -48,19 +48,23 @@ class GeminiPayloadBuilder
     {
         $assistantName = $this->aiAssistantName($salon);
         $today = now()->format('Y-m-d');
+        $currentBookingContext = $this->currentBookingContext($conversation);
+        $recentBookingContext = $this->recentCustomerBookingContext($salon, $conversation, $knownContact);
+        $hasBookingContext = filled($currentBookingContext) || filled($recentBookingContext);
 
         return collect([
             "Esti {$assistantName}, asistentul virtual pentru {$salon->name}.",
             $this->aiBehaviorRules($salon),
             "Data de azi este {$today}.",
-            "Foloseste exclusiv informatiile configurate aici pentru a raspunde.",
-            "Detalii business: ".($this->businessDetails($salon) ?: 'nu sunt configurate').'.',
+            'Foloseste exclusiv informatiile configurate aici pentru a raspunde.',
+            'Detalii business: '.($this->businessDetails($salon) ?: 'nu sunt configurate').'.',
             $this->aiBusinessContext($salon),
             "Context produs: modul curent este {$this->businessMode($salon)}. Pentru moment aplicatia activeaza doar fluxul appointment.",
             $this->channelInstructions($conversation),
-            $this->currentBookingContext($conversation),
+            $currentBookingContext,
+            $recentBookingContext,
             $this->knownContactContext($knownContact),
-            $this->modeInstructions($salon),
+            $this->modeInstructions($salon, $hasBookingContext),
             $this->ownerInstructions($salon),
         ])->filter()->implode(' ');
     }
@@ -157,6 +161,44 @@ class GeminiPayloadBuilder
         ])->filter()->implode(' ');
     }
 
+    private function recentCustomerBookingContext(Salon $salon, ?Conversation $conversation, ?array $knownContact): ?string
+    {
+        if ($conversation?->booking_id) {
+            return null;
+        }
+
+        $channel = AssistantChannelBehavior::normalize($conversation?->channel ?? $knownContact['channel'] ?? null);
+        if ($channel !== AssistantChannelBehavior::CHANNEL_WHATSAPP) {
+            return null;
+        }
+
+        $context = $this->customerBookingContext->findRecentForCustomer($salon, $conversation, $knownContact);
+        if (! $context) {
+            return null;
+        }
+
+        return collect([
+            'Recent customer booking context:',
+            'Context despre ultima programare cunoscuta a acestui client in baza de date.',
+            'Aceasta informatie este doar pentru raspunsuri despre programarea existenta. Nu atasa aceasta programare conversatiei curente.',
+            "booking_id context: {$context['id']}.",
+            "status: {$context['status']}.",
+            "data: {$context['date']}.",
+            "ora: {$context['time']}.",
+            filled($context['service_name']) ? "serviciu: {$context['service_name']}." : null,
+            filled($context['location_name']) ? "locatie: {$context['location_name']}." : null,
+            filled($context['staff_name']) ? "staff: {$context['staff_name']}." : null,
+            filled($context['client_name']) ? "client: {$context['client_name']}." : null,
+            filled($context['client_phone']) ? "telefon client: {$context['client_phone']}." : null,
+            $context['is_historical'] ? 'Aceasta programare poate fi istorica sau arhivata in dashboard.' : null,
+            'Daca utilizatorul intreaba daca programarea a fost confirmata, anulata, finalizata, in asteptare, la ce data sau la ce ora era, foloseste statusul, data si ora de mai sus.',
+            'Daca statusul este confirmed, spune ca in sistem programarea apare confirmata. Daca statusul este pending, spune ca in sistem apare in asteptare. Daca statusul este cancelled, spune ca apare anulata. Daca statusul este completed sau istorica, spune ca apare finalizata sau in trecut.',
+            'Nu modifica, nu reprograma si nu anula automat aceasta programare gasita doar ca istoric. Pentru editari, reprogramari sau anularea unei programari confirmed, completed, cancelled sau istorice, directioneaza clientul catre telefonul echipei.',
+            'Daca utilizatorul cere o programare noua, continua fluxul normal pentru o programare noua in aceasta conversatie.',
+            'Do not answer generically that AI-created bookings are pending when this actual booking context exists. The database status above is the source of truth for questions about this booking.',
+        ])->filter()->implode(' ');
+    }
+
     private function businessDetails(Salon $salon): string
     {
         $country = BusinessLocalization::normalizeCountry($salon->country);
@@ -167,11 +209,11 @@ class GeminiPayloadBuilder
             $salon->business_phone ? "telefon business: {$salon->business_phone}" : null,
             $salon->notification_email ? "email: {$salon->notification_email}" : null,
             "tara: {$country}",
-            "moneda: ".($salon->currency ?: BusinessLocalization::currencyFor($country)),
-            "prefix telefon: ".($salon->phone_prefix ?: BusinessLocalization::phonePrefixFor($country)),
-            "fus orar: ".($salon->timezone ?: BusinessLocalization::timezoneFor($country)),
-            "format data: ".BusinessLocalization::normalizeDateFormat($salon->date_format, $country),
-            "limba implicita tara: ".BusinessLocalization::defaultLanguageFor($country),
+            'moneda: '.($salon->currency ?: BusinessLocalization::currencyFor($country)),
+            'prefix telefon: '.($salon->phone_prefix ?: BusinessLocalization::phonePrefixFor($country)),
+            'fus orar: '.($salon->timezone ?: BusinessLocalization::timezoneFor($country)),
+            'format data: '.BusinessLocalization::normalizeDateFormat($salon->date_format, $country),
+            'limba implicita tara: '.BusinessLocalization::defaultLanguageFor($country),
             "mod business: {$this->businessMode($salon)}",
             $salon->business_type ? "tip business: {$salon->business_type}" : null,
             $salon->display_language ? "limba preferata in dashboard: {$this->languageName($salon->display_language)}" : null,
@@ -233,13 +275,13 @@ class GeminiPayloadBuilder
         return collect([$languageRule, $toneRule, $styleRule, $unknownRule, $handoff])->filter()->implode(' ');
     }
 
-    private function modeInstructions(Salon $salon): string
+    private function modeInstructions(Salon $salon, bool $hasBookingContext = false): string
     {
         if (! $salon->isAppointmentBased()) {
             return 'Modul curent nu este appointment. Nu crea programari si nu folosi functia bookBooking; raspunde doar informational folosind datele configurate.';
         }
 
-        return $this->appointmentPromptContextBuilder->build($salon);
+        return $this->appointmentPromptContextBuilder->build($salon, $hasBookingContext);
     }
 
     private function ownerInstructions(Salon $salon): ?string
