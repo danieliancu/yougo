@@ -7,12 +7,11 @@ use App\Models\ConversationMessage;
 use App\Models\Salon;
 use App\Services\Usage\UsageTracker;
 use App\Support\BookingStatus;
+use Illuminate\Support\Facades\Log;
 
 class WhatsAppConversationService
 {
-    public function __construct(private readonly UsageTracker $usageTracker)
-    {
-    }
+    public function __construct(private readonly UsageTracker $usageTracker) {}
 
     public function hasProviderMessage(string $providerMessageId): bool
     {
@@ -96,6 +95,13 @@ class WhatsAppConversationService
             'conversation_id' => $conversation->id,
             'message_id' => $message->id,
             'provider' => 'twilio',
+            'provider_message_id' => $messageSid ?: null,
+        ]);
+
+        Log::info('WhatsApp inbound saved', [
+            'salon_id' => $salon->id,
+            'conversation_id' => $conversation->id,
+            'message_id' => $message->id,
             'provider_message_id' => $messageSid ?: null,
         ]);
 

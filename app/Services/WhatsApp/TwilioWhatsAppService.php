@@ -36,12 +36,13 @@ class TwilioWhatsAppService
         } catch (Throwable $exception) {
             Log::warning('Twilio WhatsApp send failed', [
                 'exception' => $exception::class,
+                'code' => $exception->getCode() ?: null,
                 'message' => $exception->getMessage(),
                 'from' => $this->safeAddress($from),
                 'to' => $this->safeAddress($to),
             ]);
 
-            throw new RuntimeException('WhatsApp message could not be sent.', previous: $exception);
+            throw new RuntimeException('WhatsApp message could not be sent.', (int) $exception->getCode(), $exception);
         }
     }
 

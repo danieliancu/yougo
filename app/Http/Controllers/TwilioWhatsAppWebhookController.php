@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ProcessWhatsAppInboundMessage;
+use App\Models\ConversationMessage;
 use App\Models\WhatsappIntegration;
-use App\Services\WhatsApp\WhatsAppAiReplyService;
 use App\Services\WhatsApp\WhatsAppConversationService;
 use App\Support\YouGoServices;
 use Illuminate\Http\Request;
@@ -12,7 +13,7 @@ use Twilio\Security\RequestValidator;
 
 class TwilioWhatsAppWebhookController extends Controller
 {
-    public function __invoke(Request $request, WhatsAppConversationService $conversations, WhatsAppAiReplyService $aiReplies)
+    public function __invoke(Request $request, WhatsAppConversationService $conversations)
     {
         if (! $this->hasValidSignature($request)) {
             Log::warning('Twilio WhatsApp webhook rejected invalid signature', [
@@ -57,6 +58,11 @@ class TwilioWhatsAppWebhookController extends Controller
         }
 
         if ($messageSid !== '' && $conversations->hasProviderMessage($messageSid)) {
+            Log::info('Twilio WhatsApp webhook ignored duplicate MessageSid', [
+                'to' => $to,
+                'message_sid' => $messageSid,
+            ]);
+
             return $this->twiml();
         }
 
@@ -81,15 +87,45 @@ class TwilioWhatsAppWebhookController extends Controller
 
         if ($body === '') {
             if ($numMedia > 0 && $conversation) {
-                $aiReplies->sendUnsupportedTextMessage($salon, $integration, $conversation);
+                $this->dispatchAiReplyJob($inboundMessage, $salon->id, $integration->id, $messageSid, $payload, ProcessWhatsAppInboundMessage::MODE_UNSUPPORTED_MEDIA);
             }
 
             return $this->twiml();
         }
 
-        $aiReplies->handleInbound($salon, $integration, $inboundMessage, $payload);
+        $this->dispatchAiReplyJob($inboundMessage, $salon->id, $integration->id, $messageSid, $payload, ProcessWhatsAppInboundMessage::MODE_TEXT);
 
         return $this->twiml();
+    }
+
+    private function dispatchAiReplyJob(ConversationMessage $inboundMessage, int $salonId, int $integrationId, string $messageSid, array $payload, string $mode): void
+    {
+        $metadata = $inboundMessage->metadata ?? [];
+        $inboundMessage->update([
+            'metadata' => [
+                ...$metadata,
+                'ai_reply_job_dispatched_at' => now()->toISOString(),
+                'ai_reply_mode' => $mode,
+            ],
+        ]);
+
+        ProcessWhatsAppInboundMessage::dispatch(
+            inboundMessageId: $inboundMessage->id,
+            salonId: $salonId,
+            integrationId: $integrationId,
+            messageSid: $messageSid,
+            payload: $payload,
+            mode: $mode,
+        );
+
+        Log::info('WhatsApp AI job dispatched', [
+            'salon_id' => $salonId,
+            'integration_id' => $integrationId,
+            'conversation_id' => $inboundMessage->conversation_id,
+            'inbound_message_id' => $inboundMessage->id,
+            'message_sid' => $messageSid ?: null,
+            'mode' => $mode,
+        ]);
     }
 
     private function hasValidSignature(Request $request): bool

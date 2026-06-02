@@ -26,8 +26,7 @@ class WhatsAppAiReplyService
         private readonly BookingNotificationService $bookingNotificationService,
         private readonly UsageLimitService $usageLimitService,
         private readonly UsageTracker $usageTracker,
-    ) {
-    }
+    ) {}
 
     public function handleInbound(Salon $salon, WhatsappIntegration $integration, ConversationMessage $inboundMessage, array $payload): void
     {
@@ -55,7 +54,7 @@ class WhatsAppAiReplyService
                 'sent_via' => 'twilio',
                 'ai_generated' => false,
                 'status_reason' => 'usage_limit_reached',
-            ]);
+            ], $inboundMessage);
 
             return;
         }
@@ -79,6 +78,14 @@ class WhatsAppAiReplyService
 
             $reply = (string) ($result['body']['message'] ?? '');
             if (($result['status'] ?? 200) >= 500) {
+                Log::warning('WhatsApp AI reply generation failed', [
+                    'salon_id' => $salon->id,
+                    'conversation_id' => $conversation->id,
+                    'message_id' => $inboundMessage->id,
+                    'message_sid' => $payload['MessageSid'] ?? null,
+                    'assistant_status' => $result['status'] ?? null,
+                ]);
+
                 $reply = $this->aiFailureFallback($salon);
             }
 
@@ -87,7 +94,7 @@ class WhatsAppAiReplyService
                 'sent_via' => 'twilio',
                 'ai_generated' => true,
                 'assistant_status' => $result['status'] ?? 200,
-            ]);
+            ], $inboundMessage);
 
             $this->usageTracker->record($salon, 'whatsapp_ai_reply', source: 'whatsapp', metadata: [
                 'conversation_id' => $conversation->id,
@@ -107,22 +114,30 @@ class WhatsAppAiReplyService
                 'sent_via' => 'twilio',
                 'ai_generated' => false,
                 'status_reason' => 'ai_failed',
-            ]);
+            ], $inboundMessage);
         }
     }
 
-    public function sendUnsupportedTextMessage(Salon $salon, WhatsappIntegration $integration, Conversation $conversation): void
+    public function sendUnsupportedTextMessage(Salon $salon, WhatsappIntegration $integration, Conversation $conversation, ?ConversationMessage $inboundMessage = null): void
     {
         $this->sendAndSave($conversation, $integration, $this->unsupportedTextFallback($salon), [
             'channel' => 'whatsapp',
             'sent_via' => 'twilio',
             'ai_generated' => false,
             'status_reason' => 'unsupported_media',
-        ]);
+        ], $inboundMessage);
     }
 
-    private function sendAndSave(Conversation $conversation, WhatsappIntegration $integration, string $body, array $metadata): void
+    private function sendAndSave(Conversation $conversation, WhatsappIntegration $integration, string $body, array $metadata, ?ConversationMessage $inboundMessage = null): void
     {
+        if ($inboundMessage) {
+            $metadata = [
+                ...$metadata,
+                'inbound_message_id' => $inboundMessage->id,
+                'inbound_provider_message_id' => $inboundMessage->provider_message_id,
+            ];
+        }
+
         $to = (string) ($conversation->external_contact_id ?? '');
         $from = (string) ($integration->twilio_sender ?? $conversation->external_sender ?? '');
         $guarded = $this->outboundGuard->guard($conversation, $body, $metadata);
@@ -147,6 +162,7 @@ class WhatsAppAiReplyService
                 'salon_id' => $conversation->salon_id,
                 'conversation_id' => $conversation->id,
                 'exception' => $exception::class,
+                'code' => $exception->getCode() ?: null,
                 'message' => $exception->getMessage(),
             ]);
 
@@ -154,6 +170,7 @@ class WhatsAppAiReplyService
                 ...$metadata,
                 'status' => 'failed',
                 'failure' => 'twilio_send_failed',
+                'twilio_error_code' => $exception->getCode() ?: null,
             ]);
         }
     }
@@ -228,7 +245,7 @@ class WhatsAppAiReplyService
                     'sent_via' => 'twilio',
                     'ai_generated' => false,
                     'status_reason' => 'pending_booking_cancelled_by_customer',
-                ]);
+                ], $inboundMessage);
 
                 $conversation->update(['status' => 'completed']);
 
@@ -241,7 +258,7 @@ class WhatsAppAiReplyService
                     'sent_via' => 'twilio',
                     'ai_generated' => false,
                     'status_reason' => 'existing_booking_phone_handoff',
-                ]);
+                ], $inboundMessage);
 
                 return true;
             }
@@ -252,7 +269,7 @@ class WhatsAppAiReplyService
                     'sent_via' => 'twilio',
                     'ai_generated' => false,
                     'status_reason' => 'existing_booking_phone_handoff',
-                ]);
+                ], $inboundMessage);
 
                 return true;
             }
@@ -266,7 +283,7 @@ class WhatsAppAiReplyService
                 'sent_via' => 'twilio',
                 'ai_generated' => false,
                 'status_reason' => 'existing_booking_phone_handoff',
-            ]);
+            ], $inboundMessage);
 
             return true;
         }
@@ -277,7 +294,7 @@ class WhatsAppAiReplyService
                 'sent_via' => 'twilio',
                 'ai_generated' => false,
                 'status_reason' => 'existing_booking_phone_handoff',
-            ]);
+            ], $inboundMessage);
 
             return true;
         }

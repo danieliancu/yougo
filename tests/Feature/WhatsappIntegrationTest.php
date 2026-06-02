@@ -2,19 +2,22 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\ProcessWhatsAppInboundMessage;
+use App\Mail\BookingCancelledByCustomerMail;
+use App\Mail\NewAiBookingMail;
 use App\Models\ConversationMessage;
 use App\Models\Salon;
 use App\Models\User;
 use App\Models\WhatsappIntegration;
-use App\Mail\BookingCancelledByCustomerMail;
-use App\Mail\NewAiBookingMail;
 use App\Services\WhatsApp\TwilioWhatsAppService;
+use App\Services\WhatsApp\WhatsAppAiReplyService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
 use RuntimeException;
-use Twilio\Security\RequestValidator;
 use Tests\TestCase;
+use Twilio\Security\RequestValidator;
 
 class WhatsappIntegrationTest extends TestCase
 {
@@ -453,6 +456,65 @@ class WhatsappIntegrationTest extends TestCase
         $this->assertSame(1, $salon->usageEvents()->where('event_type', 'whatsapp_ai_reply')->count());
     }
 
+    public function test_webhook_dispatches_whatsapp_ai_job_without_sending_synchronously_when_queue_is_faked(): void
+    {
+        Queue::fake();
+        config([
+            'twilio.validate_signature' => false,
+            'services.gemini.key' => 'test-key',
+        ]);
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $integration = $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => true,
+        ]);
+        $this->fakeGeminiText('Nu ar trebui procesat sincron');
+        $this->fakeTwilioService();
+
+        $this->post('/twilio/whatsapp/webhook', $this->twilioPayload())->assertOk();
+
+        $inbound = ConversationMessage::query()->where('direction', 'inbound')->firstOrFail();
+        Queue::assertPushed(ProcessWhatsAppInboundMessage::class, function (ProcessWhatsAppInboundMessage $job) use ($salon, $integration, $inbound) {
+            return $job->inboundMessageId === $inbound->id
+                && $job->salonId === $salon->id
+                && $job->integrationId === $integration->id
+                && $job->messageSid === 'SM_INBOUND'
+                && $job->mode === ProcessWhatsAppInboundMessage::MODE_TEXT;
+        });
+        $this->assertDatabaseMissing('conversation_messages', [
+            'direction' => 'outbound',
+            'content' => 'Nu ar trebui procesat sincron',
+        ]);
+        $this->assertNotEmpty($inbound->refresh()->metadata['ai_reply_job_dispatched_at']);
+    }
+
+    public function test_webhook_dispatches_unsupported_media_job_without_sending_synchronously_when_queue_is_faked(): void
+    {
+        Queue::fake();
+        config(['twilio.validate_signature' => false]);
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $integration = $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => true,
+        ]);
+        $this->fakeTwilioService();
+
+        $this->post('/twilio/whatsapp/webhook', $this->twilioPayload(['Body' => '', 'NumMedia' => '1']))->assertOk();
+
+        $inbound = ConversationMessage::query()->where('direction', 'inbound')->firstOrFail();
+        Queue::assertPushed(ProcessWhatsAppInboundMessage::class, function (ProcessWhatsAppInboundMessage $job) use ($salon, $integration, $inbound) {
+            return $job->inboundMessageId === $inbound->id
+                && $job->salonId === $salon->id
+                && $job->integrationId === $integration->id
+                && $job->mode === ProcessWhatsAppInboundMessage::MODE_UNSUPPORTED_MEDIA;
+        });
+        $this->assertSame(1, ConversationMessage::query()->count());
+    }
+
     public function test_whatsapp_outbound_guard_replaces_ro_website_chat_instruction_before_send(): void
     {
         config([
@@ -527,6 +589,103 @@ class WhatsappIntegrationTest extends TestCase
         $this->assertSame(2, ConversationMessage::query()->count());
         Http::assertSentCount(1);
         $this->assertSame(1, $salon->usageEvents()->where('event_type', 'whatsapp_ai_reply')->count());
+    }
+
+    public function test_whatsapp_ai_job_does_not_process_same_inbound_message_twice(): void
+    {
+        config([
+            'twilio.validate_signature' => false,
+            'services.gemini.key' => 'test-key',
+        ]);
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $integration = $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => true,
+        ]);
+        $inbound = $this->createQueuedInbound($salon);
+        $this->fakeGeminiText('Un singur raspuns');
+        $this->fakeTwilioService();
+
+        $this->runWhatsAppJob($inbound, $salon, $integration);
+        $this->runWhatsAppJob($inbound->refresh(), $salon, $integration);
+
+        $this->assertSame(1, ConversationMessage::query()->where('direction', 'outbound')->count());
+        Http::assertSentCount(1);
+        $this->assertNotEmpty($inbound->refresh()->metadata['ai_reply_processed_at']);
+    }
+
+    public function test_whatsapp_ai_job_skips_when_integration_is_inactive_after_dispatch(): void
+    {
+        config([
+            'twilio.validate_signature' => false,
+            'services.gemini.key' => 'test-key',
+        ]);
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $integration = $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => true,
+        ]);
+        $inbound = $this->createQueuedInbound($salon, ['MessageSid' => 'SM_INACTIVE_JOB']);
+        $integration->update(['status' => WhatsappIntegration::STATUS_DISABLED]);
+        $this->fakeGeminiText('Nu ar trebui trimis');
+        $this->fakeTwilioService();
+
+        $this->runWhatsAppJob($inbound, $salon, $integration->refresh());
+
+        $this->assertSame(1, ConversationMessage::query()->count());
+        Http::assertSentCount(0);
+    }
+
+    public function test_whatsapp_ai_job_skips_when_ai_is_disabled_after_dispatch(): void
+    {
+        config([
+            'twilio.validate_signature' => false,
+            'services.gemini.key' => 'test-key',
+        ]);
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $integration = $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => true,
+        ]);
+        $inbound = $this->createQueuedInbound($salon, ['MessageSid' => 'SM_DISABLED_JOB']);
+        $integration->update(['ai_enabled' => false]);
+        $this->fakeGeminiText('Nu ar trebui trimis');
+        $this->fakeTwilioService();
+
+        $this->runWhatsAppJob($inbound, $salon, $integration->refresh());
+
+        $this->assertSame(1, ConversationMessage::query()->count());
+        Http::assertSentCount(0);
+    }
+
+    public function test_whatsapp_ai_job_skips_when_plan_lacks_entitlement_after_dispatch(): void
+    {
+        config([
+            'twilio.validate_signature' => false,
+            'services.gemini.key' => 'test-key',
+        ]);
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $integration = $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000000',
+            'ai_enabled' => true,
+        ]);
+        $inbound = $this->createQueuedInbound($salon, ['MessageSid' => 'SM_NO_PLAN_JOB']);
+        $salon->update(['plan' => 'website_chat']);
+        $this->fakeGeminiText('Nu ar trebui trimis');
+        $this->fakeTwilioService();
+
+        $this->runWhatsAppJob($inbound, $salon->refresh(), $integration);
+
+        $this->assertSame(1, ConversationMessage::query()->count());
+        Http::assertSentCount(0);
     }
 
     public function test_webhook_does_not_reply_when_plan_lacks_whatsapp_ai(): void
@@ -1592,6 +1751,62 @@ class WhatsappIntegrationTest extends TestCase
         ], $overrides);
     }
 
+    private function createQueuedInbound(Salon $salon, array $payloadOverrides = []): ConversationMessage
+    {
+        $payload = $this->twilioPayload($payloadOverrides);
+        $conversation = $salon->conversations()->create([
+            'channel' => 'whatsapp',
+            'provider' => 'twilio',
+            'external_contact_id' => $payload['From'],
+            'external_sender' => $payload['To'],
+            'contact_name' => $payload['ProfileName'],
+            'contact_phone' => $payload['From'],
+            'status' => 'open',
+            'intent' => 'inquiry',
+            'summary' => 'Open.',
+            'last_message_at' => now(),
+        ]);
+
+        return $conversation->messages()->create([
+            'role' => 'user',
+            'direction' => 'inbound',
+            'provider' => 'twilio',
+            'provider_message_id' => $payload['MessageSid'],
+            'content' => $payload['Body'],
+            'metadata' => [
+                'from' => $payload['From'],
+                'to' => $payload['To'],
+                'ai_reply_job_dispatched_at' => now()->toISOString(),
+                'ai_reply_mode' => ProcessWhatsAppInboundMessage::MODE_TEXT,
+            ],
+        ]);
+    }
+
+    private function runWhatsAppJob(
+        ConversationMessage $inbound,
+        Salon $salon,
+        WhatsappIntegration $integration,
+        string $mode = ProcessWhatsAppInboundMessage::MODE_TEXT,
+    ): void {
+        $payload = $this->twilioPayload([
+            'From' => $inbound->conversation->external_contact_id,
+            'To' => $inbound->conversation->external_sender,
+            'Body' => $inbound->content,
+            'MessageSid' => (string) $inbound->provider_message_id,
+        ]);
+
+        $job = new ProcessWhatsAppInboundMessage(
+            inboundMessageId: $inbound->id,
+            salonId: $salon->id,
+            integrationId: $integration->id,
+            messageSid: (string) $inbound->provider_message_id,
+            payload: $payload,
+            mode: $mode,
+        );
+
+        $job->handle($this->app->make(WhatsAppAiReplyService::class));
+    }
+
     private function fakeGeminiText(string $text): void
     {
         Http::fake(['*' => Http::response([
@@ -1623,9 +1838,7 @@ class WhatsappIntegrationTest extends TestCase
     {
         $this->app->instance(TwilioWhatsAppService::class, new class($fail) extends TwilioWhatsAppService
         {
-            public function __construct(private readonly bool $fail)
-            {
-            }
+            public function __construct(private readonly bool $fail) {}
 
             public function sendMessage(string $from, string $to, string $body): array
             {
@@ -1643,4 +1856,3 @@ class WhatsappIntegrationTest extends TestCase
         });
     }
 }
-
