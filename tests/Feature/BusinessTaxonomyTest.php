@@ -6,6 +6,7 @@ use App\Models\Salon;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -59,6 +60,44 @@ class BusinessTaxonomyTest extends TestCase
             ->assertJsonPath('locale', 'en');
 
         $this->assertSame('en', $salon->refresh()->display_language);
+    }
+
+    public function test_settings_can_update_password_with_old_password(): void
+    {
+        $user = User::factory()->create([
+            'password' => Hash::make('old-password'),
+        ]);
+        $user->salon()->create([
+            'name' => 'Studio',
+            'business_type' => 'salon-beauty',
+            'mode' => Salon::MODE_APPOINTMENT,
+        ]);
+
+        $this->actingAs($user)->from('/dashboard/settings')->post('/settings', $this->validSettingsPayload([
+            'old_password' => 'old-password',
+            'new_password' => 'new-secure-password',
+        ]))->assertRedirect();
+
+        $this->assertTrue(Hash::check('new-secure-password', $user->refresh()->password));
+    }
+
+    public function test_settings_rejects_password_update_with_wrong_old_password(): void
+    {
+        $user = User::factory()->create([
+            'password' => Hash::make('old-password'),
+        ]);
+        $user->salon()->create([
+            'name' => 'Studio',
+            'business_type' => 'salon-beauty',
+            'mode' => Salon::MODE_APPOINTMENT,
+        ]);
+
+        $this->actingAs($user)->from('/dashboard/settings')->post('/settings', $this->validSettingsPayload([
+            'old_password' => 'wrong-password',
+            'new_password' => 'new-secure-password',
+        ]))->assertSessionHasErrors('old_password');
+
+        $this->assertTrue(Hash::check('old-password', $user->refresh()->password));
     }
 
     public function test_free_plan_can_enable_booking_email_notification_settings(): void
@@ -247,6 +286,26 @@ class BusinessTaxonomyTest extends TestCase
                 ->where('localization.timezones.0', 'Europe/Bucharest')
                 ->where('localization.date_formats.0', 'dd.mm.yyyy')
             );
+    }
+
+    public function test_dashboard_profile_source_contains_password_fields_on_same_desktop_grid(): void
+    {
+        $source = file_get_contents(resource_path('js/Pages/Dashboard/Index.tsx'));
+        $translations = file_get_contents(resource_path('js/i18n.ts'));
+
+        $profileSource = substr(
+            $source,
+            strpos($source, "SettingsPanel icon={User} title={t('profile')}"),
+            strpos($source, 'SettingsPanel icon={Globe2}') - strpos($source, "SettingsPanel icon={User} title={t('profile')}"),
+        );
+
+        $this->assertStringContainsString('md:grid-cols-2', $profileSource);
+        $this->assertStringContainsString("t('oldPassword')", $profileSource);
+        $this->assertStringContainsString("t('newPassword')", $profileSource);
+        $this->assertStringContainsString('autoComplete="current-password"', $profileSource);
+        $this->assertStringContainsString('autoComplete="new-password"', $profileSource);
+        $this->assertStringContainsString('Old password', $translations);
+        $this->assertStringContainsString('New password', $translations);
     }
 
     private function validSettingsPayload(array $overrides = []): array

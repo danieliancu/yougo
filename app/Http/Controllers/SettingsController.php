@@ -10,8 +10,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\ValidationException;
 
 class SettingsController extends Controller
 {
@@ -35,9 +38,21 @@ class SettingsController extends Controller
             'display_language' => ['required', 'string', 'max:10'],
             'date_format' => ['nullable', 'string', 'max:30', Rule::in([...BusinessLocalization::allDateFormats(), 'DD.MM.YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD'])],
             'logo' => ['nullable', 'file', 'mimes:png,jpg,jpeg,svg', 'max:2048'],
+            'old_password' => ['nullable', 'string'],
+            'new_password' => ['nullable', Password::defaults()],
         ]);
 
         $user->update(['name' => $data['name']]);
+
+        if (filled($data['new_password'] ?? null)) {
+            if (! filled($data['old_password'] ?? null) || ! Hash::check($data['old_password'], $user->password)) {
+                throw ValidationException::withMessages([
+                    'old_password' => __('The old password is incorrect.'),
+                ]);
+            }
+
+            $user->update(['password' => $data['new_password']]);
+        }
 
         if ($request->hasFile('logo')) {
             if ($salon->logo_path) {

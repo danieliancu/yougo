@@ -11,6 +11,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\IndustryController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\OnboardingController;
+use App\Http\Controllers\PlatformAdminController;
 use App\Http\Controllers\PublicYouGoAssistantController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\ServiceImageImportController;
@@ -100,6 +101,18 @@ Route::middleware('auth')->group(function () {
     Route::post('/dashboard/billing/portal', [BillingController::class, 'portal'])->name('billing.portal');
     Route::delete('/account', [SettingsController::class, 'destroy'])->name('account.destroy');
 });
+
+Route::middleware(['auth', 'platform_admin'])
+    ->prefix('platform-admin')
+    ->name('platform-admin.')
+    ->group(function (): void {
+        Route::get('/', [PlatformAdminController::class, 'overview'])->name('overview');
+        Route::get('/businesses', [PlatformAdminController::class, 'businesses'])->name('businesses');
+        Route::get('/businesses/{salon}', [PlatformAdminController::class, 'business'])->name('businesses.show');
+        Route::get('/whatsapp-onboarding', [PlatformAdminController::class, 'whatsappOnboarding'])->name('whatsapp-onboarding');
+        Route::get('/usage', [PlatformAdminController::class, 'usage'])->name('usage');
+        Route::get('/issues', [PlatformAdminController::class, 'issues'])->name('issues');
+    });
 
 Route::post('/stripe/webhook', StripeWebhookController::class)
     ->withoutMiddleware(VerifyCsrfToken::class)

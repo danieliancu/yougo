@@ -22,6 +22,8 @@ Phone AI remains planned and is not part of the WhatsApp MVP.
 
 After the business requests activation, Dashboard -> WhatsApp Settings explains the guided setup process and lets the business request a setup call. YouGo receives the setup request by email at the configured `MAIL_WHATSAPP_SETUP_REQUEST_TO` address, which defaults to `dani.iancu@yahoo.com`.
 
+The latest sanitized setup request is also visible to promoted operators in Platform Admin under `/platform-admin/whatsapp-onboarding`. Platform Admin can display setup-call details and a copyable manual activation command, but it does not provision Twilio or Meta senders automatically.
+
 Security rules for setup:
 
 - Customers should never send Facebook, Meta, or WhatsApp passwords to YouGo.

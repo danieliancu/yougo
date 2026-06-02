@@ -26,7 +26,7 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'locale' => $locale,
             'auth' => [
-                'user' => $request->user()?->only('id', 'name', 'email'),
+                'user' => $request->user()?->only('id', 'name', 'email', 'is_platform_admin'),
             ],
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),

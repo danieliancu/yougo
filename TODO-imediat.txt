@@ -61,12 +61,6 @@ git commit -m "Keep booking status unchanged for change requests"
 
 
 
-
-
-
-
-
-
 Etapa 1 — Queue hardening
 - webhook rapid
 - job pentru AI reply
@@ -82,8 +76,25 @@ Etapa 2 — Delivery status callbacks
 
 
 
-- sistemul funcționează corect, dar experiența arată că trebuie să educăm businessul să confirme programările în dashboard după ce le confirmă telefonic. Altfel AI-ul și echipa pot spune lucruri diferite.
-- pregatire un admin dashboard
+
+
+
+
+
+
+
+
+
+- schimbari de design in settings (pregatit in studio)
+
+- pregatire un admin dashboard in care sa fiu informat cu tot ce se intampla (pregatit in openai)
+
+
+
+- sistemul funcționează corect, dar experiența arată că trebuie să educăm businessul să confirme programările în dashboard după ce le confirmă telefonic.
+Altfel AI-ul și echipa pot spune lucruri diferite.
+
+
 
 
 

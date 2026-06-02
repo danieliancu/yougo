@@ -489,17 +489,29 @@ function DashboardSidebarContent({ salon, section, user, t, onboarding, onNaviga
                       );
                     })}
                     {group.id === 'administration' && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onNavigate?.();
-                          router.post('/logout');
-                        }}
-                        className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-bold text-red-300 transition hover:bg-red-500/10 hover:text-red-200"
-                      >
-                        <LogOut className="h-4 w-4 shrink-0" />
-                        <span className="min-w-0 flex-1 truncate text-left">{t('logout')}</span>
-                      </button>
+                      <>
+                        {user?.is_platform_admin && (
+                          <Link
+                            href="/platform-admin"
+                            onClick={onNavigate}
+                            className="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-bold text-slate-300 transition hover:bg-white/10 hover:text-white"
+                          >
+                            <Lock className="h-4 w-4 shrink-0" />
+                            <span className="min-w-0 flex-1 truncate">Platform Admin</span>
+                          </Link>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onNavigate?.();
+                            router.post('/logout');
+                          }}
+                          className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-bold text-red-300 transition hover:bg-red-500/10 hover:text-red-200"
+                        >
+                          <LogOut className="h-4 w-4 shrink-0" />
+                          <span className="min-w-0 flex-1 truncate text-left">{t('logout')}</span>
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -915,6 +927,8 @@ function SettingsPage({ salon }: { salon: Salon }) {
     display_language: salon.display_language ?? 'ro',
     date_format: normalizeDateFormatForUi(salon.date_format) ?? initialCountryOption?.default_date_format ?? localization.defaults.date_format,
     logo: null as File | null,
+    old_password: '',
+    new_password: '',
   });
   const logoUrl = logoPreviewUrl ?? (salon.logo_path ? `/storage/${salon.logo_path}` : null);
   const selectedCountry = localization.countries.find((country) => country.code === form.data.country) ?? initialCountryOption;
@@ -949,7 +963,15 @@ function SettingsPage({ salon }: { salon: Salon }) {
         booking_status_email_notifications: paidEmailSettingsAvailable ? data.booking_status_email_notifications : false,
         missed_call_alerts: missedCallAlertsAvailable ? data.missed_call_alerts : false,
       }));
-    form.post('/settings', { forceFormData: true, preserveScroll: true });
+    form.post('/settings', {
+      forceFormData: true,
+      preserveScroll: true,
+      onSuccess: () => form.setData((data) => ({
+        ...data,
+        old_password: '',
+        new_password: '',
+      })),
+    });
   }
 
   function updateCountry(countryCode: string) {
@@ -977,6 +999,12 @@ function SettingsPage({ salon }: { salon: Salon }) {
             </DarkField>
             <DarkField label="Email">
               <DarkInput value={auth.user?.email ?? ''} disabled />
+            </DarkField>
+            <DarkField label={t('oldPassword')} error={form.errors.old_password}>
+              <DarkInput type="password" value={form.data.old_password} onChange={(event) => form.setData('old_password', event.target.value)} autoComplete="current-password" />
+            </DarkField>
+            <DarkField label={t('newPassword')} error={form.errors.new_password}>
+              <DarkInput type="password" value={form.data.new_password} onChange={(event) => form.setData('new_password', event.target.value)} autoComplete="new-password" />
             </DarkField>
           </div>
         </SettingsPanel>

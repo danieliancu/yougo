@@ -112,12 +112,36 @@ class WhatsappSettingsController extends Controller
             'notes' => $data['notes'] ?? '',
         ];
 
+        $integration = $salon->whatsappIntegration()->firstOrCreate(
+            ['salon_id' => $salon->id],
+            [
+                'provider' => 'twilio',
+                'requested_number' => $form['requested_whatsapp_number'],
+                'status' => WhatsappIntegration::STATUS_REQUESTED,
+                'requested_at' => now(),
+            ],
+        );
+
+        $metadata = $integration->metadata ?? [];
+        $integration->forceFill([
+            'requested_number' => $integration->requested_number ?: $form['requested_whatsapp_number'],
+            'metadata' => [
+                ...$metadata,
+                'latest_setup_request' => [
+                    ...$form,
+                    'submitted_at' => now()->toIso8601String(),
+                    'submitted_by_user_id' => $request->user()?->id,
+                    'submitted_by_email' => $request->user()?->email,
+                ],
+            ],
+        ])->save();
+
         Mail::to(config('mail.whatsapp_setup_request_to'))->send(
             new WhatsappSetupRequestMail(
                 salon: $salon,
                 user: $request->user(),
                 form: $form,
-                integration: $salon->whatsappIntegration,
+                integration: $integration->refresh(),
             ),
         );
 
