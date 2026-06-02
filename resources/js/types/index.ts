@@ -74,8 +74,25 @@ export type ConversationMessage = {
   provider?: string | null;
   provider_message_id?: string | null;
   content: string;
-  metadata?: Record<string, unknown> | null;
+  metadata?: ConversationMessageMetadata | null;
   created_at?: string;
+};
+
+export type ConversationMessageDeliveryMetadata = {
+  status?: string | null;
+  raw_status?: string | null;
+  updated_at?: string | null;
+  error_code?: string | null;
+  error_message?: string | null;
+  history?: Array<Record<string, unknown>>;
+};
+
+export type ConversationMessageMetadata = Record<string, unknown> & {
+  status?: string | null;
+  delivery_status?: string | null;
+  delivery?: ConversationMessageDeliveryMetadata | null;
+  failure?: string | null;
+  twilio_error_code?: string | number | null;
 };
 
 export type Conversation = {

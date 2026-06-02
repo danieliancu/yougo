@@ -1458,7 +1458,7 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
                             {participant.label}
                           </span>
                           {sendStatus && (
-                            <span className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${sendStatus.className}`}>
+                            <span title={sendStatus.title} className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${sendStatus.className}`}>
                               {sendStatus.label}
                             </span>
                           )}
@@ -1595,23 +1595,76 @@ function whatsappOutboundSendStatus(conversation: Conversation, message: Convers
     return null;
   }
 
-  const status = typeof message.metadata?.status === 'string' ? message.metadata.status : null;
+  const delivery = isRecord(message.metadata?.delivery) ? message.metadata.delivery : null;
+  const status = normalizeWhatsappDeliveryStatus(
+    stringValue(delivery?.status)
+      || stringValue(message.metadata?.delivery_status)
+      || stringValue(message.metadata?.status),
+  );
+  const errorCode = stringValue(delivery?.error_code) || stringValue(message.metadata?.twilio_error_code);
 
-  if (status === 'failed') {
+  if (status) {
+    const failed = status === 'failed' || status === 'undelivered';
+    const delivered = status === 'delivered' || status === 'read';
+    const pending = status === 'queued' || status === 'accepted' || status === 'sending';
+
     return {
-      label: t('sendFailed'),
-      className: 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300',
+      label: whatsappDeliveryStatusLabel(status, t),
+      title: failed && errorCode ? t('deliveryErrorDetails', { code: errorCode }) : undefined,
+      className: failed
+        ? 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300'
+        : delivered
+          ? 'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300'
+          : pending
+            ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300'
+            : 'bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300',
     };
   }
 
   if (!message.provider_message_id) {
     return {
-      label: t('sendUnknown'),
+      label: t('sendingUnconfirmed'),
       className: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
     };
   }
 
   return null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function stringValue(value: unknown): string | null {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return String(value);
+
+  return null;
+}
+
+function normalizeWhatsappDeliveryStatus(status?: string | null) {
+  const normalized = status?.trim().toLowerCase();
+  if (!normalized) return null;
+
+  return ['accepted', 'queued', 'sending', 'sent', 'delivered', 'read', 'failed', 'undelivered'].includes(normalized)
+    ? normalized
+    : 'unknown';
+}
+
+function whatsappDeliveryStatusLabel(status: string, t: TranslateFn) {
+  const labels: Record<string, string> = {
+    queued: t('deliveryQueued'),
+    accepted: t('deliveryAccepted'),
+    sending: t('deliverySending'),
+    sent: t('deliverySent'),
+    delivered: t('deliveryDelivered'),
+    read: t('deliveryRead'),
+    failed: t('sendFailed'),
+    undelivered: t('deliveryUndelivered'),
+    unknown: t('deliveryUnknown'),
+  };
+
+  return labels[status] ?? t('deliveryUnknown');
 }
 
 function formatProvider(provider?: string | null) {

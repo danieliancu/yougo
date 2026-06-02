@@ -116,6 +116,34 @@ Inbound message metadata tracks queued reply processing:
 
 Outbound WhatsApp AI and fallback messages include `inbound_message_id` and `inbound_provider_message_id`. The job checks these fields before generating a reply. If an inbound message is already processed or an outbound message already references it, the job logs a duplicate skip and exits.
 
+## Delivery status callbacks
+
+Outbound Twilio WhatsApp messages can include a status callback URL:
+
+```text
+TWILIO_WHATSAPP_STATUS_CALLBACK_URL=https://your-domain.com/twilio/whatsapp/status
+```
+
+When configured, YouGo passes this URL as `statusCallback` on outbound Twilio API sends. Twilio then sends delivery updates to:
+
+```text
+POST /twilio/whatsapp/status
+```
+
+The status callback endpoint is separate from the inbound webhook. It validates the Twilio signature when `TWILIO_VALIDATE_SIGNATURE=true`, finds the outbound message by Twilio `MessageSid`, and saves delivery metadata on the existing `conversation_messages` row.
+
+Delivery metadata includes:
+
+- `metadata.delivery_status`
+- `metadata.delivery.status`
+- `metadata.delivery.raw_status`
+- `metadata.delivery.updated_at`
+- `metadata.delivery.error_code`
+- `metadata.delivery.error_message`
+- `metadata.delivery.history`
+
+The dashboard can show `queued`, `accepted`, `sending`, `sent`, `delivered`, `read`, `failed`, `undelivered`, or `unknown` when Twilio provides those updates. Duplicate status callbacks are ignored for history growth, and history is bounded.
+
 ## Usage tracking
 
 The foundation records:
@@ -155,7 +183,22 @@ After deploys, restart workers:
 php artisan queue:restart
 ```
 
-Failed jobs use Laravel's configured failed job storage. Twilio status callbacks are intentionally not part of this queued reply hardening task.
+Failed jobs use Laravel's configured failed job storage.
+
+Deployment notes:
+
+```bash
+php artisan optimize:clear
+php artisan queue:restart
+```
+
+Ensure the queue worker keeps running:
+
+```bash
+php artisan queue:work --queue=whatsapp,default --tries=3 --timeout=120
+```
+
+The API-level `statusCallback` should be enough for outbound messages. If Twilio Console also requires a sender-level callback, set the same HTTPS production URL under the WhatsApp sender or messaging status callback settings.
 
 ## Supported message types
 
@@ -169,7 +212,6 @@ Unsupported in this phase:
 - campaigns or broadcasts
 - images, audio, video, documents or voice notes
 - human handover
-- status callbacks
 
 ## Post-booking behavior
 
@@ -232,6 +274,5 @@ TWILIO_VALIDATE_SIGNATURE=false
 - Media, voice notes, or attachments.
 - Phone AI or Telnyx.
 - Human handover.
-- Status callback endpoint.
 
-WhatsApp AI replies are queued from the webhook. Status callbacks remain future work.
+WhatsApp AI replies are queued from the webhook. Delivery status callbacks are supported for outbound Twilio WhatsApp messages.

@@ -21,10 +21,7 @@ class TwilioWhatsAppService
         try {
             $message = (new Client($accountSid, $authToken))->messages->create(
                 $this->normalizeAddress($to),
-                [
-                    'from' => $this->normalizeAddress($from),
-                    'body' => $body,
-                ],
+                $this->messageOptions($from, $body),
             );
 
             return [
@@ -69,6 +66,36 @@ class TwilioWhatsAppService
         return $number;
     }
 
+    protected function messageOptions(string $from, string $body): array
+    {
+        $options = [
+            'from' => $this->normalizeAddress($from),
+            'body' => $body,
+        ];
+
+        $statusCallback = $this->statusCallbackUrl();
+        if ($statusCallback) {
+            $options['statusCallback'] = $statusCallback;
+        }
+
+        return $options;
+    }
+
+    protected function statusCallbackUrl(): ?string
+    {
+        $configured = trim((string) config('twilio.whatsapp_status_callback_url', ''));
+        if ($configured !== '') {
+            return $configured;
+        }
+
+        $appUrl = trim((string) config('app.url', ''));
+        if ($appUrl === '' || $this->isLocalUrl($appUrl)) {
+            return null;
+        }
+
+        return route('twilio.whatsapp.status');
+    }
+
     private function safeAddress(string $number): string
     {
         $address = $this->normalizeAddress($number);
@@ -76,5 +103,12 @@ class TwilioWhatsAppService
         return strlen($address) <= 8
             ? $address
             : substr($address, 0, 12).'...'.substr($address, -4);
+    }
+
+    private function isLocalUrl(string $url): bool
+    {
+        $host = parse_url($url, PHP_URL_HOST);
+
+        return in_array($host, ['localhost', '127.0.0.1', '::1'], true);
     }
 }

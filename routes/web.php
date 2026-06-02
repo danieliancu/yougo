@@ -1,12 +1,12 @@
 <?php
 
-use App\Http\Controllers\BookingController;
-use App\Http\Controllers\BillingController;
-use App\Http\Controllers\ConversationController;
-use App\Http\Controllers\AssistantController;
 use App\Http\Controllers\AiSettingsController;
+use App\Http\Controllers\AssistantController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\BillingController;
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\IndustryController;
 use App\Http\Controllers\LocationController;
@@ -17,10 +17,12 @@ use App\Http\Controllers\ServiceImageImportController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\StripeWebhookController;
+use App\Http\Controllers\TwilioWhatsAppStatusController;
 use App\Http\Controllers\TwilioWhatsAppWebhookController;
 use App\Http\Controllers\WhatsappSettingsController;
 use App\Http\Controllers\WidgetController;
 use App\Support\YouGoServices;
+use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -32,7 +34,7 @@ Route::get('/industries/{businessTypeSlug}', [IndustryController::class, 'show']
 Route::get('/industries/{businessTypeSlug}/{industrySlug}', [IndustryController::class, 'redirectLegacy'])->name('industries.legacy');
 Route::post('/yougo-assistant/chat', [PublicYouGoAssistantController::class, 'chat'])
     ->middleware('throttle:20,1')
-    ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class)
+    ->withoutMiddleware(VerifyCsrfToken::class)
     ->name('yougo-assistant.chat');
 
 Route::middleware('guest')->group(function () {
@@ -98,23 +100,27 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::post('/stripe/webhook', StripeWebhookController::class)
-    ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class)
+    ->withoutMiddleware(VerifyCsrfToken::class)
     ->name('stripe.webhook');
 
 Route::post('/twilio/whatsapp/webhook', TwilioWhatsAppWebhookController::class)
-    ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class)
+    ->withoutMiddleware(VerifyCsrfToken::class)
     ->name('twilio.whatsapp.webhook');
+
+Route::post('/twilio/whatsapp/status', TwilioWhatsAppStatusController::class)
+    ->withoutMiddleware(VerifyCsrfToken::class)
+    ->name('twilio.whatsapp.status');
 
 Route::get('/widget/{widgetKey}.js', [WidgetController::class, 'script'])->name('widget.script');
 Route::get('/widget/{widgetKey}', [WidgetController::class, 'show'])->name('widget.show');
 Route::post('/widget/{widgetKey}/chat', [WidgetController::class, 'chat'])
-    ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class)
+    ->withoutMiddleware(VerifyCsrfToken::class)
     ->name('widget.chat');
 
 Route::get('/assistant/{salon}', [AssistantController::class, 'show'])->name('assistant.show');
 Route::post('/assistant/{salon}/chat', [AssistantController::class, 'chat'])
-    ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class)
+    ->withoutMiddleware(VerifyCsrfToken::class)
     ->name('assistant.chat');
 Route::post('/assistant/{salon}/abandon', [AssistantController::class, 'abandon'])
-    ->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class)
+    ->withoutMiddleware(VerifyCsrfToken::class)
     ->name('assistant.abandon');

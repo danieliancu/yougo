@@ -1550,6 +1550,169 @@ class WhatsappIntegrationTest extends TestCase
         ]);
     }
 
+    public function test_whatsapp_status_callback_updates_outbound_delivery_metadata(): void
+    {
+        config(['twilio.validate_signature' => false]);
+        $message = $this->createOutboundWhatsappMessage('SM_STATUS_DELIVERED');
+
+        $this->post('/twilio/whatsapp/status', $this->twilioStatusPayload([
+            'MessageSid' => 'SM_STATUS_DELIVERED',
+            'MessageStatus' => 'delivered',
+        ]))->assertOk();
+
+        $metadata = $message->refresh()->metadata;
+        $this->assertSame('delivered', $metadata['delivery_status']);
+        $this->assertSame('delivered', $metadata['delivery']['status']);
+        $this->assertSame('delivered', $metadata['delivery']['raw_status']);
+        $this->assertCount(1, $metadata['delivery']['history']);
+    }
+
+    public function test_whatsapp_status_callback_uses_sms_status_fallback(): void
+    {
+        config(['twilio.validate_signature' => false]);
+        $message = $this->createOutboundWhatsappMessage('SM_STATUS_SMS_FALLBACK');
+
+        $this->post('/twilio/whatsapp/status', $this->twilioStatusPayload([
+            'MessageSid' => 'SM_STATUS_SMS_FALLBACK',
+            'MessageStatus' => null,
+            'SmsStatus' => 'sent',
+        ]))->assertOk();
+
+        $this->assertSame('sent', $message->refresh()->metadata['delivery']['status']);
+    }
+
+    public function test_whatsapp_status_callback_stores_failed_error_details(): void
+    {
+        config(['twilio.validate_signature' => false]);
+        $message = $this->createOutboundWhatsappMessage('SM_STATUS_FAILED');
+
+        $this->post('/twilio/whatsapp/status', $this->twilioStatusPayload([
+            'MessageSid' => 'SM_STATUS_FAILED',
+            'MessageStatus' => 'failed',
+            'ErrorCode' => '63038',
+            'ErrorMessage' => 'Daily message limit exceeded',
+        ]))->assertOk();
+
+        $delivery = $message->refresh()->metadata['delivery'];
+        $this->assertSame('failed', $delivery['status']);
+        $this->assertSame('63038', $delivery['error_code']);
+        $this->assertSame('Daily message limit exceeded', $delivery['error_message']);
+    }
+
+    public function test_whatsapp_status_callback_treats_undelivered_as_failure_status(): void
+    {
+        config(['twilio.validate_signature' => false]);
+        $message = $this->createOutboundWhatsappMessage('SM_STATUS_UNDELIVERED');
+
+        $this->post('/twilio/whatsapp/status', $this->twilioStatusPayload([
+            'MessageSid' => 'SM_STATUS_UNDELIVERED',
+            'MessageStatus' => 'undelivered',
+        ]))->assertOk();
+
+        $this->assertSame('undelivered', $message->refresh()->metadata['delivery']['status']);
+    }
+
+    public function test_whatsapp_status_callback_does_not_duplicate_same_history_event(): void
+    {
+        config(['twilio.validate_signature' => false]);
+        $message = $this->createOutboundWhatsappMessage('SM_STATUS_DUPLICATE');
+        $payload = $this->twilioStatusPayload([
+            'MessageSid' => 'SM_STATUS_DUPLICATE',
+            'MessageStatus' => 'delivered',
+        ]);
+
+        $this->post('/twilio/whatsapp/status', $payload)->assertOk();
+        $this->post('/twilio/whatsapp/status', $payload)->assertOk();
+
+        $this->assertCount(1, $message->refresh()->metadata['delivery']['history']);
+    }
+
+    public function test_whatsapp_status_callback_history_is_bounded(): void
+    {
+        config(['twilio.validate_signature' => false]);
+        $message = $this->createOutboundWhatsappMessage('SM_STATUS_HISTORY');
+
+        for ($i = 0; $i < 25; $i++) {
+            $this->post('/twilio/whatsapp/status', $this->twilioStatusPayload([
+                'MessageSid' => 'SM_STATUS_HISTORY',
+                'MessageStatus' => 'failed',
+                'ErrorCode' => (string) (60000 + $i),
+            ]))->assertOk();
+        }
+
+        $history = $message->refresh()->metadata['delivery']['history'];
+        $this->assertCount(20, $history);
+        $this->assertSame('60005', $history[0]['error_code']);
+        $this->assertSame('60024', $history[19]['error_code']);
+    }
+
+    public function test_whatsapp_status_callback_unknown_message_returns_ok_without_creating_message(): void
+    {
+        config(['twilio.validate_signature' => false]);
+
+        $this->post('/twilio/whatsapp/status', $this->twilioStatusPayload([
+            'MessageSid' => 'SM_UNKNOWN_STATUS',
+            'MessageStatus' => 'delivered',
+        ]))->assertOk();
+
+        $this->assertDatabaseMissing('conversation_messages', [
+            'provider_message_id' => 'SM_UNKNOWN_STATUS',
+        ]);
+    }
+
+    public function test_whatsapp_status_callback_rejects_invalid_signature_when_validation_enabled(): void
+    {
+        config([
+            'twilio.validate_signature' => true,
+            'twilio.auth_token' => 'secret',
+        ]);
+
+        $this->withHeader('X-Twilio-Signature', 'invalid')
+            ->post('/twilio/whatsapp/status', $this->twilioStatusPayload())
+            ->assertForbidden();
+    }
+
+    public function test_whatsapp_status_callback_accepts_valid_signature(): void
+    {
+        config([
+            'twilio.validate_signature' => true,
+            'twilio.auth_token' => 'secret',
+        ]);
+        $message = $this->createOutboundWhatsappMessage('SM_STATUS_SIGNED');
+        $payload = $this->twilioStatusPayload([
+            'MessageSid' => 'SM_STATUS_SIGNED',
+            'MessageStatus' => 'delivered',
+        ]);
+        $signature = (new RequestValidator('secret'))->computeSignature('http://localhost/twilio/whatsapp/status', $payload);
+
+        $this->withHeader('X-Twilio-Signature', $signature)
+            ->post('/twilio/whatsapp/status', $payload)
+            ->assertOk();
+
+        $this->assertSame('delivered', $message->refresh()->metadata['delivery']['status']);
+    }
+
+    public function test_twilio_whatsapp_service_includes_status_callback_when_configured(): void
+    {
+        config(['twilio.whatsapp_status_callback_url' => 'https://example.com/twilio/whatsapp/status']);
+
+        $options = $this->twilioMessageOptions();
+
+        $this->assertSame('https://example.com/twilio/whatsapp/status', $options['statusCallback']);
+    }
+
+    public function test_twilio_whatsapp_service_omits_status_callback_when_not_configured_locally(): void
+    {
+        config([
+            'app.url' => 'http://localhost:8000',
+            'twilio.whatsapp_status_callback_url' => null,
+        ]);
+
+        $options = $this->twilioMessageOptions();
+
+        $this->assertArrayNotHasKey('statusCallback', $options);
+    }
+
     public function test_manual_activation_command_activates_integration(): void
     {
         [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
@@ -1677,6 +1840,13 @@ class WhatsappIntegrationTest extends TestCase
             'provider',
             'Conversație WhatsApp',
             'WhatsApp conversation',
+            'deliveryQueued',
+            'deliveryDelivered',
+            'deliveryRead',
+            'deliveryUndelivered',
+            'sendingUnconfirmed',
+            'Error details',
+            'Detalii eroare',
         ] as $needle) {
             $this->assertStringContainsString($needle, $translations);
         }
@@ -1692,6 +1862,11 @@ class WhatsappIntegrationTest extends TestCase
             'bookingArchiveReadOnly',
             'bookingAllowsDashboardActions',
             "t('sendFailed')",
+            "t('sendingUnconfirmed')",
+            "t('deliveryDelivered')",
+            "t('deliveryRead')",
+            "t('deliveryUndelivered')",
+            'metadata?.delivery_status',
             "message.direction === 'inbound'",
             "message.direction === 'outbound'",
             "message.role === 'assistant'",
@@ -1749,6 +1924,67 @@ class WhatsappIntegrationTest extends TestCase
             'WaId' => '40711111111',
             'NumMedia' => '0',
         ], $overrides);
+    }
+
+    private function twilioStatusPayload(array $overrides = []): array
+    {
+        return array_merge([
+            'MessageSid' => 'SM_STATUS',
+            'MessageStatus' => 'queued',
+            'SmsStatus' => 'queued',
+            'To' => 'whatsapp:+40711111111',
+            'From' => 'whatsapp:+40700000000',
+            'ErrorCode' => '',
+            'ErrorMessage' => '',
+            'ChannelPrefix' => 'whatsapp',
+            'ApiVersion' => '2010-04-01',
+            'AccountSid' => 'AC_TEST',
+            'MessagingServiceSid' => '',
+        ], $overrides);
+    }
+
+    private function createOutboundWhatsappMessage(string $messageSid = 'SM_STATUS'): ConversationMessage
+    {
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        $conversation = $salon->conversations()->create([
+            'channel' => 'whatsapp',
+            'provider' => 'twilio',
+            'external_contact_id' => 'whatsapp:+40711111111',
+            'external_sender' => 'whatsapp:+40700000000',
+            'contact_phone' => 'whatsapp:+40711111111',
+            'status' => 'open',
+            'intent' => 'inquiry',
+            'summary' => 'Open.',
+            'last_message_at' => now(),
+        ]);
+
+        return $conversation->messages()->create([
+            'role' => 'assistant',
+            'direction' => 'outbound',
+            'provider' => 'twilio',
+            'provider_message_id' => $messageSid,
+            'content' => 'Raspuns WhatsApp',
+            'metadata' => [
+                'channel' => 'whatsapp',
+                'sent_via' => 'twilio',
+                'status' => 'queued',
+                'provider_result' => [
+                    'sid' => $messageSid,
+                    'status' => 'queued',
+                ],
+            ],
+        ]);
+    }
+
+    private function twilioMessageOptions(): array
+    {
+        return (new class extends TwilioWhatsAppService
+        {
+            public function options(): array
+            {
+                return $this->messageOptions('whatsapp:+40700000000', 'Test');
+            }
+        })->options();
     }
 
     private function createQueuedInbound(Salon $salon, array $payloadOverrides = []): ConversationMessage
