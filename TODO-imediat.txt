@@ -67,21 +67,23 @@ git commit -m "Keep booking status unchanged for change requests"
 
 
 
+Etapa 1 — Queue hardening
+- webhook rapid
+- job pentru AI reply
+- deduplicare MessageSid păstrată
+- retry controlat
+- loguri clare
+
+
+Etapa 2 — Delivery status callbacks
+- endpoint /twilio/whatsapp/status
+- salvează delivered/failed/undelivered
+- dashboard arată status real de livrare
 
 
 
-
-
-hardening:
-1. mutăm WhatsApp AI replies în queue/job
-2. prevenim timeouturi Twilio
-3. facem retry controlat pentru AI/Twilio
-4. păstrăm deduplicarea MessageSid
-5. loguri clare când AI/Twilio pică
-
-
-
-
+- sistemul funcționează corect, dar experiența arată că trebuie să educăm businessul să confirme programările în dashboard după ce le confirmă telefonic. Altfel AI-ul și echipa pot spune lucruri diferite.
+- pregatire un admin dashboard
 
 
 

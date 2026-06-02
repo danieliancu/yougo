@@ -1,21 +1,21 @@
 # WhatsApp AI
 
-WhatsApp AI is available as an MVP. It supports Twilio inbound webhooks, automatic AI replies, booking creation, pending booking cancellation, dashboard conversations, usage limits, and manual Twilio activation.
+WhatsApp AI is available as an MVP. It supports Twilio inbound webhooks, automatic AI replies, booking creation, pending booking cancellation, dashboard conversations, usage limits, delivery status callbacks, and manual real-sender activation per salon.
 
 ## Provider
 
 WhatsApp AI uses Twilio as the WhatsApp provider.
 
-The MVP does not provision Meta or Twilio senders automatically. It stores the business request and lets the YouGo team configure the sender manually in Twilio.
+The MVP does not provision Meta or Twilio senders automatically. It stores the business request and lets the YouGo team configure the sender manually in Twilio/Meta. Customer-facing dashboard copy should say that YouGo will configure the WhatsApp number, not expose Twilio sender details.
 
 Phone AI remains planned and is not part of the WhatsApp MVP.
 
 ## MVP activation flow
 
 1. The business owner opens Dashboard -> WhatsApp Settings.
-2. They enter their business WhatsApp number.
+2. They enter their WhatsApp Business number in international format, for example `+407...` or `+447...`.
 3. They click Request activation.
-4. YouGo stores `whatsapp_integrations.requested_number`, sets `status = requested`, and records `requested_at`.
+4. YouGo stores `whatsapp_integrations.requested_number` as a normalized `+...` number, sets `status = requested`, and records `requested_at`.
 5. A YouGo admin configures the WhatsApp sender in Twilio.
 6. The admin manually activates the integration.
 7. Once active, the business owner can toggle WhatsApp AI on or off.
@@ -24,7 +24,7 @@ Activation states:
 
 - `needs activation`: the plan includes WhatsApp AI, but the business has not requested setup yet.
 - `activation requested`: the business entered a WhatsApp number and is waiting for YouGo admin setup.
-- `active`: the Twilio sender is configured and WhatsApp AI can be toggled on or off.
+- `active`: the WhatsApp sender is configured and WhatsApp AI can be toggled on or off.
 - `disabled`: the integration exists but is disabled.
 - `failed`: activation failed and needs admin review.
 
@@ -34,12 +34,31 @@ Manual activation:
 php artisan yougo:whatsapp-activate {salon_id} {twilio_sender}
 ```
 
-Equivalent database changes:
+The command accepts `whatsapp:+407...`, `+407...`, or `00407...`, normalizes the stored sender to `whatsapp:+407...`, and can take an optional display number:
+
+```bash
+php artisan yougo:whatsapp-activate {salon_id} whatsapp:+407... --display-number="+40 7xx xxx xxx"
+```
+
+Activation behavior:
 
 1. Set `whatsapp_integrations.twilio_sender = 'whatsapp:+40...'`.
-2. Set `display_number` if desired.
+2. Set `display_number` from `--display-number` or the normalized `+...` number.
 3. Set `status = 'active'`.
 4. Set `activated_at = now()`.
+5. Preserve `requested_number`.
+6. Merge activation metadata such as `activation_source = manual` and `activated_by = command`.
+7. Refuse to activate a sender already assigned to another salon.
+
+Admin checklist:
+
+1. Review the requested number in YouGo.
+2. Configure and approve the WhatsApp sender in Twilio/Meta manually.
+3. Verify the sender is live.
+4. Run `php artisan yougo:whatsapp-activate {salon_id} whatsapp:+...`.
+5. Confirm the dashboard shows the integration as active.
+6. Test one inbound and one outbound WhatsApp message.
+7. Ensure the queue worker and delivery status callback URL are active.
 
 ## Plan access
 

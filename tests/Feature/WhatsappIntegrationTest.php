@@ -74,6 +74,34 @@ class WhatsappIntegrationTest extends TestCase
         $this->assertNull($integration->twilio_sender);
     }
 
+    public function test_request_activation_normalizes_00_prefix_to_international_number(): void
+    {
+        [$salon, $user] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+
+        $this->actingAs($user)
+            ->postJson('/dashboard/whatsapp/request-activation', [
+                'requested_number' => '0040 711 111 111',
+            ])
+            ->assertOk()
+            ->assertJsonPath('integration.requested_number', '+40711111111');
+
+        $this->assertSame('+40711111111', $salon->refresh()->whatsappIntegration->requested_number);
+    }
+
+    public function test_request_activation_rejects_local_number_without_country_code(): void
+    {
+        [$salon, $user] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+
+        $this->actingAs($user)
+            ->postJson('/dashboard/whatsapp/request-activation', [
+                'requested_number' => '0711 111 111',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('requested_number');
+
+        $this->assertNull($salon->refresh()->whatsappIntegration);
+    }
+
     public function test_toggle_requires_active_integration_and_whatsapp_plan(): void
     {
         [$inactiveSalon, $inactiveUser] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
@@ -1731,7 +1759,58 @@ class WhatsappIntegrationTest extends TestCase
         $this->assertSame('active', $integration->status);
         $this->assertSame('whatsapp:+40700000000', $integration->twilio_sender);
         $this->assertSame('+40700000000', $integration->display_number);
+        $this->assertSame('+40700000000', $integration->requested_number);
+        $this->assertSame('manual', $integration->metadata['activation_source']);
+        $this->assertSame('command', $integration->metadata['activated_by']);
         $this->assertNotNull($integration->activated_at);
+    }
+
+    public function test_manual_activation_command_accepts_whatsapp_sender_and_display_number(): void
+    {
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+
+        $this->artisan('yougo:whatsapp-activate', [
+            'salon_id' => $salon->id,
+            'twilio_sender' => 'whatsapp:+40700000001',
+            '--display-number' => '+40 700 000 001',
+        ])->assertSuccessful();
+
+        $integration = $salon->refresh()->whatsappIntegration;
+        $this->assertSame('whatsapp:+40700000001', $integration->twilio_sender);
+        $this->assertSame('+40 700 000 001', $integration->display_number);
+    }
+
+    public function test_manual_activation_command_normalizes_00_sender_prefix(): void
+    {
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+
+        $this->artisan('yougo:whatsapp-activate', [
+            'salon_id' => $salon->id,
+            'twilio_sender' => '0040700000002',
+        ])->assertSuccessful();
+
+        $integration = $salon->refresh()->whatsappIntegration;
+        $this->assertSame('whatsapp:+40700000002', $integration->twilio_sender);
+        $this->assertSame('+40700000002', $integration->display_number);
+    }
+
+    public function test_manual_activation_command_prevents_duplicate_sender(): void
+    {
+        [$salon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+        [$otherSalon] = $this->createSalonWithUser(['plan' => 'chat_whatsapp']);
+
+        $otherSalon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => 'active',
+            'twilio_sender' => 'whatsapp:+40700000003',
+        ]);
+
+        $this->artisan('yougo:whatsapp-activate', [
+            'salon_id' => $salon->id,
+            'twilio_sender' => '+40700000003',
+        ])->assertFailed();
+
+        $this->assertNull($salon->refresh()->whatsappIntegration);
     }
 
     public function test_user_can_resolve_own_whatsapp_booking_change_request_without_changing_booking_status(): void
@@ -1818,8 +1897,23 @@ class WhatsappIntegrationTest extends TestCase
             'activationRequested',
             'activated',
             'activationError',
+            'whatsappActivationRequestedHelp',
+            'Planul tau nu include WhatsApp AI.',
+            'Your plan does not include WhatsApp AI.',
+            'Enter your WhatsApp Business number. The YouGo team will configure it and let you know when it is active.',
+            'Your request has been sent. The YouGo team will configure the number.',
         ] as $needle) {
             $this->assertStringContainsString($needle, $source.$translations);
+        }
+
+        foreach ([
+            'whatsappTwilioManualActivationHelp',
+            'label="Twilio"',
+            'Twilio sender',
+            'senderului Twilio',
+            'configured in Twilio',
+        ] as $needle) {
+            $this->assertStringNotContainsString($needle, $source.$translations);
         }
     }
 

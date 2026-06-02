@@ -54,10 +54,42 @@ class TwilioWhatsAppService
         return 'whatsapp:'.$this->normalizePhoneNumber($number);
     }
 
+    public function normalizeInternationalPhoneNumber(string $number, bool $allowWhatsappPrefix = false): string
+    {
+        $number = trim($number);
+
+        if ($allowWhatsappPrefix && str_starts_with($number, 'whatsapp:')) {
+            $number = substr($number, strlen('whatsapp:'));
+        }
+
+        $number = preg_replace('/[^\d+]/', '', $number) ?? '';
+
+        if (str_starts_with($number, '00')) {
+            $number = '+'.substr($number, 2);
+        }
+
+        if (! str_starts_with($number, '+')) {
+            return '';
+        }
+
+        return $number;
+    }
+
+    public function normalizeWhatsappSender(string $number): string
+    {
+        $phoneNumber = $this->normalizeInternationalPhoneNumber($number, allowWhatsappPrefix: true);
+
+        return $phoneNumber === '' ? '' : 'whatsapp:'.$phoneNumber;
+    }
+
     public function normalizePhoneNumber(string $number): string
     {
         $number = trim($number);
         $number = preg_replace('/[^\d+]/', '', $number) ?? '';
+
+        if (str_starts_with($number, '00')) {
+            $number = '+'.substr($number, 2);
+        }
 
         if ($number !== '' && ! str_starts_with($number, '+')) {
             $number = '+'.$number;

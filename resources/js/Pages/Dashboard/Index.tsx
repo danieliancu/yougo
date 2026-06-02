@@ -4,7 +4,7 @@ import type { ActivityChartRow } from '@/Components/ActivityChart';
 import { PricingPlansGrid, VoicePlanKey } from '@/Components/PricingPlansGrid';
 import { YouGoCopilot } from '@/Components/YouGoCopilot';
 import { Booking, Conversation, Location as SalonLocation, OfferedService, OnboardingChecklist, OnboardingStep, OverviewData, PageProps, Plan, Salon, Service, Staff, UsageSummary, User as AuthUser, WhatsappIntegration } from '@/types';
-import { AlertTriangle, Bell, Bot, Building2, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, CreditCard, Download, ExternalLink, FileText, Globe2, LayoutDashboard, List, Lock, LogOut, MapPin, Menu, MessageCircle, MessageSquare, MoreHorizontal, Pencil, Phone, Plus, QrCode, Save, Scissors, Search, Settings, Smartphone, Sparkles, Trash2, User, Users, X, XCircle } from 'lucide-react';
+import { AlertTriangle, Bell, Bot, Building2, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, CreditCard, Download, ExternalLink, FileText, Globe2, LayoutDashboard, List, Lock, LogOut, MapPin, Menu, MessageCircle, MessageSquare, MoreHorizontal, Pencil, Phone, Plus, Save, Scissors, Search, Settings, Smartphone, Sparkles, Trash2, User, Users, X, XCircle } from 'lucide-react';
 import { SiWhatsapp } from 'react-icons/si';
 import { FormEvent, lazy, ReactNode, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
@@ -5239,7 +5239,7 @@ function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
                   {busy === 'request' ? t('saving') : t('requestWhatsappActivation')}
                 </Button>
                 {!active && (
-                  <p className="max-w-xl text-sm app-text-muted">{t('whatsappSetupUnderReview')}</p>
+                  <p className="max-w-xl text-sm app-text-muted">{t(activationRequested ? 'whatsappActivationRequestedHelp' : 'whatsappSetupUnderReview')}</p>
                 )}
               </div>
 
@@ -5269,7 +5269,7 @@ function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
                 <div className="space-y-4 rounded-lg border p-4 app-border">
                   <div>
                     <h3 className="text-sm font-bold app-text">{t('whatsappTestMessage')}</h3>
-                    <p className="mt-1 text-sm app-text-muted">{t('whatsappTwilioManualActivationHelp')}</p>
+                    <p className="mt-1 text-sm app-text-muted">{t('whatsappManualActivationHelp')}</p>
                   </div>
                   <div className="grid gap-4 md:grid-cols-2">
                     <Field label={t('whatsappRecipientNumber')}>
@@ -5293,7 +5293,6 @@ function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
             <div className="mt-4 space-y-3">
               <Detail icon={MessageCircle} label={t('status')} value={whatsappActivationStateLabel(plan, integration, t)} />
               <Detail icon={Phone} label={t('whatsappBusinessNumber')} value={integration?.display_number || integration?.requested_number || t('notConfigured')} />
-              <Detail icon={QrCode} label="Twilio" value={integration?.twilio_sender ? t('configured') : t('notConfigured')} />
             </div>
           </Card>
         </div>

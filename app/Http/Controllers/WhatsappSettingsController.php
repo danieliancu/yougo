@@ -11,7 +11,6 @@ use App\Support\YouGoServices;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
-use Throwable;
 
 class WhatsappSettingsController extends Controller
 {
@@ -24,11 +23,11 @@ class WhatsappSettingsController extends Controller
             'requested_number' => ['required', 'string', 'max:40', 'regex:/^\+?[0-9\s().-]+$/'],
         ]);
 
-        $requestedNumber = $twilio->normalizePhoneNumber($data['requested_number']);
+        $requestedNumber = $twilio->normalizeInternationalPhoneNumber($data['requested_number']);
 
         if (! preg_match('/^\+\d{8,15}$/', $requestedNumber)) {
             throw ValidationException::withMessages([
-                'requested_number' => __('Enter a valid WhatsApp number in international format.'),
+                'requested_number' => __('Please enter the number in international format, for example +447...'),
             ]);
         }
 
@@ -81,7 +80,7 @@ class WhatsappSettingsController extends Controller
         $integration = $salon->whatsappIntegration;
         abort_unless($integration, 404);
         abort_unless($integration->status === WhatsappIntegration::STATUS_ACTIVE, 422, 'WhatsApp is not active yet.');
-        abort_unless(filled($integration->twilio_sender), 422, 'Twilio sender is not configured.');
+        abort_unless(filled($integration->twilio_sender), 422, 'WhatsApp number is not configured.');
 
         $to = $twilio->normalizeAddress($data['to']);
         $result = $twilio->sendMessage($integration->twilio_sender, $to, $data['message']);
@@ -123,7 +122,7 @@ class WhatsappSettingsController extends Controller
                 'contact_phone' => $to,
                 'status' => 'open',
                 'intent' => 'inquiry',
-                'summary' => 'Mesaj test WhatsApp trimis prin Twilio.',
+                'summary' => 'Mesaj test WhatsApp trimis prin YouGo.',
                 'last_message_at' => now(),
             ],
         );
