@@ -25,6 +25,8 @@ After the business requests activation, Dashboard -> WhatsApp Settings explains 
 
 The latest sanitized setup request is also visible to promoted operators in Platform Admin under `/platform-admin/whatsapp-onboarding`. The requested queue only includes businesses that submitted the setup-call details form. Platform Admin can display setup-call details and a copyable manual activation command, but it does not provision Twilio or Meta senders automatically.
 
+Platform Admin is the only UI surface that exposes technical sender fields such as `twilio_sender`. The normal business dashboard returns customer-safe integration status, requested/display numbers, activation state, and AI toggle state only.
+
 Security rules for setup:
 
 - Customers should never send Facebook, Meta, or WhatsApp passwords to YouGo.

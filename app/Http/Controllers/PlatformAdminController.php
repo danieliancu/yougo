@@ -14,48 +14,42 @@ class PlatformAdminController extends Controller
 
     public function overview(): Response
     {
-        return Inertia::render('PlatformAdmin/Index', [
-            'page' => 'overview',
+        return Inertia::render('PlatformAdmin/Overview', [
             'payload' => $this->admin->overview(),
         ]);
     }
 
     public function businesses(Request $request): Response
     {
-        return Inertia::render('PlatformAdmin/Index', [
-            'page' => 'businesses',
+        return Inertia::render('PlatformAdmin/Businesses', [
             'payload' => $this->admin->businesses($request->only(['search', 'plan', 'subscription_status', 'whatsapp_status'])),
         ]);
     }
 
     public function business(Salon $salon): Response
     {
-        return Inertia::render('PlatformAdmin/Index', [
-            'page' => 'business_detail',
+        return Inertia::render('PlatformAdmin/BusinessDetail', [
             'payload' => $this->admin->businessDetail($salon),
         ]);
     }
 
     public function whatsappOnboarding(Request $request): Response
     {
-        return Inertia::render('PlatformAdmin/Index', [
-            'page' => 'whatsapp_onboarding',
+        return Inertia::render('PlatformAdmin/WhatsappOnboarding', [
             'payload' => $this->admin->whatsappOnboarding($request->string('status')->toString() ?: 'requested'),
         ]);
     }
 
     public function usage(): Response
     {
-        return Inertia::render('PlatformAdmin/Index', [
-            'page' => 'usage',
+        return Inertia::render('PlatformAdmin/Usage', [
             'payload' => $this->admin->usage(),
         ]);
     }
 
     public function issues(): Response
     {
-        return Inertia::render('PlatformAdmin/Index', [
-            'page' => 'issues',
+        return Inertia::render('PlatformAdmin/Issues', [
             'payload' => $this->admin->issues(),
         ]);
     }

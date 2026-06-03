@@ -228,7 +228,6 @@ class WhatsappSettingsController extends Controller
             'id' => $integration->id,
             'provider' => $integration->provider,
             'requested_number' => $integration->requested_number,
-            'twilio_sender' => $integration->twilio_sender,
             'display_number' => $integration->display_number,
             'status' => $integration->status,
             'ai_enabled' => $integration->ai_enabled,

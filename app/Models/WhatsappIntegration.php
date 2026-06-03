@@ -11,9 +11,13 @@ class WhatsappIntegration extends Model
     use HasFactory;
 
     public const STATUS_NOT_CONNECTED = 'not_connected';
+
     public const STATUS_REQUESTED = 'requested';
+
     public const STATUS_ACTIVE = 'active';
+
     public const STATUS_DISABLED = 'disabled';
+
     public const STATUS_FAILED = 'failed';
 
     protected $fillable = [
@@ -28,6 +32,10 @@ class WhatsappIntegration extends Model
         'activated_at',
         'requested_at',
         'metadata',
+    ];
+
+    protected $hidden = [
+        'twilio_sender',
     ];
 
     protected function casts(): array

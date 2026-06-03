@@ -124,7 +124,6 @@ export type WhatsappIntegration = {
   salon_id: number;
   provider: 'twilio' | string;
   requested_number?: string | null;
-  twilio_sender?: string | null;
   display_number?: string | null;
   status: 'not_connected' | 'requested' | 'active' | 'disabled' | 'failed' | string;
   ai_enabled: boolean;

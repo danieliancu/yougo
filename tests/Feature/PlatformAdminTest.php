@@ -49,21 +49,20 @@ class PlatformAdminTest extends TestCase
         ]);
 
         $routes = [
-            '/platform-admin' => 'overview',
-            '/platform-admin/businesses' => 'businesses',
-            "/platform-admin/businesses/{$salon->id}" => 'business_detail',
-            '/platform-admin/whatsapp-onboarding' => 'whatsapp_onboarding',
-            '/platform-admin/usage' => 'usage',
-            '/platform-admin/issues' => 'issues',
+            '/platform-admin' => 'PlatformAdmin/Overview',
+            '/platform-admin/businesses' => 'PlatformAdmin/Businesses',
+            "/platform-admin/businesses/{$salon->id}" => 'PlatformAdmin/BusinessDetail',
+            '/platform-admin/whatsapp-onboarding' => 'PlatformAdmin/WhatsappOnboarding',
+            '/platform-admin/usage' => 'PlatformAdmin/Usage',
+            '/platform-admin/issues' => 'PlatformAdmin/Issues',
         ];
 
-        foreach ($routes as $route => $pageName) {
+        foreach ($routes as $route => $component) {
             $this->actingAs($admin)
                 ->get($route)
                 ->assertOk()
                 ->assertInertia(fn (Assert $page) => $page
-                    ->component('PlatformAdmin/Index')
-                    ->where('page', $pageName)
+                    ->component($component)
                     ->has('payload'));
         }
     }
@@ -76,6 +75,13 @@ class PlatformAdminTest extends TestCase
             ->assertSuccessful();
 
         $this->assertTrue($user->refresh()->is_platform_admin);
+    }
+
+    public function test_make_platform_admin_command_fails_clearly_for_missing_user(): void
+    {
+        $this->artisan('yougo:make-platform-admin missing@example.com')
+            ->expectsOutput('No user found for missing@example.com.')
+            ->assertFailed();
     }
 
     public function test_whatsapp_requested_integrations_appear_in_onboarding_queue(): void
@@ -99,7 +105,7 @@ class PlatformAdminTest extends TestCase
             ->get('/platform-admin/whatsapp-onboarding')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('PlatformAdmin/Index')
+                ->component('PlatformAdmin/WhatsappOnboarding')
                 ->where('payload.items.0.business_name', 'Belle')
                 ->where('payload.items.0.requested_number', '+40711111111')
                 ->where('payload.items.0.activation_command', "php artisan yougo:whatsapp-activate {$salon->id} whatsapp:+40711111111"));
@@ -120,7 +126,7 @@ class PlatformAdminTest extends TestCase
             ->get('/platform-admin/whatsapp-onboarding')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('PlatformAdmin/Index')
+                ->component('PlatformAdmin/WhatsappOnboarding')
                 ->where('payload.items', []));
     }
 
@@ -178,9 +184,64 @@ class PlatformAdminTest extends TestCase
                 ->where('payload.whatsapp.activation_command', "php artisan yougo:whatsapp-activate {$salon->id} whatsapp:+40711111111"));
     }
 
+    public function test_technical_whatsapp_fields_are_absent_from_normal_dashboard_payload(): void
+    {
+        $user = User::factory()->create();
+        $salon = $this->createSalon([
+            'user_id' => $user->id,
+            'plan' => 'chat_whatsapp',
+        ]);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => WhatsappIntegration::STATUS_ACTIVE,
+            'requested_number' => '+40711111111',
+            'display_number' => '+40711111111',
+            'twilio_sender' => 'whatsapp:+40711111111',
+            'ai_enabled' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->get('/dashboard/whatsapp')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Dashboard/Index')
+                ->missing('salon.whatsapp_integration.twilio_sender')
+                ->missing('billing.whatsapp_integration.twilio_sender'));
+    }
+
+    public function test_customer_facing_whatsapp_json_does_not_return_twilio_sender(): void
+    {
+        $user = User::factory()->create();
+        $salon = $this->createSalon([
+            'user_id' => $user->id,
+            'plan' => 'chat_whatsapp',
+        ]);
+        $salon->whatsappIntegration()->create([
+            'provider' => 'twilio',
+            'status' => WhatsappIntegration::STATUS_ACTIVE,
+            'requested_number' => '+40711111111',
+            'display_number' => '+40711111111',
+            'twilio_sender' => 'whatsapp:+40711111111',
+            'ai_enabled' => false,
+        ]);
+
+        $this->actingAs($user)
+            ->patchJson('/dashboard/whatsapp/toggle', ['ai_enabled' => true])
+            ->assertOk()
+            ->assertJsonMissingPath('integration.twilio_sender');
+    }
+
     public function test_platform_admin_source_contains_required_navigation_and_status_labels(): void
     {
-        $source = file_get_contents(resource_path('js/Pages/PlatformAdmin/Index.tsx'));
+        $source = collect([
+            'Components.tsx',
+            'Overview.tsx',
+            'Businesses.tsx',
+            'BusinessDetail.tsx',
+            'WhatsappOnboarding.tsx',
+            'Usage.tsx',
+            'Issues.tsx',
+        ])->map(fn (string $file) => file_get_contents(resource_path("js/Pages/PlatformAdmin/{$file}")))->implode("\n");
 
         $this->assertStringContainsString('Platform Admin', $source);
         $this->assertStringContainsString('WhatsApp Onboarding', $source);

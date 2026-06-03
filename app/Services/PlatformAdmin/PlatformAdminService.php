@@ -33,11 +33,11 @@ class PlatformAdminService
                 'whatsapp_failed' => WhatsappIntegration::query()->where('status', WhatsappIntegration::STATUS_FAILED)->count(),
                 'whatsapp_disabled' => WhatsappIntegration::query()->where('status', WhatsappIntegration::STATUS_DISABLED)->count(),
                 'whatsapp_messages' => UsageEvent::query()
-                    ->where('event_type', 'whatsapp_message')
+                    ->whereIn('event_type', ['whatsapp_message_inbound', 'whatsapp_message_outbound'])
                     ->where('occurred_at', '>=', $monthStart)
                     ->sum('quantity'),
                 'ai_bookings' => UsageEvent::query()
-                    ->where('event_type', 'booking')
+                    ->where('event_type', 'booking_created')
                     ->where('occurred_at', '>=', $monthStart)
                     ->sum('quantity'),
                 'website_chat_conversations' => Conversation::query()
@@ -46,12 +46,16 @@ class PlatformAdminService
                     ->count(),
                 'phone_ai' => 'planned',
             ],
+            'issue_summary' => $this->issueSummary(),
             'recent_businesses' => Salon::query()
                 ->with(['user', 'whatsappIntegration'])
                 ->latest()
                 ->limit(8)
                 ->get()
-                ->map(fn (Salon $salon) => $this->businessRow($salon))
+                ->map(fn (Salon $salon) => [
+                    ...$this->businessRow($salon),
+                    'usage' => $this->usageLimits->usageSummary($salon),
+                ])
                 ->values(),
         ];
     }
@@ -83,7 +87,12 @@ class PlatformAdminService
                 'subscription_status' => $filters['subscription_status'] ?? '',
                 'whatsapp_status' => $filters['whatsapp_status'] ?? '',
             ],
-            'items' => $paginator->getCollection()->map(fn (Salon $salon) => $this->businessRow($salon))->values(),
+            'items' => $paginator->getCollection()
+                ->map(fn (Salon $salon) => [
+                    ...$this->businessRow($salon),
+                    'usage' => $this->usageLimits->usageSummary($salon),
+                ])
+                ->values(),
             'pagination' => $this->pagination($paginator),
             'plans' => collect(YouGoServices::plans())->pluck('name', 'key'),
         ];
@@ -181,7 +190,12 @@ class PlatformAdminService
                 ->get()
                 ->filter(fn (WhatsappIntegration $integration) => $this->hasSetupRequest($integration))
                 ->take(50)
-                ->map(fn (WhatsappIntegration $integration) => $this->onboardingRow($integration))
+                ->map(fn (WhatsappIntegration $integration) => [
+                    ...$this->onboardingRow($integration),
+                    'severity' => 'info',
+                    'description' => 'WhatsApp activation requested.',
+                    'suggested_action' => 'Review setup request, configure sender, and run activation command.',
+                ])
                 ->values(),
             'active_ai_disabled' => WhatsappIntegration::query()
                 ->with(['salon.user'])
@@ -189,7 +203,12 @@ class PlatformAdminService
                 ->where('ai_enabled', false)
                 ->limit(50)
                 ->get()
-                ->map(fn (WhatsappIntegration $integration) => $this->onboardingRow($integration))
+                ->map(fn (WhatsappIntegration $integration) => [
+                    ...$this->onboardingRow($integration),
+                    'severity' => 'warning',
+                    'description' => 'WhatsApp is active but AI replies are disabled.',
+                    'suggested_action' => 'Confirm whether AI should be enabled for this business.',
+                ])
                 ->values(),
             'active_missing_sender' => WhatsappIntegration::query()
                 ->with(['salon.user'])
@@ -197,19 +216,47 @@ class PlatformAdminService
                 ->whereNull('twilio_sender')
                 ->limit(50)
                 ->get()
-                ->map(fn (WhatsappIntegration $integration) => $this->onboardingRow($integration))
+                ->map(fn (WhatsappIntegration $integration) => [
+                    ...$this->onboardingRow($integration),
+                    'severity' => 'error',
+                    'description' => 'WhatsApp is active but no Twilio sender is stored.',
+                    'suggested_action' => 'Check sender configuration and rerun the activation command if needed.',
+                ])
                 ->values(),
             'failed_whatsapp_messages' => $this->failedWhatsappMessages(),
             'missing_notification_email' => Salon::query()
                 ->with('user')
-                ->whereNull('notification_email')
-                ->orWhere('notification_email', '')
+                ->where(function (Builder $query): void {
+                    $query->whereNull('notification_email')
+                        ->orWhere('notification_email', '');
+                })
                 ->limit(50)
                 ->get()
-                ->map(fn (Salon $salon) => $this->businessRow($salon))
+                ->map(fn (Salon $salon) => [
+                    ...$this->businessRow($salon),
+                    'salon_id' => $salon->id,
+                    'business_name' => $salon->name,
+                    'severity' => 'warning',
+                    'description' => 'Business has no notification email.',
+                    'suggested_action' => 'Ask the business to add a notification email in settings.',
+                ])
                 ->values(),
             'usage_near_limits' => $nearLimit,
             'failed_jobs' => Schema::hasTable('failed_jobs') ? DB::table('failed_jobs')->latest('failed_at')->limit(20)->get() : [],
+        ];
+    }
+
+    private function issueSummary(): array
+    {
+        $issues = $this->issues();
+
+        return [
+            'whatsapp_waiting' => count($issues['whatsapp_requested']),
+            'ai_disabled' => count($issues['active_ai_disabled']),
+            'failed_whatsapp_messages' => count($issues['failed_whatsapp_messages']),
+            'missing_notification_email' => count($issues['missing_notification_email']),
+            'usage_warnings' => count($issues['usage_near_limits']),
+            'failed_jobs' => count($issues['failed_jobs']),
         ];
     }
 
@@ -358,6 +405,9 @@ class PlatformAdminService
                     'salon_id' => $message->conversation?->salon?->id,
                     'business_name' => $message->conversation?->salon?->name,
                     'owner_email' => $message->conversation?->salon?->user?->email,
+                    'severity' => 'error',
+                    'description' => 'Recent WhatsApp message failed or was undelivered.',
+                    'suggested_action' => 'Inspect provider status, error code, and customer number.',
                     'provider_message_id' => $message->provider_message_id,
                     'status' => $metadata['delivery']['status'] ?? $metadata['delivery_status'] ?? $metadata['status'] ?? 'unknown',
                     'error_code' => $metadata['delivery']['error_code'] ?? $metadata['twilio_error_code'] ?? null,

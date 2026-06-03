@@ -91,3 +91,27 @@ Altfel AI-ul și echipa pot spune lucruri diferite.
 
 
 
+
+
+Platform Admin
+- camera de control YouGo
+
+Usage / Limits
+- cine consumă
+- cât consumă
+- cine trebuie upgrade
+
+
+WhatsApp Onboarding Queue
+lista centralizată:
+- requested
+- active
+- failed
+- waiting
+
+CRM Light
+- profil client
+- istoric client
+- preferințe client
+
+
