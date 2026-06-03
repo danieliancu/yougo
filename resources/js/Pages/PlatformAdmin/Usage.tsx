@@ -10,7 +10,7 @@ export default function Usage({ payload }: Props) {
     <PlatformAdminLayout page="usage">
       <Head title="Platform Admin Usage" />
       <PageHeader title="Usage" subtitle={`Current-month usage vs limits (${payload.month ?? ''}). Rows over 80% are flagged as near limit.`} />
-      <div className="mb-5 rounded-md border border-slate-800 bg-slate-900/50 p-4 text-sm text-slate-400">
+      <div className="mb-5 rounded-2xl border border-indigo-100 bg-indigo-50 p-4 text-sm font-semibold text-indigo-800 shadow-sm shadow-slate-200/70">
         monthly_whatsapp_messages is the billable/limit row for inbound + outbound WhatsApp messages. whatsapp_conversation is analytics only.
       </div>
       <div className="space-y-4">

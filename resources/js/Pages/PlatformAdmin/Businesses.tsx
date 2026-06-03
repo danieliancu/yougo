@@ -28,18 +28,18 @@ export default function Businesses({ payload }: Props) {
     <PlatformAdminLayout page="businesses">
       <Head title="Platform Admin Businesses" />
       <PageHeader title="Businesses" subtitle="Search and filter customer accounts by owner, plan, subscription, and WhatsApp status." />
-      <form onSubmit={submit} className="mb-6 grid gap-3 rounded-md border border-slate-800 bg-slate-900/60 p-4 md:grid-cols-4">
+      <form onSubmit={submit} className="mb-6 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70 md:grid-cols-4">
         <label className="md:col-span-2">
-          <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Business or email</span>
-          <div className="mt-1 flex items-center gap-2 rounded-md border border-slate-700 bg-slate-950 px-3">
+          <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Business or email</span>
+          <div className="mt-1 flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 focus-within:border-indigo-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-indigo-100">
             <Search className="h-4 w-4 text-slate-500" />
-            <input value={search} onChange={(event) => setSearch(event.target.value)} className="w-full bg-transparent py-2 text-sm text-slate-100 outline-none" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} className="w-full bg-transparent py-2 text-sm font-semibold text-slate-700 outline-none" />
           </div>
         </label>
         <Select label="Plan" value={plan} onChange={setPlan} options={['', ...Object.keys(payload.plans ?? {})]} />
         <Select label="Subscription" value={subscriptionStatus} onChange={setSubscriptionStatus} options={['', 'active', 'trialing', 'past_due', 'cancelled', 'none']} />
         <Select label="WhatsApp status" value={whatsappStatus} onChange={setWhatsappStatus} options={['', 'requested', 'active', 'failed', 'disabled', 'not_connected']} />
-        <button className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-black text-white hover:bg-indigo-600 md:self-end">Apply filters</button>
+        <button className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-black text-white shadow-sm shadow-indigo-200 hover:bg-indigo-700 md:self-end">Apply filters</button>
       </form>
       <Panel title={`Businesses (${payload.pagination?.total ?? 0})`}>
         <BusinessTable items={payload.items ?? []} />

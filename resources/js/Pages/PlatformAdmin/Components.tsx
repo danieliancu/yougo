@@ -1,10 +1,10 @@
-import { Link } from '@inertiajs/react';
-import { AlertTriangle, ArrowLeft, Building2, Clipboard, MessageCircle, Phone, Shield, Users } from 'lucide-react';
+import { Link, usePage } from '@inertiajs/react';
+import { AlertTriangle, ArrowLeft, BriefcaseBusiness, Building2, Clipboard, MessageCircle, Phone, Search, Shield, UserCircle, Users, type LucideIcon } from 'lucide-react';
 import { ReactNode } from 'react';
 
 export type AdminPage = 'overview' | 'businesses' | 'business_detail' | 'whatsapp_onboarding' | 'usage' | 'issues';
 
-const navItems = [
+const mainNavItems = [
   { href: '/platform-admin', key: 'overview', label: 'Overview', icon: Shield },
   { href: '/platform-admin/businesses', key: 'businesses', label: 'Businesses', icon: Building2 },
   { href: '/platform-admin/whatsapp-onboarding', key: 'whatsapp_onboarding', label: 'WhatsApp Onboarding', icon: MessageCircle },
@@ -13,50 +13,104 @@ const navItems = [
 ];
 
 export function PlatformAdminLayout({ page, children }: { page: AdminPage; children: ReactNode }) {
-  return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-slate-800 bg-slate-950 px-5 py-6 lg:block">
-        <div className="mb-8">
-          <p className="text-xs font-bold uppercase tracking-wide text-indigo-300">YouGo</p>
-          <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-50">Platform Admin</h1>
-          <p className="mt-2 text-sm text-slate-400">Internal read-only operations console.</p>
-        </div>
-        <nav className="space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = item.key === page || (page === 'business_detail' && item.key === 'businesses');
+  const { auth } = usePage<{ auth?: { user?: { name?: string | null; email?: string | null } | null } }>().props;
+  const user = auth?.user;
 
-            return (
-              <Link
-                key={item.key}
-                href={item.href}
-                className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-bold transition ${active ? 'bg-indigo-500 text-white' : 'text-slate-300 hover:bg-slate-900 hover:text-slate-50'}`}
-              >
-                <Icon className="h-4 w-4" />
-                {item.label}
-              </Link>
-            );
-          })}
+  return (
+    <div className="min-h-screen bg-slate-100 text-slate-900">
+      <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-slate-800 bg-slate-950 px-5 py-5 lg:flex lg:flex-col">
+        <div className="mb-7 flex items-center gap-3 rounded-2xl bg-white/5 p-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500 text-base font-black text-white shadow-lg shadow-indigo-950/40">YG</span>
+          <span className="min-w-0">
+            <span className="block text-sm font-black text-white">YouGo Admin</span>
+            <span className="block truncate text-xs font-semibold text-slate-400">Platform Admin</span>
+          </span>
+        </div>
+
+        <nav className="min-h-0 flex-1 space-y-7 overflow-y-auto">
+          <NavGroup label="Main">
+            {mainNavItems.map((item) => {
+              const Icon = item.icon;
+              const active = item.key === page || (page === 'business_detail' && item.key === 'businesses');
+
+              return (
+                <Link
+                  key={item.key}
+                  href={item.href}
+                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition ${active ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-950/40' : 'text-slate-300 hover:bg-white/10 hover:text-white'}`}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                </Link>
+              );
+            })}
+          </NavGroup>
+
+          <NavGroup label="Future">
+            <FutureNavItem icon={BriefcaseBusiness} label="CRM Light" />
+            <FutureNavItem icon={Phone} label="Phone AI" />
+          </NavGroup>
+
+          <NavGroup label="Account">
+            <Link href="/dashboard" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-300 transition hover:bg-white/10 hover:text-white">
+              <ArrowLeft className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">Back to Business Dashboard</span>
+            </Link>
+          </NavGroup>
         </nav>
-        <Link href="/dashboard" className="mt-8 flex items-center gap-2 rounded-md px-3 py-2 text-sm font-bold text-slate-400 transition hover:bg-slate-900 hover:text-slate-50">
-          <ArrowLeft className="h-4 w-4" />
-          Back to Business Dashboard
-        </Link>
       </aside>
 
       <main className="lg:pl-72">
-        <div className="border-b border-slate-800 bg-slate-950 px-4 py-4 lg:hidden">
-          <h1 className="text-xl font-black">Platform Admin</h1>
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-            {navItems.map((item) => (
-              <Link key={item.key} href={item.href} className="shrink-0 rounded-md bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200">
+        <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 px-4 py-3 shadow-sm shadow-slate-200/60 backdrop-blur sm:px-6 lg:px-8">
+          <div className="mx-auto flex max-w-7xl items-center gap-4">
+            <div className="min-w-0 flex-1">
+              <div className="relative max-w-2xl">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="search"
+                  placeholder="Search businesses, emails, WhatsApp numbers..."
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm font-medium text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-indigo-300 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+                />
+              </div>
+            </div>
+            <span className="hidden rounded-full bg-indigo-50 px-3 py-1 text-xs font-black text-indigo-700 sm:inline-flex">Platform Admin</span>
+            <div className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+              <UserCircle className="h-5 w-5 shrink-0 text-slate-400" />
+              <span className="hidden min-w-0 sm:block">
+                <span className="block truncate text-xs font-black text-slate-800">{user?.name ?? 'Admin'}</span>
+                <span className="block truncate text-[11px] font-semibold text-slate-500">{user?.email ?? 'Internal operator'}</span>
+              </span>
+            </div>
+          </div>
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+            {mainNavItems.map((item) => (
+              <Link key={item.key} href={item.href} className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600">
                 {item.label}
               </Link>
             ))}
           </div>
-        </div>
+        </header>
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">{children}</div>
       </main>
+    </div>
+  );
+}
+
+function NavGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <section>
+      <p className="mb-2 px-3 text-[11px] font-black uppercase tracking-wide text-slate-500">{label}</p>
+      <div className="space-y-1">{children}</div>
+    </section>
+  );
+}
+
+function FutureNavItem({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-500">
+      <Icon className="h-4 w-4 shrink-0" />
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-400">Soon</span>
     </div>
   );
 }
@@ -64,17 +118,17 @@ export function PlatformAdminLayout({ page, children }: { page: AdminPage; child
 export function PageHeader({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <header className="mb-7">
-      <p className="text-xs font-black uppercase tracking-wide text-indigo-300">Internal</p>
-      <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-50">{title}</h2>
-      <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">{subtitle}</p>
+      <p className="text-xs font-black uppercase tracking-wide text-indigo-600">Internal operations</p>
+      <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">{title}</h2>
+      <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">{subtitle}</p>
     </header>
   );
 }
 
 export function Panel({ title, children, className = '' }: { title: string; children: ReactNode; className?: string }) {
   return (
-    <section className={`rounded-md border border-slate-800 bg-slate-900/55 p-5 shadow-sm shadow-slate-950/30 ${className}`}>
-      <h2 className="mb-4 text-base font-black text-slate-50">{title}</h2>
+    <section className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/70 ${className}`}>
+      <h2 className="mb-4 text-base font-black text-slate-950">{title}</h2>
       {children}
     </section>
   );
@@ -82,9 +136,9 @@ export function Panel({ title, children, className = '' }: { title: string; chil
 
 export function Metric({ label, value }: { label: string; value: unknown }) {
   return (
-    <div className="rounded-md border border-slate-800 bg-slate-900 p-4">
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80">
       <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-black text-slate-50">{String(value ?? 0)}</p>
+      <p className="mt-3 text-3xl font-black tracking-tight text-slate-950">{String(value ?? 0)}</p>
     </div>
   );
 }
@@ -94,33 +148,33 @@ export function BusinessTable({ items }: { items: Record<string, any>[] }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-slate-800 text-sm">
-        <thead className="text-left text-xs uppercase tracking-wide text-slate-500">
+      <table className="min-w-[1120px] divide-y divide-slate-100 text-sm">
+        <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
           <tr>
-            <th className="py-3 pr-4">Business</th>
-            <th className="py-3 pr-4">Owner</th>
-            <th className="py-3 pr-4">Plan</th>
-            <th className="py-3 pr-4">Subscription</th>
-            <th className="py-3 pr-4">WhatsApp</th>
-            <th className="py-3 pr-4">Website Chat</th>
-            <th className="py-3 pr-4">Phone AI</th>
-            <th className="py-3 pr-4">Usage</th>
-            <th className="py-3 pr-4"></th>
+            <th className="px-4 py-3">Business</th>
+            <th className="px-4 py-3">Owner</th>
+            <th className="px-4 py-3">Plan</th>
+            <th className="px-4 py-3">Subscription</th>
+            <th className="px-4 py-3">WhatsApp</th>
+            <th className="px-4 py-3">Website Chat</th>
+            <th className="px-4 py-3">Phone AI</th>
+            <th className="px-4 py-3">Usage</th>
+            <th className="px-4 py-3"></th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-800">
+        <tbody className="divide-y divide-slate-100 bg-white">
           {items.map((item) => (
-            <tr key={item.id}>
-              <td className="py-3 pr-4 font-bold text-slate-100">{item.name}</td>
-              <td className="py-3 pr-4 text-slate-400">{item.owner_email ?? 'none'}</td>
-              <td className="py-3 pr-4 text-slate-300">{item.plan ?? 'none'}</td>
-              <td className="py-3 pr-4"><StatusBadge status={item.subscription_status ?? 'none'} /></td>
-              <td className="py-3 pr-4"><StatusBadge status={item.whatsapp?.status ?? 'not_connected'} /></td>
-              <td className="py-3 pr-4"><StatusBadge status={item.website_chat_enabled ? 'enabled' : 'disabled'} /></td>
-              <td className="py-3 pr-4"><StatusBadge status="Planned" /></td>
-              <td className="py-3 pr-4 text-xs text-slate-400">{formatUsageBrief(item.usage)}</td>
-              <td className="py-3 pr-4 text-right">
-                <Link href={`/platform-admin/businesses/${item.id}`} className="font-bold text-indigo-300 hover:text-indigo-200">View business</Link>
+            <tr key={item.id} className="transition hover:bg-slate-50/80">
+              <td className="px-4 py-4 font-bold text-slate-950">{item.name}</td>
+              <td className="px-4 py-4 text-slate-500">{item.owner_email ?? 'none'}</td>
+              <td className="px-4 py-4"><StatusBadge status={item.plan ?? 'none'} /></td>
+              <td className="px-4 py-4"><StatusBadge status={item.subscription_status ?? 'none'} /></td>
+              <td className="px-4 py-4"><StatusBadge status={item.whatsapp?.status ?? 'not_connected'} /></td>
+              <td className="px-4 py-4"><StatusBadge status={item.website_chat_enabled ? 'enabled' : 'disabled'} /></td>
+              <td className="px-4 py-4"><StatusBadge status="Planned" /></td>
+              <td className="px-4 py-4 text-xs font-semibold text-slate-500">{formatUsageBrief(item.usage)}</td>
+              <td className="px-4 py-4 text-right">
+                <Link href={`/platform-admin/businesses/${item.id}`} className="inline-flex rounded-lg bg-indigo-50 px-3 py-2 text-xs font-black text-indigo-700 hover:bg-indigo-100">View</Link>
               </td>
             </tr>
           ))}
@@ -133,16 +187,16 @@ export function BusinessTable({ items }: { items: Record<string, any>[] }) {
 export function StatusBadge({ status }: { status: string }) {
   const normalized = String(status).toLowerCase();
   const classes = normalized.includes('active') || normalized === 'delivered' || normalized === 'enabled'
-    ? 'bg-emerald-400/15 text-emerald-200'
+    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
     : normalized.includes('failed') || normalized.includes('disabled') || normalized.includes('undelivered') || normalized.includes('reached')
-      ? 'bg-red-400/15 text-red-200'
+      ? 'bg-red-50 text-red-700 ring-1 ring-red-200'
       : normalized.includes('planned')
-        ? 'bg-sky-400/15 text-sky-200'
+        ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-200'
         : normalized.includes('warning') || normalized.includes('requested') || normalized.includes('near')
-          ? 'bg-amber-300/15 text-amber-100'
-          : 'bg-slate-800 text-slate-300';
+          ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
+          : 'bg-slate-100 text-slate-700 ring-1 ring-slate-200';
 
-  return <span className={`inline-flex rounded-md px-2.5 py-1 text-xs font-black capitalize ${classes}`}>{status}</span>;
+  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-black capitalize ${classes}`}>{status}</span>;
 }
 
 export function KeyValue({ data, exclude = [] }: { data: Record<string, any>; exclude?: string[] }) {
@@ -154,7 +208,7 @@ export function KeyValue({ data, exclude = [] }: { data: Record<string, any>; ex
       {rows.map(([key, value]) => (
         <div key={key} className="grid gap-1 sm:grid-cols-[170px_1fr]">
           <dt className="font-bold text-slate-500">{key.replaceAll('_', ' ')}</dt>
-          <dd className="break-words text-slate-200">{formatValue(value)}</dd>
+          <dd className="break-words font-semibold text-slate-800">{formatValue(value)}</dd>
         </div>
       ))}
     </dl>
@@ -166,7 +220,7 @@ export function SetupRequest({ request }: { request?: Record<string, any> | null
 
   return (
     <div>
-      <h3 className="mb-2 text-sm font-black text-slate-100">Setup call details</h3>
+      <h3 className="mb-2 text-sm font-black text-slate-900">Setup call details</h3>
       <KeyValue data={request} />
     </div>
   );
@@ -176,11 +230,11 @@ export function CommandBox({ command }: { command?: string | null }) {
   if (!command) return <Empty text="No activation command available." />;
 
   return (
-    <div className="mt-4 rounded-md border border-slate-700 bg-slate-950 p-3">
+    <div className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50 p-3">
       <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Copy WhatsApp activation command</p>
       <div className="flex items-start gap-2">
-        <code className="min-w-0 flex-1 break-all text-xs text-indigo-200">{command}</code>
-        <button type="button" onClick={() => navigator.clipboard?.writeText(command)} className="rounded-md bg-slate-800 p-2 text-slate-200 hover:bg-slate-700" aria-label="Copy activation command">
+        <code className="min-w-0 flex-1 break-all text-xs font-bold text-indigo-800">{command}</code>
+        <button type="button" onClick={() => navigator.clipboard?.writeText(command)} className="rounded-lg bg-indigo-600 p-2 text-white hover:bg-indigo-700" aria-label="Copy activation command">
           <Clipboard className="h-4 w-4" />
         </button>
       </div>
@@ -197,17 +251,18 @@ export function UsageSummary({ summary }: { summary?: Record<string, any> }) {
   return (
     <div className="grid gap-3 md:grid-cols-2">
       {keys.map((key) => (
-        <div key={key} className="rounded-md bg-slate-950 p-3">
+        <div key={key} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
           <div className="flex justify-between gap-3 text-sm">
-            <span className="font-bold text-slate-400">{key.replaceAll('_', ' ')}</span>
-            <span className="font-black text-slate-100">{usage[key] ?? 0} / {limits[key] ?? 'unlimited'}</span>
+            <span className="font-bold text-slate-600">{key.replaceAll('_', ' ')}</span>
+            <span className="font-black text-slate-900">{usage[key] ?? 0} / {limits[key] ?? 'unlimited'}</span>
           </div>
+          <UsageBar used={Number(usage[key] ?? 0)} limit={limits[key]} />
         </div>
       ))}
-      <div className="rounded-md bg-slate-950 p-3 md:col-span-2">
+      <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 md:col-span-2">
         <div className="flex justify-between gap-3 text-sm">
-          <span className="font-bold text-slate-400">whatsapp conversation analytics</span>
-          <span className="font-black text-slate-100">{summary.analytics?.whatsapp_conversations ?? usage.whatsapp_conversations ?? 0}</span>
+          <span className="font-bold text-slate-600">whatsapp conversation analytics</span>
+          <span className="font-black text-slate-900">{summary.analytics?.whatsapp_conversations ?? usage.whatsapp_conversations ?? 0}</span>
         </div>
         <p className="mt-1 text-xs text-slate-500">Analytics only. monthly_whatsapp_messages is the billable inbound + outbound WhatsApp limit.</p>
       </div>
@@ -231,10 +286,10 @@ export function RecentActivity({ activity }: { activity: Record<string, any[]> }
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       {Object.entries(activity).map(([label, rows]) => (
-        <div key={label} className="rounded-md bg-slate-950 p-3">
-          <h3 className="mb-2 text-sm font-black capitalize text-slate-100">{label}</h3>
+        <div key={label} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+          <h3 className="mb-2 text-sm font-black capitalize text-slate-900">{label}</h3>
           {rows?.length ? rows.map((row) => (
-            <p key={row.id} className="mb-2 break-words text-xs text-slate-400">{activityLine(label, row)}</p>
+            <p key={row.id} className="mb-2 break-words text-xs font-semibold text-slate-500">{activityLine(label, row)}</p>
           )) : <Empty text="None." />}
         </div>
       ))}
@@ -248,12 +303,12 @@ export function IssueList({ title, items }: { title: string; items?: any[] }) {
       {items?.length ? (
         <div className="space-y-2">
           {items.map((item, index) => (
-            <div key={item.id ?? index} className="grid gap-3 rounded-md bg-slate-950 px-3 py-3 text-sm text-slate-300 lg:grid-cols-[120px_1fr_1.4fr_1.4fr_auto] lg:items-center">
+            <div key={item.id ?? index} className="grid gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 text-sm text-slate-600 lg:grid-cols-[120px_1fr_1.4fr_1.4fr_auto] lg:items-center">
               <StatusBadge status={item.severity ?? severityForIssue(title)} />
-              <span className="font-bold text-slate-100">{item.business_name ?? item.name ?? item.uuid ?? `Item ${index + 1}`}</span>
+              <span className="font-bold text-slate-950">{item.business_name ?? item.name ?? item.uuid ?? `Item ${index + 1}`}</span>
               <span>{item.description ?? item.owner_email ?? item.status ?? item.exception ?? ''}</span>
               <span className="text-slate-400">{item.suggested_action ?? suggestedActionForIssue(title)}</span>
-              {item.salon_id && <Link href={`/platform-admin/businesses/${item.salon_id}`} className="font-bold text-indigo-300 hover:text-indigo-200">View business</Link>}
+              {item.salon_id && <Link href={`/platform-admin/businesses/${item.salon_id}`} className="font-bold text-indigo-700 hover:text-indigo-900">View business</Link>}
             </div>
           ))}
         </div>
@@ -265,8 +320,8 @@ export function IssueList({ title, items }: { title: string; items?: any[] }) {
 export function Select({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: string[] }) {
   return (
     <label>
-      <span className="text-xs font-bold uppercase tracking-wide text-slate-400">{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none">
+      <span className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100">
         {options.map((option) => (
           <option key={option || 'all'} value={option}>{option || 'All'}</option>
         ))}
@@ -279,11 +334,11 @@ export function Pagination({ pagination }: { pagination?: Record<string, any> })
   if (!pagination) return null;
 
   return (
-    <div className="mt-4 flex items-center justify-between text-sm text-slate-400">
+    <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
       <span>Page {pagination.current_page} of {pagination.last_page}, {pagination.total} total</span>
       <div className="flex gap-2">
-        {pagination.prev_page_url && <Link href={pagination.prev_page_url} className="rounded-md bg-slate-800 px-3 py-2 font-bold text-slate-200">Previous</Link>}
-        {pagination.next_page_url && <Link href={pagination.next_page_url} className="rounded-md bg-slate-800 px-3 py-2 font-bold text-slate-200">Next</Link>}
+        {pagination.prev_page_url && <Link href={pagination.prev_page_url} className="rounded-lg border border-slate-200 bg-white px-3 py-2 font-bold text-slate-700">Previous</Link>}
+        {pagination.next_page_url && <Link href={pagination.next_page_url} className="rounded-lg border border-slate-200 bg-white px-3 py-2 font-bold text-slate-700">Next</Link>}
       </div>
     </div>
   );
@@ -295,9 +350,24 @@ export function Empty({ text }: { text: string }) {
 
 export function PhoneAiPlannedNotice() {
   return (
-    <div className="mt-4 rounded-md border border-slate-800 bg-slate-900/50 p-4 text-sm text-slate-400">
+    <div className="mt-4 rounded-2xl border border-sky-100 bg-sky-50 p-4 text-sm font-semibold text-sky-800 shadow-sm shadow-slate-200/60">
       <Phone className="mr-2 inline h-4 w-4" />
       Phone AI is planned, not active.
+    </div>
+  );
+}
+
+function UsageBar({ used, limit }: { used: number; limit: unknown }) {
+  if (!limit || !Number.isFinite(Number(limit)) || Number(limit) <= 0) {
+    return <div className="mt-2 h-2 rounded-full bg-slate-200"><div className="h-2 w-0 rounded-full bg-indigo-500" /></div>;
+  }
+
+  const percent = Math.min(100, Math.round((used / Number(limit)) * 100));
+  const color = percent >= 100 ? 'bg-red-500' : percent >= 80 ? 'bg-amber-400' : 'bg-indigo-500';
+
+  return (
+    <div className="mt-2 h-2 rounded-full bg-slate-200">
+      <div className={`h-2 rounded-full ${color}`} style={{ width: `${percent}%` }} />
     </div>
   );
 }

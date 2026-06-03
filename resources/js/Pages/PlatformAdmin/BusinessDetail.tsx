@@ -34,7 +34,7 @@ export default function BusinessDetail({ payload }: Props) {
               <>
                 <KeyValue data={whatsapp} exclude={['metadata', 'setup_request']} />
                 <CommandBox command={whatsapp.activation_command} />
-                <Link href="/platform-admin/whatsapp-onboarding" className="mt-4 inline-flex rounded-md bg-slate-800 px-3 py-2 text-sm font-bold text-slate-100 hover:bg-slate-700">
+                <Link href="/platform-admin/whatsapp-onboarding" className="mt-4 inline-flex rounded-xl bg-indigo-50 px-3 py-2 text-sm font-black text-indigo-700 hover:bg-indigo-100">
                   WhatsApp onboarding
                 </Link>
               </>

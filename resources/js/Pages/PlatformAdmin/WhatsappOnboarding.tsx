@@ -21,7 +21,7 @@ export default function WhatsappOnboarding({ payload }: Props) {
       <PageHeader title="WhatsApp Onboarding" subtitle="Requested integrations, setup call details, Meta/account answers, and copyable activation commands." />
       <div className="mb-5 flex flex-wrap gap-2">
         {['requested', 'active', 'failed', 'disabled', 'all'].map((option) => (
-          <button key={option} type="button" onClick={() => changeStatus(option)} className={`rounded-md px-3 py-2 text-sm font-bold capitalize ${status === option ? 'bg-indigo-500 text-white' : 'bg-slate-900 text-slate-300 hover:bg-slate-800'}`}>
+          <button key={option} type="button" onClick={() => changeStatus(option)} className={`rounded-full px-4 py-2 text-sm font-black capitalize shadow-sm transition ${status === option ? 'bg-indigo-600 text-white shadow-indigo-200' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}>
             {option}
           </button>
         ))}
@@ -40,8 +40,8 @@ export default function WhatsappOnboarding({ payload }: Props) {
               }} />
               <SetupRequest request={item.setup_request} />
               <div>
-                <h3 className="mb-2 text-sm font-black text-slate-100">Admin checklist</h3>
-                <ul className="space-y-2 text-sm text-slate-300">
+                <h3 className="mb-2 text-sm font-black text-slate-900">Admin checklist</h3>
+                <ul className="space-y-2 text-sm font-semibold text-slate-600">
                   <li>Configure sender manually in Twilio or Meta.</li>
                   <li>Verify approved/live sender state.</li>
                   <li>Run activation command.</li>
@@ -49,7 +49,7 @@ export default function WhatsappOnboarding({ payload }: Props) {
                   <li>Confirm delivery statuses.</li>
                 </ul>
                 <CommandBox command={item.activation_command} />
-                {item.salon_id && <Link href={`/platform-admin/businesses/${item.salon_id}`} className="mt-4 inline-flex rounded-md bg-slate-800 px-3 py-2 text-sm font-bold text-slate-100 hover:bg-slate-700">View business</Link>}
+                {item.salon_id && <Link href={`/platform-admin/businesses/${item.salon_id}`} className="mt-4 inline-flex rounded-xl bg-indigo-50 px-3 py-2 text-sm font-black text-indigo-700 hover:bg-indigo-100">View business</Link>}
               </div>
             </div>
           </Panel>
