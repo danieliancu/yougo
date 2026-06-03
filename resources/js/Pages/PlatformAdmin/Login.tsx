@@ -4,7 +4,7 @@ import { FormEvent } from 'react';
 
 export default function PlatformAdminLogin() {
   const form = useForm({
-    email: '',
+    username: '',
     password: '',
     remember: false,
   });
@@ -47,15 +47,15 @@ export default function PlatformAdminLogin() {
 
             <form className="space-y-5" onSubmit={submit}>
               <label className="block">
-                <span className="text-xs font-black uppercase tracking-wide text-slate-500">Email</span>
+                <span className="text-xs font-black uppercase tracking-wide text-slate-500">Username</span>
                 <input
-                  type="email"
-                  value={form.data.email}
-                  onChange={(event) => form.setData('email', event.target.value)}
-                  autoComplete="email"
+                  type="text"
+                  value={form.data.username}
+                  onChange={(event) => form.setData('username', event.target.value)}
+                  autoComplete="username"
                   className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-4 focus:ring-indigo-100"
                 />
-                {form.errors.email && <p className="mt-2 text-sm font-semibold text-red-600">{form.errors.email}</p>}
+                {form.errors.username && <p className="mt-2 text-sm font-semibold text-red-600">{form.errors.username}</p>}
               </label>
 
               <label className="block">

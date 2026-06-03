@@ -117,6 +117,8 @@ Route::middleware('platform_admin')
     ->name('platform-admin.')
     ->group(function (): void {
         Route::post('/logout', [PlatformAdminAuthController::class, 'destroy'])->name('logout');
+        Route::get('/settings', [PlatformAdminAuthController::class, 'edit'])->name('settings');
+        Route::put('/settings', [PlatformAdminAuthController::class, 'update'])->name('settings.update');
         Route::get('/', [PlatformAdminController::class, 'overview'])->name('overview');
         Route::get('/businesses', [PlatformAdminController::class, 'businesses'])->name('businesses');
         Route::get('/businesses/{salon}', [PlatformAdminController::class, 'business'])->name('businesses.show');

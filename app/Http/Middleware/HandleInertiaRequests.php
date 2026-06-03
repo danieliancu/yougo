@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Support\BusinessTaxonomy;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -26,7 +27,8 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'locale' => $locale,
             'auth' => [
-                'user' => $request->user()?->only('id', 'name', 'email', 'is_platform_admin'),
+                'user' => $request->user()?->only('id', 'name', 'email'),
+                'platform_admin' => Auth::guard('platform_admin')->user()?->only('id', 'name', 'username'),
             ],
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),

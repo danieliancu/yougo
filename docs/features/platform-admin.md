@@ -14,23 +14,34 @@ Platform Admin has a dedicated login page:
 /platform-admin/login
 ```
 
-Every admin route is protected by the `platform_admin` middleware. Guests are redirected to `/platform-admin/login`. Authenticated users must have `users.is_platform_admin = true`; otherwise the request returns `403`.
+Every admin route is protected by the `platform_admin` middleware. Guests and normal business users are redirected to `/platform-admin/login` unless they are signed in with the dedicated Platform Admin session.
 
-The MVP uses the existing app login. There is no `admin.yougo.ro`, separate app, or separate admin login system.
+The MVP uses the same Laravel/Inertia app, but Platform Admin authentication is separate from business authentication. There is no `admin.yougo.ro` or separate deployed app.
 
 ## Access
 
-Promote an existing operator user with:
+Platform Admin uses the dedicated `platform_admins` table, not normal business users.
 
-```bash
-php artisan yougo:make-platform-admin admin@example.com
+The migration creates one default admin account:
+
+```text
+username: admin
+password: admin
 ```
 
-The normal business dashboard shows a discreet `Platform Admin` link only to promoted users. The link is convenience only; access is enforced on the backend.
+Operators can change this username and password from:
 
-The normal business login at `/login` remains unchanged. `/platform-admin/login` uses the same `users` table and web session guard, but rejects credentials unless the user is a platform admin.
+```text
+/platform-admin/settings
+```
 
-Deployments must run the migration that adds `users.is_platform_admin` before an operator can be promoted.
+You can also create or update a Platform Admin account with:
+
+```bash
+php artisan yougo:make-platform-admin admin --password=admin
+```
+
+The normal business dashboard no longer links to Platform Admin. The normal business login at `/login` remains unchanged and cannot authenticate Platform Admin accounts.
 
 ## Pages
 
@@ -40,6 +51,7 @@ Deployments must run the migration that adds `users.is_platform_admin` before an
 - WhatsApp Onboarding: requested integrations, setup call details, Meta/account answers, checklist, and copy activation command.
 - Usage: current-month usage vs limits with near-limit and reached-limit warnings.
 - Issues: read-only queues for WhatsApp requested, active integrations with AI disabled, active integrations with no sender, failed or undelivered WhatsApp messages, missing notification email, usage warnings, and failed jobs when the table is available.
+- Admin Settings: change the dedicated Platform Admin username and password.
 
 The frontend uses separate Inertia pages for these routes under `resources/js/Pages/PlatformAdmin`. Shared layout and table helpers keep the console visually distinct from the business dashboard.
 
@@ -78,7 +90,6 @@ This does not provision Twilio or Meta automatically. Operators still configure 
 ```bash
 php artisan migrate --force
 php artisan optimize:clear
-php artisan yougo:make-platform-admin admin@example.com
 ```
 
 Existing WhatsApp AI queue workers and delivery status callbacks remain unchanged.

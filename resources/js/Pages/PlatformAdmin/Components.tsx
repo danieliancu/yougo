@@ -1,8 +1,8 @@
 import { Link, usePage } from '@inertiajs/react';
-import { AlertTriangle, ArrowLeft, BriefcaseBusiness, Building2, Clipboard, MessageCircle, Phone, Search, Shield, UserCircle, Users, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, BriefcaseBusiness, Building2, Clipboard, MessageCircle, Phone, Search, Settings, Shield, UserCircle, Users, type LucideIcon } from 'lucide-react';
 import { ReactNode } from 'react';
 
-export type AdminPage = 'overview' | 'businesses' | 'business_detail' | 'whatsapp_onboarding' | 'usage' | 'issues';
+export type AdminPage = 'overview' | 'businesses' | 'business_detail' | 'whatsapp_onboarding' | 'usage' | 'issues' | 'settings';
 
 const mainNavItems = [
   { href: '/platform-admin', key: 'overview', label: 'Overview', icon: Shield },
@@ -13,8 +13,8 @@ const mainNavItems = [
 ];
 
 export function PlatformAdminLayout({ page, children }: { page: AdminPage; children: ReactNode }) {
-  const { auth } = usePage<{ auth?: { user?: { name?: string | null; email?: string | null } | null } }>().props;
-  const user = auth?.user;
+  const { auth } = usePage<{ auth?: { platform_admin?: { name?: string | null; username?: string | null } | null } }>().props;
+  const admin = auth?.platform_admin;
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900">
@@ -52,13 +52,17 @@ export function PlatformAdminLayout({ page, children }: { page: AdminPage; child
           </NavGroup>
 
           <NavGroup label="Account">
+            <Link href="/platform-admin/settings" className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold transition ${page === 'settings' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-950/40' : 'text-slate-300 hover:bg-white/10 hover:text-white'}`}>
+              <Settings className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">Admin Settings</span>
+            </Link>
             <Link href="/platform-admin/logout" method="post" as="button" className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold text-slate-300 transition hover:bg-white/10 hover:text-white">
               <Shield className="h-4 w-4 shrink-0" />
               <span className="min-w-0 flex-1 truncate">Sign out admin</span>
             </Link>
-            <Link href="/dashboard" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-300 transition hover:bg-white/10 hover:text-white">
+            <Link href="/" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-300 transition hover:bg-white/10 hover:text-white">
               <ArrowLeft className="h-4 w-4 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">Back to Business Dashboard</span>
+              <span className="min-w-0 flex-1 truncate">Main site</span>
             </Link>
           </NavGroup>
         </nav>
@@ -81,8 +85,8 @@ export function PlatformAdminLayout({ page, children }: { page: AdminPage; child
             <div className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
               <UserCircle className="h-5 w-5 shrink-0 text-slate-400" />
               <span className="hidden min-w-0 sm:block">
-                <span className="block truncate text-xs font-black text-slate-800">{user?.name ?? 'Admin'}</span>
-                <span className="block truncate text-[11px] font-semibold text-slate-500">{user?.email ?? 'Internal operator'}</span>
+                <span className="block truncate text-xs font-black text-slate-800">{admin?.name ?? 'Admin'}</span>
+                <span className="block truncate text-[11px] font-semibold text-slate-500">{admin?.username ?? 'Internal operator'}</span>
               </span>
             </div>
           </div>

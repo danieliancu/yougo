@@ -490,16 +490,6 @@ function DashboardSidebarContent({ salon, section, user, t, onboarding, onNaviga
                     })}
                     {group.id === 'administration' && (
                       <>
-                        {user?.is_platform_admin && (
-                          <Link
-                            href="/platform-admin"
-                            onClick={onNavigate}
-                            className="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-bold text-slate-300 transition hover:bg-white/10 hover:text-white"
-                          >
-                            <Lock className="h-4 w-4 shrink-0" />
-                            <span className="min-w-0 flex-1 truncate">Platform Admin</span>
-                          </Link>
-                        )}
                         <button
                           type="button"
                           onClick={() => {

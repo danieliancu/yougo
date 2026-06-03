@@ -2,29 +2,35 @@
 
 namespace App\Console\Commands;
 
-use App\Models\User;
+use App\Models\PlatformAdmin;
 use Illuminate\Console\Command;
 
 class MakePlatformAdminCommand extends Command
 {
-    protected $signature = 'yougo:make-platform-admin {email}';
+    protected $signature = 'yougo:make-platform-admin {username} {--password=admin}';
 
-    protected $description = 'Promote an existing user to YouGo platform admin.';
+    protected $description = 'Create or update a dedicated YouGo platform admin account.';
 
     public function handle(): int
     {
-        $email = trim((string) $this->argument('email'));
-        $user = User::query()->where('email', $email)->first();
+        $username = trim((string) $this->argument('username'));
+        $password = (string) $this->option('password');
 
-        if (! $user) {
-            $this->error("No user found for {$email}.");
+        if ($username === '' || $password === '') {
+            $this->error('Username and password are required.');
 
             return self::FAILURE;
         }
 
-        $user->forceFill(['is_platform_admin' => true])->save();
+        $admin = PlatformAdmin::query()->updateOrCreate(
+            ['username' => $username],
+            [
+                'name' => 'Platform Admin',
+                'password' => $password,
+            ],
+        );
 
-        $this->info("{$user->email} can now access Platform Admin.");
+        $this->info("Platform Admin account {$admin->username} is ready.");
 
         return self::SUCCESS;
     }

@@ -24,30 +24,33 @@ class PlatformAdminService
 
         return [
             'totals' => [
-                'businesses' => Salon::query()->count(),
-                'active' => Salon::query()->whereIn('subscription_status', ['active', 'trialing'])->count(),
-                'free' => Salon::query()->where('plan', 'free')->count(),
-                'paid' => Salon::query()->where('plan', '!=', 'free')->count(),
-                'whatsapp_requested' => WhatsappIntegration::query()->where('status', WhatsappIntegration::STATUS_REQUESTED)->count(),
-                'whatsapp_active' => WhatsappIntegration::query()->where('status', WhatsappIntegration::STATUS_ACTIVE)->count(),
-                'whatsapp_failed' => WhatsappIntegration::query()->where('status', WhatsappIntegration::STATUS_FAILED)->count(),
-                'whatsapp_disabled' => WhatsappIntegration::query()->where('status', WhatsappIntegration::STATUS_DISABLED)->count(),
+                'businesses' => $this->businessesQuery()->count(),
+                'active' => $this->businessesQuery()->whereIn('subscription_status', ['active', 'trialing'])->count(),
+                'free' => $this->businessesQuery()->where('plan', 'free')->count(),
+                'paid' => $this->businessesQuery()->where('plan', '!=', 'free')->count(),
+                'whatsapp_requested' => $this->whatsappIntegrationsQuery()->where('status', WhatsappIntegration::STATUS_REQUESTED)->count(),
+                'whatsapp_active' => $this->whatsappIntegrationsQuery()->where('status', WhatsappIntegration::STATUS_ACTIVE)->count(),
+                'whatsapp_failed' => $this->whatsappIntegrationsQuery()->where('status', WhatsappIntegration::STATUS_FAILED)->count(),
+                'whatsapp_disabled' => $this->whatsappIntegrationsQuery()->where('status', WhatsappIntegration::STATUS_DISABLED)->count(),
                 'whatsapp_messages' => UsageEvent::query()
+                    ->whereHas('salon.user')
                     ->whereIn('event_type', ['whatsapp_message_inbound', 'whatsapp_message_outbound'])
                     ->where('occurred_at', '>=', $monthStart)
                     ->sum('quantity'),
                 'ai_bookings' => UsageEvent::query()
+                    ->whereHas('salon.user')
                     ->where('event_type', 'booking_created')
                     ->where('occurred_at', '>=', $monthStart)
                     ->sum('quantity'),
                 'website_chat_conversations' => Conversation::query()
+                    ->whereHas('salon.user')
                     ->whereIn('channel', ['chat', 'web_widget'])
                     ->where('created_at', '>=', $monthStart)
                     ->count(),
                 'phone_ai' => 'planned',
             ],
             'issue_summary' => $this->issueSummary(),
-            'recent_businesses' => Salon::query()
+            'recent_businesses' => $this->businessesQuery()
                 ->with(['user', 'whatsappIntegration'])
                 ->latest()
                 ->limit(8)
@@ -62,7 +65,7 @@ class PlatformAdminService
 
     public function businesses(array $filters = []): array
     {
-        $query = Salon::query()
+        $query = $this->businessesQuery()
             ->with(['user', 'whatsappIntegration'])
             ->when($filters['search'] ?? null, function (Builder $query, string $search): void {
                 $query->where(function (Builder $query) use ($search): void {
@@ -100,6 +103,8 @@ class PlatformAdminService
 
     public function businessDetail(Salon $salon): array
     {
+        abort_unless($salon->user()->exists(), 404);
+
         $salon->load(['user', 'whatsappIntegration', 'locations', 'services', 'staff']);
 
         return [
@@ -138,7 +143,7 @@ class PlatformAdminService
 
     public function whatsappOnboarding(?string $status = WhatsappIntegration::STATUS_REQUESTED): array
     {
-        $query = WhatsappIntegration::query()
+        $query = $this->whatsappIntegrationsQuery()
             ->with(['salon.user'])
             ->when($status && $status !== 'all', fn (Builder $query) => $query->where('status', $status))
             ->latest('requested_at')
@@ -158,7 +163,7 @@ class PlatformAdminService
     {
         return [
             'month' => now()->format('Y-m'),
-            'items' => Salon::query()
+            'items' => $this->businessesQuery()
                 ->with(['user', 'whatsappIntegration'])
                 ->latest()
                 ->limit(100)
@@ -185,6 +190,7 @@ class PlatformAdminService
         return [
             'whatsapp_requested' => WhatsappIntegration::query()
                 ->with(['salon.user'])
+                ->whereHas('salon.user')
                 ->where('status', WhatsappIntegration::STATUS_REQUESTED)
                 ->limit(100)
                 ->get()
@@ -199,6 +205,7 @@ class PlatformAdminService
                 ->values(),
             'active_ai_disabled' => WhatsappIntegration::query()
                 ->with(['salon.user'])
+                ->whereHas('salon.user')
                 ->where('status', WhatsappIntegration::STATUS_ACTIVE)
                 ->where('ai_enabled', false)
                 ->limit(50)
@@ -212,6 +219,7 @@ class PlatformAdminService
                 ->values(),
             'active_missing_sender' => WhatsappIntegration::query()
                 ->with(['salon.user'])
+                ->whereHas('salon.user')
                 ->where('status', WhatsappIntegration::STATUS_ACTIVE)
                 ->whereNull('twilio_sender')
                 ->limit(50)
@@ -224,7 +232,7 @@ class PlatformAdminService
                 ])
                 ->values(),
             'failed_whatsapp_messages' => $this->failedWhatsappMessages(),
-            'missing_notification_email' => Salon::query()
+            'missing_notification_email' => $this->businessesQuery()
                 ->with('user')
                 ->where(function (Builder $query): void {
                     $query->whereNull('notification_email')
@@ -244,6 +252,16 @@ class PlatformAdminService
             'usage_near_limits' => $nearLimit,
             'failed_jobs' => Schema::hasTable('failed_jobs') ? DB::table('failed_jobs')->latest('failed_at')->limit(20)->get() : [],
         ];
+    }
+
+    private function businessesQuery(): Builder
+    {
+        return Salon::query()->whereHas('user');
+    }
+
+    private function whatsappIntegrationsQuery(): Builder
+    {
+        return WhatsappIntegration::query()->whereHas('salon.user');
     }
 
     private function issueSummary(): array
@@ -385,6 +403,7 @@ class PlatformAdminService
     {
         return ConversationMessage::query()
             ->with('conversation.salon.user')
+            ->whereHas('conversation.salon.user')
             ->where('provider', 'twilio')
             ->where('direction', 'outbound')
             ->latest()

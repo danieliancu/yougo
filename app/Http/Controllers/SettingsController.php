@@ -118,6 +118,7 @@ class SettingsController extends Controller
 
         Auth::guard('web')->logout();
 
+        $salon?->delete();
         $user->delete();
 
         $request->session()->invalidate();
