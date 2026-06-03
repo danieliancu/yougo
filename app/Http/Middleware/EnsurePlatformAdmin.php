@@ -10,7 +10,11 @@ class EnsurePlatformAdmin
 {
     public function handle(Request $request, Closure $next): Response
     {
-        abort_unless((bool) $request->user()?->is_platform_admin, 403);
+        if (! $request->user()) {
+            return redirect()->route('platform-admin.login');
+        }
+
+        abort_unless((bool) $request->user()->is_platform_admin, 403);
 
         return $next($request);
     }

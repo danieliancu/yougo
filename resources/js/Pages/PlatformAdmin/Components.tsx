@@ -52,6 +52,10 @@ export function PlatformAdminLayout({ page, children }: { page: AdminPage; child
           </NavGroup>
 
           <NavGroup label="Account">
+            <Link href="/platform-admin/logout" method="post" as="button" className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold text-slate-300 transition hover:bg-white/10 hover:text-white">
+              <Shield className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">Sign out admin</span>
+            </Link>
             <Link href="/dashboard" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-300 transition hover:bg-white/10 hover:text-white">
               <ArrowLeft className="h-4 w-4 shrink-0" />
               <span className="min-w-0 flex-1 truncate">Back to Business Dashboard</span>

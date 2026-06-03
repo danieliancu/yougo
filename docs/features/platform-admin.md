@@ -8,7 +8,13 @@ Routes are served inside the same Laravel/Inertia app under:
 /platform-admin
 ```
 
-Every route is protected by the `platform_admin` middleware. A user must be authenticated and have `users.is_platform_admin = true`; otherwise the request returns `403`.
+Platform Admin has a dedicated login page:
+
+```text
+/platform-admin/login
+```
+
+Every admin route is protected by the `platform_admin` middleware. Guests are redirected to `/platform-admin/login`. Authenticated users must have `users.is_platform_admin = true`; otherwise the request returns `403`.
 
 The MVP uses the existing app login. There is no `admin.yougo.ro`, separate app, or separate admin login system.
 
@@ -21,6 +27,8 @@ php artisan yougo:make-platform-admin admin@example.com
 ```
 
 The normal business dashboard shows a discreet `Platform Admin` link only to promoted users. The link is convenience only; access is enforced on the backend.
+
+The normal business login at `/login` remains unchanged. `/platform-admin/login` uses the same `users` table and web session guard, but rejects credentials unless the user is a platform admin.
 
 Deployments must run the migration that adds `users.is_platform_admin` before an operator can be promoted.
 

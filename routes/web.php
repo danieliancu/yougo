@@ -11,6 +11,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\IndustryController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\OnboardingController;
+use App\Http\Controllers\PlatformAdminAuthController;
 use App\Http\Controllers\PlatformAdminController;
 use App\Http\Controllers\PublicYouGoAssistantController;
 use App\Http\Controllers\ServiceController;
@@ -102,10 +103,20 @@ Route::middleware('auth')->group(function () {
     Route::delete('/account', [SettingsController::class, 'destroy'])->name('account.destroy');
 });
 
-Route::middleware(['auth', 'platform_admin'])
+Route::prefix('platform-admin')
+    ->name('platform-admin.')
+    ->group(function (): void {
+        Route::get('/login', [PlatformAdminAuthController::class, 'create'])->name('login');
+        Route::post('/login', [PlatformAdminAuthController::class, 'store'])
+            ->middleware('throttle:5,1')
+            ->name('login.store');
+    });
+
+Route::middleware('platform_admin')
     ->prefix('platform-admin')
     ->name('platform-admin.')
     ->group(function (): void {
+        Route::post('/logout', [PlatformAdminAuthController::class, 'destroy'])->name('logout');
         Route::get('/', [PlatformAdminController::class, 'overview'])->name('overview');
         Route::get('/businesses', [PlatformAdminController::class, 'businesses'])->name('businesses');
         Route::get('/businesses/{salon}', [PlatformAdminController::class, 'business'])->name('businesses.show');

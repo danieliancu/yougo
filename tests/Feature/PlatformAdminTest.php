@@ -17,7 +17,24 @@ class PlatformAdminTest extends TestCase
 
     public function test_guest_cannot_access_platform_admin(): void
     {
-        $this->get('/platform-admin')->assertRedirect('/login');
+        $this->get('/platform-admin')->assertRedirect('/platform-admin/login');
+    }
+
+    public function test_platform_admin_login_page_loads_for_guests(): void
+    {
+        $this->get('/platform-admin/login')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('PlatformAdmin/Login'));
+    }
+
+    public function test_platform_admin_login_redirects_existing_admin_to_admin_overview(): void
+    {
+        $admin = User::factory()->create(['is_platform_admin' => true]);
+
+        $this->actingAs($admin)
+            ->get('/platform-admin/login')
+            ->assertRedirect('/platform-admin');
     }
 
     public function test_normal_business_user_gets_403_for_platform_admin_routes(): void
@@ -65,6 +82,67 @@ class PlatformAdminTest extends TestCase
                     ->component($component)
                     ->has('payload'));
         }
+    }
+
+    public function test_normal_business_user_cannot_login_through_platform_admin_login(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'business@example.com',
+            'is_platform_admin' => false,
+        ]);
+
+        $this->post('/platform-admin/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ])
+            ->assertSessionHasErrors([
+                'email' => 'These credentials do not have platform admin access.',
+            ]);
+
+        $this->assertGuest();
+    }
+
+    public function test_platform_admin_can_login_through_platform_admin_login(): void
+    {
+        $admin = User::factory()->create([
+            'email' => 'admin@example.com',
+            'is_platform_admin' => true,
+        ]);
+
+        $this->post('/platform-admin/login', [
+            'email' => $admin->email,
+            'password' => 'password',
+        ])
+            ->assertRedirect('/platform-admin');
+
+        $this->assertAuthenticatedAs($admin);
+    }
+
+    public function test_business_login_still_works_for_normal_users(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'owner@example.com',
+            'is_platform_admin' => false,
+        ]);
+
+        $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ])
+            ->assertRedirect('/dashboard');
+
+        $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_platform_admin_logout_logs_out_and_redirects_to_platform_login(): void
+    {
+        $admin = User::factory()->create(['is_platform_admin' => true]);
+
+        $this->actingAs($admin)
+            ->post('/platform-admin/logout')
+            ->assertRedirect('/platform-admin/login');
+
+        $this->assertGuest();
     }
 
     public function test_make_platform_admin_command_promotes_existing_user(): void
@@ -238,6 +316,7 @@ class PlatformAdminTest extends TestCase
             'Overview.tsx',
             'Businesses.tsx',
             'BusinessDetail.tsx',
+            'Login.tsx',
             'WhatsappOnboarding.tsx',
             'Usage.tsx',
             'Issues.tsx',
@@ -249,6 +328,7 @@ class PlatformAdminTest extends TestCase
         $this->assertStringContainsString('Issues', $source);
         $this->assertStringContainsString('Phone AI is planned', $source);
         $this->assertStringContainsString('Copy WhatsApp activation command', $source);
+        $this->assertStringContainsString('Sign in to Platform Admin', $source);
     }
 
     private function createSalon(array $attributes = []): Salon
