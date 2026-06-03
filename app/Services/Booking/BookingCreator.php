@@ -4,6 +4,7 @@ namespace App\Services\Booking;
 
 use App\Models\Booking;
 use App\Models\Salon;
+use App\Services\CRM\CustomerIdentityService;
 use App\Services\Usage\UsageLimitService;
 use App\Services\Usage\UsageTracker;
 use Illuminate\Support\Arr;
@@ -15,8 +16,8 @@ class BookingCreator
         private readonly AvailabilityChecker $availabilityChecker,
         private readonly UsageLimitService $usageLimitService,
         private readonly UsageTracker $usageTracker,
-    ) {
-    }
+        private readonly CustomerIdentityService $customers,
+    ) {}
 
     public function createFromAiFunctionCall(Salon $salon, array $args, ?string $source = null, bool $billUsage = true): Booking
     {
@@ -51,7 +52,9 @@ class BookingCreator
             ]);
         }
 
-        return $booking;
+        $this->customers->identifyFromBooking($booking);
+
+        return $booking->refresh();
     }
 
     private function normalizeAiTime(string $time): string

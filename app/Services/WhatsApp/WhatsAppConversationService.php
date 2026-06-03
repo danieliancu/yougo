@@ -5,13 +5,17 @@ namespace App\Services\WhatsApp;
 use App\Models\Conversation;
 use App\Models\ConversationMessage;
 use App\Models\Salon;
+use App\Services\CRM\CustomerIdentityService;
 use App\Services\Usage\UsageTracker;
 use App\Support\BookingStatus;
 use Illuminate\Support\Facades\Log;
 
 class WhatsAppConversationService
 {
-    public function __construct(private readonly UsageTracker $usageTracker) {}
+    public function __construct(
+        private readonly UsageTracker $usageTracker,
+        private readonly CustomerIdentityService $customers,
+    ) {}
 
     public function hasProviderMessage(string $providerMessageId): bool
     {
@@ -90,6 +94,8 @@ class WhatsAppConversationService
             'contact_name' => $conversation->contact_name ?: ($profileName ?: null),
             'last_message_at' => now(),
         ]);
+
+        $this->customers->identifyFromConversation($conversation->refresh());
 
         $this->usageTracker->record($salon, 'whatsapp_message_inbound', source: 'whatsapp', metadata: [
             'conversation_id' => $conversation->id,

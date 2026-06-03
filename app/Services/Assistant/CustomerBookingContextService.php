@@ -5,10 +5,13 @@ namespace App\Services\Assistant;
 use App\Models\Booking;
 use App\Models\Conversation;
 use App\Models\Salon;
+use App\Services\CRM\CustomerIdentityService;
 use Illuminate\Support\Carbon;
 
 class CustomerBookingContextService
 {
+    public function __construct(private readonly CustomerIdentityService $identity) {}
+
     public function findRecentForCustomer(Salon $salon, ?Conversation $conversation = null, ?array $knownContact = null): ?array
     {
         $phones = $this->candidatePhones($conversation, $knownContact);
@@ -23,7 +26,7 @@ class CustomerBookingContextService
             ->latest('created_at')
             ->limit(250)
             ->get()
-            ->filter(fn (Booking $booking) => in_array($this->normalizePhone($booking->client_phone), $phones, true));
+            ->filter(fn (Booking $booking) => in_array($this->identity->normalizePhone($booking->client_phone), $phones, true));
 
         if ($bookings->isEmpty()) {
             return null;
@@ -52,30 +55,11 @@ class CustomerBookingContextService
             $conversation?->contact_phone,
             $knownContact['phone'] ?? null,
         ])
-            ->map(fn ($phone) => $this->normalizePhone($phone))
+            ->map(fn ($phone) => $this->identity->normalizePhone($phone))
             ->filter()
             ->unique()
             ->values()
             ->all();
-    }
-
-    private function normalizePhone(mixed $phone): ?string
-    {
-        $phone = trim((string) $phone);
-        if ($phone === '') {
-            return null;
-        }
-
-        $phone = preg_replace('/^whatsapp:/i', '', $phone) ?? '';
-        $phone = preg_replace('/[^\d+]+/', '', $phone) ?? '';
-
-        if (str_starts_with($phone, '00')) {
-            $phone = '+'.substr($phone, 2);
-        }
-
-        $digits = preg_replace('/\D+/', '', $phone) ?? '';
-
-        return strlen($digits) >= 8 ? $digits : null;
     }
 
     private function bookingStartsAt(Booking $booking): ?Carbon

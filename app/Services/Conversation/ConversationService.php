@@ -5,15 +5,17 @@ namespace App\Services\Conversation;
 use App\Models\Booking;
 use App\Models\Conversation;
 use App\Models\Salon;
+use App\Services\CRM\CustomerIdentityService;
 use App\Services\Usage\UsageTracker;
 use App\Support\BookingStatus;
 use Illuminate\Support\Str;
 
 class ConversationService
 {
-    public function __construct(private readonly UsageTracker $usageTracker)
-    {
-    }
+    public function __construct(
+        private readonly UsageTracker $usageTracker,
+        private readonly CustomerIdentityService $customers,
+    ) {}
 
     public function existsForSalon(Salon $salon, ?int $conversationId): bool
     {
@@ -41,7 +43,9 @@ class ConversationService
         $used = $salon->conversations()->pluck('visitor_number')->filter()->sort()->values()->all();
         $next = 1;
         foreach ($used as $n) {
-            if ($n > $next) break;
+            if ($n > $next) {
+                break;
+            }
             $next = $n + 1;
         }
 
@@ -88,8 +92,11 @@ class ConversationService
 
     public function attachBooking(Conversation $conversation, Booking $booking): void
     {
+        $customer = $this->customers->identifyFromBooking($booking);
+
         $conversation->update([
             'booking_id' => $booking->id,
+            'customer_id' => $customer?->id,
             'contact_name' => $booking->client_name,
             'contact_phone' => $booking->client_phone,
             'status' => $conversation->channel === 'whatsapp' && ! BookingStatus::isClosedForWhatsappAi($booking)
@@ -97,6 +104,8 @@ class ConversationService
                 : 'completed',
             'intent' => 'booking',
         ]);
+
+        $this->customers->identifyFromConversation($conversation->refresh());
     }
 
     public function closeWhatsappConversationsForBooking(Booking $booking): void

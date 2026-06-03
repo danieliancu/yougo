@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\Location;
 use App\Models\Service;
 use App\Services\Conversation\ConversationService;
+use App\Services\CRM\CustomerIdentityService;
 use App\Support\BookingStatus;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,7 +18,40 @@ use Throwable;
 
 class BookingController extends Controller
 {
-    public function update(Request $request, Booking $booking): RedirectResponse
+    public function store(Request $request, CustomerIdentityService $customers): RedirectResponse
+    {
+        $salon = $request->user()->salon;
+        abort_unless($salon, 403);
+
+        $data = $request->validate([
+            'location_id' => ['nullable', 'integer'],
+            'service_id' => ['nullable', 'integer'],
+            'client_name' => ['required', 'string', 'max:255'],
+            'client_phone' => ['nullable', 'string', 'max:255'],
+            'staff' => ['nullable', 'array'],
+            'staff.*' => ['nullable', 'string', 'max:255'],
+            'date' => ['required', 'date_format:Y-m-d'],
+            'time' => ['required', 'date_format:H:i'],
+            'status' => ['required', Rule::in(Booking::STATUSES)],
+        ]);
+
+        $this->validateLocation($request, $data['location_id'] ?? null);
+        $this->validateService($request, $data['service_id'] ?? null);
+
+        $data['staff'] = collect($data['staff'] ?? [])
+            ->map(fn ($member) => trim((string) $member))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $booking = $salon->bookings()->create($data);
+        $customers->identifyFromBooking($booking);
+
+        return back()->with('success', 'Programare creata.');
+    }
+
+    public function update(Request $request, Booking $booking, CustomerIdentityService $customers): RedirectResponse
     {
         $this->authorizeOwner($request, $booking);
 
@@ -47,6 +81,7 @@ class BookingController extends Controller
 
         $oldStatus = $booking->status;
         $booking->update($data);
+        $customers->identifyFromBooking($booking->refresh());
 
         $newStatus = $data['status'] ?? null;
         if ($newStatus && $newStatus !== $oldStatus) {

@@ -14,7 +14,9 @@ class Salon extends Model
     use HasFactory;
 
     public const MODE_APPOINTMENT = 'appointment';
+
     public const MODE_RESERVATION = 'reservation';
+
     public const MODE_LEAD = 'lead';
 
     protected $fillable = [
@@ -187,6 +189,11 @@ class Salon extends Model
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class);
+    }
+
+    public function customers(): HasMany
+    {
+        return $this->hasMany(Customer::class);
     }
 
     public function conversations(): HasMany

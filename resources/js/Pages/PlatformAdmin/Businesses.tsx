@@ -39,7 +39,7 @@ export default function Businesses({ payload }: Props) {
         <Select label="Plan" value={plan} onChange={setPlan} options={['', ...Object.keys(payload.plans ?? {})]} />
         <Select label="Subscription" value={subscriptionStatus} onChange={setSubscriptionStatus} options={['', 'active', 'trialing', 'past_due', 'cancelled', 'none']} />
         <Select label="WhatsApp status" value={whatsappStatus} onChange={setWhatsappStatus} options={['', 'requested', 'active', 'failed', 'disabled', 'not_connected']} />
-        <button className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-black text-white shadow-sm shadow-indigo-200 hover:bg-indigo-700 md:self-end">Apply filters</button>
+        <button className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white shadow-sm shadow-indigo-200 hover:bg-indigo-700 md:self-end">Apply filters</button>
       </form>
       <Panel title={`Businesses (${payload.pagination?.total ?? 0})`}>
         <BusinessTable items={payload.items ?? []} />

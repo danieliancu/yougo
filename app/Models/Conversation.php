@@ -14,6 +14,7 @@ class Conversation extends Model
     protected $fillable = [
         'salon_id',
         'booking_id',
+        'customer_id',
         'channel',
         'provider',
         'external_contact_id',
@@ -47,6 +48,11 @@ class Conversation extends Model
     public function booking(): BelongsTo
     {
         return $this->belongsTo(Booking::class);
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
     }
 
     public function messages(): HasMany

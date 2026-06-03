@@ -13,6 +13,7 @@ use App\Models\WhatsappIntegration;
 use App\Services\WhatsApp\TwilioWhatsAppService;
 use App\Services\WhatsApp\WhatsAppAiReplyService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
@@ -23,6 +24,20 @@ use Twilio\Security\RequestValidator;
 class WhatsappIntegrationTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Carbon::setTestNow(Carbon::create(2026, 4, 27, 9, 0));
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
+    }
 
     public function test_request_activation_requires_auth(): void
     {

@@ -48,6 +48,7 @@ export type Service = {
 export type Booking = {
   id: number;
   salon_id: number;
+  customer_id?: number | null;
   location_id?: number | null;
   service_id?: number | null;
   staff_id?: number | null;
@@ -99,6 +100,7 @@ export type Conversation = {
   id: number;
   salon_id: number;
   booking_id?: number | null;
+  customer_id?: number | null;
   visitor_number?: number | null;
   channel: 'chat' | 'voice' | 'web_widget' | string;
   provider?: string | null;

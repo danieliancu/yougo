@@ -20,15 +20,15 @@ export default function PlatformAdminLogin() {
       <div className="grid min-h-screen lg:grid-cols-[460px_1fr]">
         <aside className="hidden border-r border-white/10 bg-slate-950 p-8 lg:flex lg:flex-col">
           <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-500 text-base font-black shadow-lg shadow-indigo-950/50">YG</span>
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-500 text-base font-bold shadow-lg shadow-indigo-950/50">YG</span>
             <span>
-              <span className="block text-sm font-black">YouGo Admin</span>
+              <span className="block text-sm font-bold">YouGo Admin</span>
               <span className="block text-xs font-semibold text-slate-400">Platform operations</span>
             </span>
           </div>
           <div className="mt-auto rounded-3xl border border-white/10 bg-white/5 p-6">
             <ShieldCheck className="h-9 w-9 text-indigo-300" />
-            <h2 className="mt-5 text-2xl font-black tracking-tight">Separate operator access</h2>
+            <h2 className="mt-5 text-2xl font-bold tracking-tight">Separate operator access</h2>
             <p className="mt-3 text-sm leading-6 text-slate-400">
               This area is restricted to YouGo platform operators. Business accounts continue to use the normal dashboard login.
             </p>
@@ -41,13 +41,13 @@ export default function PlatformAdminLogin() {
               <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-700">
                 <LockKeyhole className="h-6 w-6" />
               </span>
-              <h1 className="mt-5 text-3xl font-black tracking-tight">YouGo Platform Admin</h1>
+              <h1 className="mt-5 text-3xl font-bold tracking-tight">YouGo Platform Admin</h1>
               <p className="mt-2 text-sm font-semibold text-slate-500">Internal operator access</p>
             </div>
 
             <form className="space-y-5" onSubmit={submit}>
               <label className="block">
-                <span className="text-xs font-black uppercase tracking-wide text-slate-500">Username</span>
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Username</span>
                 <input
                   type="text"
                   value={form.data.username}
@@ -59,7 +59,7 @@ export default function PlatformAdminLogin() {
               </label>
 
               <label className="block">
-                <span className="text-xs font-black uppercase tracking-wide text-slate-500">Password</span>
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Password</span>
                 <input
                   type="password"
                   value={form.data.password}
@@ -83,7 +83,7 @@ export default function PlatformAdminLogin() {
               <button
                 type="submit"
                 disabled={form.processing}
-                className="flex h-11 w-full items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-black text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex h-11 w-full items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-bold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Sign in to Platform Admin
               </button>

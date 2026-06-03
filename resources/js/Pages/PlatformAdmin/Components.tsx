@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { AlertTriangle, ArrowLeft, BriefcaseBusiness, Building2, Clipboard, MessageCircle, Phone, Search, Settings, Shield, UserCircle, Users, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Building2, Clipboard, MessageCircle, Phone, Search, Settings, Shield, UserCircle, Users, type LucideIcon } from 'lucide-react';
 import { ReactNode } from 'react';
 
 export type AdminPage = 'overview' | 'businesses' | 'business_detail' | 'whatsapp_onboarding' | 'usage' | 'issues' | 'settings';
@@ -20,9 +20,9 @@ export function PlatformAdminLayout({ page, children }: { page: AdminPage; child
     <div className="min-h-screen bg-slate-100 text-slate-900">
       <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-slate-800 bg-slate-950 px-5 py-5 lg:flex lg:flex-col">
         <div className="mb-7 flex items-center gap-3 rounded-2xl bg-white/5 p-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500 text-base font-black text-white shadow-lg shadow-indigo-950/40">YG</span>
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500 text-base font-bold text-white shadow-lg shadow-indigo-950/40">YG</span>
           <span className="min-w-0">
-            <span className="block text-sm font-black text-white">YouGo Admin</span>
+            <span className="block text-sm font-bold text-white">YouGo Admin</span>
             <span className="block truncate text-xs font-semibold text-slate-400">Platform Admin</span>
           </span>
         </div>
@@ -47,7 +47,6 @@ export function PlatformAdminLayout({ page, children }: { page: AdminPage; child
           </NavGroup>
 
           <NavGroup label="Future">
-            <FutureNavItem icon={BriefcaseBusiness} label="CRM Light" />
             <FutureNavItem icon={Phone} label="Phone AI" />
           </NavGroup>
 
@@ -81,11 +80,11 @@ export function PlatformAdminLayout({ page, children }: { page: AdminPage; child
                 />
               </div>
             </div>
-            <span className="hidden rounded-full bg-indigo-50 px-3 py-1 text-xs font-black text-indigo-700 sm:inline-flex">Platform Admin</span>
+            <span className="hidden rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700 sm:inline-flex">Platform Admin</span>
             <div className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
               <UserCircle className="h-5 w-5 shrink-0 text-slate-400" />
               <span className="hidden min-w-0 sm:block">
-                <span className="block truncate text-xs font-black text-slate-800">{admin?.name ?? 'Admin'}</span>
+                <span className="block truncate text-xs font-bold text-slate-800">{admin?.name ?? 'Admin'}</span>
                 <span className="block truncate text-[11px] font-semibold text-slate-500">{admin?.username ?? 'Internal operator'}</span>
               </span>
             </div>
@@ -107,7 +106,7 @@ export function PlatformAdminLayout({ page, children }: { page: AdminPage; child
 function NavGroup({ label, children }: { label: string; children: ReactNode }) {
   return (
     <section>
-      <p className="mb-2 px-3 text-[11px] font-black uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mb-2 px-3 text-[11px] font-bold uppercase tracking-wide text-slate-500">{label}</p>
       <div className="space-y-1">{children}</div>
     </section>
   );
@@ -126,8 +125,8 @@ function FutureNavItem({ icon: Icon, label }: { icon: LucideIcon; label: string 
 export function PageHeader({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <header className="mb-7">
-      <p className="text-xs font-black uppercase tracking-wide text-indigo-600">Internal operations</p>
-      <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">{title}</h2>
+      <p className="text-xs font-bold uppercase tracking-wide text-indigo-600">Internal operations</p>
+      <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">{title}</h2>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">{subtitle}</p>
     </header>
   );
@@ -136,7 +135,7 @@ export function PageHeader({ title, subtitle }: { title: string; subtitle: strin
 export function Panel({ title, children, className = '' }: { title: string; children: ReactNode; className?: string }) {
   return (
     <section className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/70 ${className}`}>
-      <h2 className="mb-4 text-base font-black text-slate-950">{title}</h2>
+      <h2 className="mb-4 text-base font-bold text-slate-950">{title}</h2>
       {children}
     </section>
   );
@@ -146,7 +145,7 @@ export function Metric({ label, value }: { label: string; value: unknown }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/80">
       <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-3 text-3xl font-black tracking-tight text-slate-950">{String(value ?? 0)}</p>
+      <p className="mt-3 text-3xl font-bold tracking-tight text-slate-950">{String(value ?? 0)}</p>
     </div>
   );
 }
@@ -182,7 +181,7 @@ export function BusinessTable({ items }: { items: Record<string, any>[] }) {
               <td className="px-4 py-4"><StatusBadge status="Planned" /></td>
               <td className="px-4 py-4 text-xs font-semibold text-slate-500">{formatUsageBrief(item.usage)}</td>
               <td className="px-4 py-4 text-right">
-                <Link href={`/platform-admin/businesses/${item.id}`} className="inline-flex rounded-lg bg-indigo-50 px-3 py-2 text-xs font-black text-indigo-700 hover:bg-indigo-100">View</Link>
+                <Link href={`/platform-admin/businesses/${item.id}`} className="inline-flex rounded-lg bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100">View</Link>
               </td>
             </tr>
           ))}
@@ -204,7 +203,7 @@ export function StatusBadge({ status }: { status: string }) {
           ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
           : 'bg-slate-100 text-slate-700 ring-1 ring-slate-200';
 
-  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-black capitalize ${classes}`}>{status}</span>;
+  return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold capitalize ${classes}`}>{status}</span>;
 }
 
 export function KeyValue({ data, exclude = [] }: { data: Record<string, any>; exclude?: string[] }) {
@@ -228,7 +227,7 @@ export function SetupRequest({ request }: { request?: Record<string, any> | null
 
   return (
     <div>
-      <h3 className="mb-2 text-sm font-black text-slate-900">Setup call details</h3>
+      <h3 className="mb-2 text-sm font-bold text-slate-900">Setup call details</h3>
       <KeyValue data={request} />
     </div>
   );
@@ -262,7 +261,7 @@ export function UsageSummary({ summary }: { summary?: Record<string, any> }) {
         <div key={key} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
           <div className="flex justify-between gap-3 text-sm">
             <span className="font-bold text-slate-600">{key.replaceAll('_', ' ')}</span>
-            <span className="font-black text-slate-900">{usage[key] ?? 0} / {limits[key] ?? 'unlimited'}</span>
+            <span className="font-bold text-slate-900">{usage[key] ?? 0} / {limits[key] ?? 'unlimited'}</span>
           </div>
           <UsageBar used={Number(usage[key] ?? 0)} limit={limits[key]} />
         </div>
@@ -270,7 +269,7 @@ export function UsageSummary({ summary }: { summary?: Record<string, any> }) {
       <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 md:col-span-2">
         <div className="flex justify-between gap-3 text-sm">
           <span className="font-bold text-slate-600">whatsapp conversation analytics</span>
-          <span className="font-black text-slate-900">{summary.analytics?.whatsapp_conversations ?? usage.whatsapp_conversations ?? 0}</span>
+          <span className="font-bold text-slate-900">{summary.analytics?.whatsapp_conversations ?? usage.whatsapp_conversations ?? 0}</span>
         </div>
         <p className="mt-1 text-xs text-slate-500">Analytics only. monthly_whatsapp_messages is the billable inbound + outbound WhatsApp limit.</p>
       </div>
@@ -295,7 +294,7 @@ export function RecentActivity({ activity }: { activity: Record<string, any[]> }
     <div className="grid gap-4 lg:grid-cols-3">
       {Object.entries(activity).map(([label, rows]) => (
         <div key={label} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-          <h3 className="mb-2 text-sm font-black capitalize text-slate-900">{label}</h3>
+          <h3 className="mb-2 text-sm font-bold capitalize text-slate-900">{label}</h3>
           {rows?.length ? rows.map((row) => (
             <p key={row.id} className="mb-2 break-words text-xs font-semibold text-slate-500">{activityLine(label, row)}</p>
           )) : <Empty text="None." />}

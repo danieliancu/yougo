@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\BillingController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ConversationController;
+use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\IndustryController;
 use App\Http\Controllers\LocationController;
@@ -53,8 +54,9 @@ Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::redirect('/dashboard/chat-audio', '/dashboard/widget')->name('dashboard.chat-audio.redirect');
+    Route::get('/dashboard/customers/{customer}', [CustomerController::class, 'show'])->name('dashboard.customers.show');
     Route::get('/dashboard/{section}', DashboardController::class)
-        ->whereIn('section', ['overview', 'onboarding', 'ai-settings', 'conversations', 'voice-calls', 'whatsapp', 'locations', 'staff', 'services', 'bookings', 'widget', 'billing', 'settings'])
+        ->whereIn('section', ['overview', 'onboarding', 'ai-settings', 'conversations', 'voice-calls', 'whatsapp', 'locations', 'staff', 'services', 'bookings', 'customers', 'widget', 'billing', 'settings'])
         ->name('dashboard.section');
 
     Route::post('/onboarding/skip', [OnboardingController::class, 'skip'])->name('onboarding.skip');
@@ -80,6 +82,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/services/{service}', [ServiceController::class, 'destroy'])->name('services.destroy');
 
     Route::put('/bookings/{booking}', [BookingController::class, 'update'])->name('bookings.update');
+    Route::post('/bookings', [BookingController::class, 'store'])->name('bookings.store');
     Route::delete('/bookings/{booking}', [BookingController::class, 'destroy'])->name('bookings.destroy');
 
     Route::delete('/conversations/{conversation}', [ConversationController::class, 'destroy'])->name('conversations.destroy');

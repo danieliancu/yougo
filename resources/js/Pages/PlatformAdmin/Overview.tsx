@@ -36,7 +36,7 @@ export default function Overview({ payload }: Props) {
           {Object.entries(issues).map(([label, value]) => (
             <div key={label} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
               <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{label.replaceAll('_', ' ')}</p>
-              <p className="mt-2 text-2xl font-black text-slate-950">{String(value ?? 0)}</p>
+              <p className="mt-2 text-2xl font-bold text-slate-950">{String(value ?? 0)}</p>
             </div>
           ))}
         </div>

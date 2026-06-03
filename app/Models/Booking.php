@@ -13,11 +13,14 @@ class Booking extends Model
     use HasFactory;
 
     public const STATUSES = ['pending', 'confirmed', 'cancelled', 'completed'];
+
     public const AMENDABLE_STATUSES = ['pending'];
+
     public const FINAL_STATUSES = ['cancelled', 'completed'];
 
     protected $fillable = [
         'salon_id',
+        'customer_id',
         'location_id',
         'service_id',
         'staff_id',
@@ -43,6 +46,11 @@ class Booking extends Model
     public function salon(): BelongsTo
     {
         return $this->belongsTo(Salon::class);
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
     }
 
     public function location(): BelongsTo

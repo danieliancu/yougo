@@ -50,7 +50,7 @@ export default function PlatformAdminSettings() {
             </Field>
           </div>
 
-          <button disabled={form.processing} className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-black text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60">
+          <button disabled={form.processing} className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60">
             Save admin credentials
           </button>
         </form>
@@ -62,7 +62,7 @@ export default function PlatformAdminSettings() {
 function Field({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="text-xs font-black uppercase tracking-wide text-slate-500">{label}</span>
+      <span className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</span>
       <div className="mt-1">{children}</div>
       {error && <p className="mt-2 text-sm font-semibold text-red-600">{error}</p>}
     </label>

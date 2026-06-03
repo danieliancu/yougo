@@ -45,7 +45,7 @@ type LocalizationProps = {
 };
 
 type Props = PageProps<{
-  section: 'overview' | 'onboarding' | 'ai-settings' | 'conversations' | 'voice-calls' | 'whatsapp' | 'locations' | 'staff' | 'services' | 'bookings' | 'widget' | 'billing' | 'settings';
+  section: 'overview' | 'onboarding' | 'ai-settings' | 'conversations' | 'voice-calls' | 'whatsapp' | 'locations' | 'staff' | 'services' | 'bookings' | 'customers' | 'customer-detail' | 'widget' | 'billing' | 'settings';
   salon: Salon;
   overview: OverviewData;
   onboarding: OnboardingChecklist;
@@ -65,6 +65,7 @@ type Props = PageProps<{
     };
   };
   localization: LocalizationProps;
+  crm?: CustomerCrmPayload | CustomerDetailPayload | null;
   appUrl: string;
 }>;
 
@@ -98,6 +99,68 @@ type WhatsappSetupRequestForm = {
   notes: string;
 };
 type WhatsappAvailabilityPeriod = 'morning' | 'afternoon' | 'evening';
+type CustomerListItem = {
+  id: number;
+  name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  first_seen_at?: string | null;
+  last_seen_at?: string | null;
+  bookings_count: number;
+  upcoming_bookings_count: number;
+  cancelled_bookings_count: number;
+  completed_bookings_count: number;
+  conversations_count: number;
+  last_booking?: {
+    id: number;
+    date?: string | null;
+    time?: string | null;
+    status?: string | null;
+    service_name?: string | null;
+  } | null;
+};
+type CustomerCrmPayload = {
+  items: CustomerListItem[];
+  pagination: {
+    current_page: number;
+    last_page: number;
+    total: number;
+    next_page_url?: string | null;
+    prev_page_url?: string | null;
+  };
+  filters: { search: string };
+  summary: {
+    total_customers: number;
+    with_phone: number;
+    with_email: number;
+    new_this_month: number;
+  };
+};
+type CustomerDetailPayload = {
+  customer: {
+    id: number;
+    name?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    first_seen_at?: string | null;
+    last_seen_at?: string | null;
+    notes?: string | null;
+  };
+  stats: {
+    total_bookings: number;
+    upcoming_bookings: number;
+    cancelled_bookings: number;
+    completed_bookings: number;
+    conversations: number;
+    last_interaction?: string | null;
+  };
+  preferences: {
+    service?: string | null;
+    staff?: string | null;
+  };
+  bookings: Array<Pick<Booking, 'id' | 'client_name' | 'client_phone' | 'date' | 'time' | 'status' | 'source' | 'service' | 'location' | 'staff_member'>>;
+  conversations: Array<Pick<Conversation, 'id' | 'booking_id' | 'channel' | 'contact_name' | 'contact_phone' | 'contact_email' | 'status' | 'intent' | 'summary' | 'last_message_at'>>;
+};
 
 const CONVERSATION_CHANNEL_FILTER_STORAGE_KEY = 'yougo.dashboard.conversations.channelFilter';
 
@@ -121,6 +184,7 @@ const topLevelNavItems: NavItem[] = [
   { id: 'overview', label: 'overview', href: '/dashboard', icon: LayoutDashboard },
   { id: 'onboarding', label: 'setup', href: '/dashboard/onboarding', icon: List },
   { id: 'bookings', label: 'bookings', href: '/dashboard/bookings', icon: Calendar },
+  { id: 'customers', label: 'customers', href: '/dashboard/customers', icon: Users },
   { id: 'conversations', label: 'conversations', href: '/dashboard/conversations', icon: MessageSquare },
 ];
 
@@ -164,9 +228,11 @@ const defaultOpenGroups = navGroupIds.reduce((groups, id) => ({
 
 export default function DashboardIndex() {
   const t = useT();
-  const { auth, salon, section, locale, overview, onboarding, billing, localization } = usePage<Props>().props;
+  const { auth, salon, section, locale, overview, onboarding, billing, localization, crm } = usePage<Props>().props;
   const titleKey = section === 'locations'
     ? 'salonLocations'
+    : section === 'customer-detail'
+      ? 'customerDetail'
     : nav.find((item) => item.id === section)?.label ?? section;
   const title = t(titleKey);
   const headerSubtitles: Partial<Record<Props['section'], string>> = {
@@ -180,6 +246,8 @@ export default function DashboardIndex() {
     staff: t('staffSubtitle'),
     services: t('servicesSubtitle'),
     bookings: t('bookingsSubtitle'),
+    customers: t('customersSubtitle'),
+    'customer-detail': t('customerDetailSubtitle'),
     widget: t('websiteChatSubtitle'),
     billing: t('billingSubtitle'),
     settings: t('settingsSubtitle'),
@@ -196,6 +264,7 @@ export default function DashboardIndex() {
     services: t('searchServices'),
     staff: t('searchStaff'),
     bookings: t('searchBookings'),
+    customers: t('searchCustomers'),
   };
 
   useEffect(() => { setQuery(''); }, [section]);
@@ -310,6 +379,8 @@ export default function DashboardIndex() {
           {section === 'staff' && <StaffManagement salon={salon} query={query} />}
           {section === 'services' && <Services salon={salon} query={query} />}
           {section === 'bookings' && <Bookings salon={salon} query={query} />}
+          {section === 'customers' && <Customers crm={crm as CustomerCrmPayload | null | undefined} query={query} />}
+          {section === 'customer-detail' && <CustomerDetail crm={crm as CustomerDetailPayload | null | undefined} salon={salon} />}
           {section === 'widget' && <WidgetSettings salon={salon} query={query} />}
           {section === 'billing' && <BillingPage billing={billing} currentPlan={salon.plan ?? 'free'} />}
           {section === 'settings' && <SettingsPage salon={salon} />}
@@ -417,7 +488,7 @@ function DashboardSidebarContent({ salon, section, user, t, onboarding, onNaviga
         <div className="space-y-1 pb-1">
           {topLevelNavItems.map((item) => {
             const Icon = item.icon;
-            const active = item.id === section;
+            const active = item.id === section || (section === 'customer-detail' && item.id === 'customers');
 
             return (
               <Link
@@ -460,7 +531,7 @@ function DashboardSidebarContent({ salon, section, user, t, onboarding, onNaviga
                   <div className="space-y-1 pb-1 pt-1">
                     {group.items.map((item) => {
                       const Icon = item.icon;
-                      const active = item.id === section;
+                      const active = item.id === section || (section === 'customer-detail' && item.id === 'customers');
                       const showsAccountEmail = item.id === 'settings';
 
                       return (
@@ -2722,13 +2793,15 @@ function bookingStaffLabel(booking: Booking): string {
   return (booking.staff ?? []).filter(Boolean).join(' \u2022 ');
 }
 
-function Stat({ label, value, icon: Icon, tone = 'indigo' }: { label: string; value: number | string; icon: any; tone?: 'indigo' | 'amber' | 'green' | 'blue' | 'slate' }) {
+function Stat({ label, value, icon: Icon, tone = 'indigo' }: { label: string; value: number | string; icon: any; tone?: 'indigo' | 'amber' | 'green' | 'blue' | 'slate' | 'purple' | 'red' }) {
   const colors = {
     indigo: 'bg-indigo-50 text-indigo-700',
     amber: 'bg-amber-50 text-amber-700',
     green: 'bg-green-50 text-green-700',
     blue: 'bg-blue-50 text-blue-700',
     slate: 'bg-slate-100 text-slate-700',
+    purple: 'bg-purple-50 text-purple-700',
+    red: 'bg-red-50 text-red-700',
   };
   return (
     <Card className="p-5">
@@ -5864,6 +5937,191 @@ function RowActionLink({ children, href }: { children: ReactNode; href: string }
     <a href={href} className="flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold transition app-text-soft hover:bg-[var(--app-panel-soft)]">
       {children}
     </a>
+  );
+}
+
+function EmptyState({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="rounded-2xl border p-6 app-border app-panel">
+      <p className="text-sm font-bold app-text">{title}</p>
+      <p className="mt-2 text-sm app-text-muted">{description}</p>
+    </div>
+  );
+}
+
+function Customers({ crm, query }: { crm?: CustomerCrmPayload | null; query: string }) {
+  const t = useT();
+  const serverSearch = crm?.filters.search ?? '';
+  const items = crm?.items ?? [];
+
+  useEffect(() => {
+    if (query.trim() === serverSearch) return;
+
+    const timeout = setTimeout(() => {
+      router.get('/dashboard/customers', { search: query.trim() }, {
+        preserveScroll: true,
+        preserveState: true,
+        replace: true,
+      });
+    }, 350);
+
+    return () => clearTimeout(timeout);
+  }, [query, serverSearch]);
+
+  if (!crm) {
+    return <EmptyState title={t('customers')} description={t('customersEmpty')} />;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Stat label={t('totalCustomers')} value={crm.summary.total_customers} icon={Users} tone="blue" />
+        <Stat label={t('customersWithPhone')} value={crm.summary.with_phone} icon={Phone} tone="green" />
+        <Stat label={t('customersWithEmail')} value={crm.summary.with_email} icon={Bell} tone="purple" />
+        <Stat label={t('newCustomersThisMonth')} value={crm.summary.new_this_month} icon={Sparkles} tone="slate" />
+      </div>
+
+      {items.length === 0 ? (
+        <EmptyState title={t('noCustomersFound')} description={t('customersEmpty')} />
+      ) : (
+        <DashboardTable
+          headers={[t('customer'), t('contact'), t('bookings'), t('lastBooking'), t('lastInteraction'), '']}
+          minWidth="980px"
+        >
+          {items.map((customer, index) => (
+            <tr key={customer.id} className={dashboardTableRowClass(index)}>
+              <td className="px-5 py-4">
+                <div className="font-semibold app-text">{customer.name || t('unnamedCustomer')}</div>
+                <div className="mt-1 text-xs app-text-muted">{t('firstSeen')}: {customer.first_seen_at ? formatDate(customer.first_seen_at) : 'N/A'}</div>
+              </td>
+              <td className="px-5 py-4 text-sm app-text-soft">
+                <div>{customer.phone || t('phoneMissing')}</div>
+                <div className="mt-1 text-xs app-text-muted">{customer.email || t('emailMissing')}</div>
+              </td>
+              <td className="px-5 py-4">
+                <div className="text-sm font-semibold app-text">{customer.bookings_count} {t('bookings')}</div>
+                <div className="mt-1 text-xs app-text-muted">
+                  {customer.upcoming_bookings_count} {t('upcoming')}, {customer.completed_bookings_count} {t('completed')}, {customer.cancelled_bookings_count} {t('cancelled')}
+                </div>
+              </td>
+              <td className="px-5 py-4 text-sm app-text-soft">
+                {customer.last_booking ? (
+                  <>
+                    <div className="font-semibold app-text">{customer.last_booking.date} {customer.last_booking.time}</div>
+                    <div className="mt-1 text-xs app-text-muted">{customer.last_booking.service_name || t('service')} · {customer.last_booking.status}</div>
+                  </>
+                ) : t('noBookings')}
+              </td>
+              <td className="px-5 py-4 text-sm app-text-soft">{customer.last_seen_at ? formatDate(customer.last_seen_at) : 'N/A'}</td>
+              <td className="px-5 py-4 text-right">
+                <Link href={`/dashboard/customers/${customer.id}`} className="inline-flex h-9 items-center justify-center rounded-lg bg-indigo-600 px-3 text-sm font-semibold text-white hover:bg-indigo-700">
+                  {t('viewCustomer')}
+                </Link>
+              </td>
+            </tr>
+          ))}
+        </DashboardTable>
+      )}
+
+      {crm.pagination.last_page > 1 && (
+        <div className="flex items-center justify-between text-sm app-text-muted">
+          <span>{t('page')} {crm.pagination.current_page} / {crm.pagination.last_page}</span>
+          <div className="flex gap-2">
+            {crm.pagination.prev_page_url && <Link href={crm.pagination.prev_page_url} className="rounded-lg border px-3 py-2 font-semibold app-border app-panel app-text-soft">{t('previous')}</Link>}
+            {crm.pagination.next_page_url && <Link href={crm.pagination.next_page_url} className="rounded-lg border px-3 py-2 font-semibold app-border app-panel app-text-soft">{t('next')}</Link>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CustomerDetail({ crm, salon }: { crm?: CustomerDetailPayload | null; salon: Salon }) {
+  const t = useT();
+
+  if (!crm) {
+    return <EmptyState title={t('customerDetail')} description={t('customerNotFound')} />;
+  }
+
+  return (
+    <div className="space-y-6">
+      <Link href="/dashboard/customers" className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700">
+        <ChevronLeft className="h-4 w-4" />
+        {t('backToCustomers')}
+      </Link>
+
+      <section className="rounded-2xl border p-5 app-border app-panel">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide app-text-muted">{t('customerProfile')}</p>
+            <h2 className="mt-2 text-2xl font-bold app-text">{crm.customer.name || t('unnamedCustomer')}</h2>
+            <div className="mt-3 flex flex-wrap gap-2 text-sm app-text-soft">
+              <span className="rounded-lg border px-3 py-1.5 app-border app-panel-soft">{crm.customer.phone || t('phoneMissing')}</span>
+              <span className="rounded-lg border px-3 py-1.5 app-border app-panel-soft">{crm.customer.email || t('emailMissing')}</span>
+            </div>
+          </div>
+          <div className="grid gap-2 text-sm app-text-soft sm:grid-cols-2 lg:min-w-96">
+            <InfoLine label={t('firstSeen')} value={crm.customer.first_seen_at ? formatDate(crm.customer.first_seen_at) : 'N/A'} />
+            <InfoLine label={t('lastInteraction')} value={crm.stats.last_interaction ? formatDate(crm.stats.last_interaction) : 'N/A'} />
+            <InfoLine label={t('preferredService')} value={crm.preferences.service || t('notEnoughData')} />
+            <InfoLine label={t('preferredStaff')} value={crm.preferences.staff || t('notEnoughData')} />
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <Stat label={t('totalBookings')} value={crm.stats.total_bookings} icon={Calendar} tone="blue" />
+        <Stat label={t('upcomingBookings')} value={crm.stats.upcoming_bookings} icon={Clock} tone="green" />
+        <Stat label={t('completedBookings')} value={crm.stats.completed_bookings} icon={CheckCircle2} tone="slate" />
+        <Stat label={t('cancelledBookings')} value={crm.stats.cancelled_bookings} icon={XCircle} tone="red" />
+        <Stat label={t('conversations')} value={crm.stats.conversations} icon={MessageSquare} tone="purple" />
+      </div>
+
+      <section className="rounded-2xl border p-5 app-border app-panel">
+        <h3 className="text-base font-bold app-text">{t('customerNotes')}</h3>
+        <p className="mt-2 text-sm app-text-muted">{crm.customer.notes || t('customerNotesPlaceholder')}</p>
+      </section>
+
+      <section className="space-y-3">
+        <h3 className="text-base font-bold app-text">{t('bookingHistory')}</h3>
+        {crm.bookings.length === 0 ? (
+          <EmptyState title={t('noBookings')} description={t('customerNoBookings')} />
+        ) : (
+          <DashboardTable headers={[t('date'), t('client'), t('service'), t('status')]} minWidth="760px">
+            {crm.bookings.map((booking, index) => (
+              <tr key={booking.id} className={dashboardTableRowClass(index)}>
+                <td className="px-5 py-4 text-sm font-semibold app-text">{booking.date ? formatBusinessDate(booking.date, salon) : 'N/A'} {booking.time}</td>
+                <td className="px-5 py-4 text-sm app-text-soft">{booking.client_name}<div className="text-xs app-text-muted">{booking.client_phone}</div></td>
+                <td className="px-5 py-4 text-sm app-text-soft">{booking.service?.name || t('service')}</td>
+                <td className="px-5 py-4"><BookingStatusCell booking={booking} t={t} /></td>
+              </tr>
+            ))}
+          </DashboardTable>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h3 className="text-base font-bold app-text">{t('recentConversations')}</h3>
+        {crm.conversations.length === 0 ? (
+          <EmptyState title={t('noConversations')} description={t('customerNoConversations')} />
+        ) : (
+          <div className="grid gap-3">
+            {crm.conversations.map((conversation) => (
+              <div key={conversation.id} className="rounded-2xl border p-4 app-border app-panel">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold app-text">{conversation.channel} · {conversation.intent}</p>
+                    <p className="mt-1 text-xs app-text-muted">{conversation.last_message_at ? formatDate(conversation.last_message_at) : 'N/A'}</p>
+                  </div>
+                  <span className="rounded-lg border px-2 py-1 text-xs font-semibold app-border app-panel-soft app-text-soft">{conversation.status}</span>
+                </div>
+                <p className="mt-3 text-sm app-text-soft">{conversation.summary || t('noSummary')}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
   );
 }
 

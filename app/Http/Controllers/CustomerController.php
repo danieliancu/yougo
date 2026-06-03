@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Salon;
+use App\Models\Customer;
 use App\Services\CRM\CustomerDashboardService;
 use App\Services\Dashboard\DashboardDataService;
 use App\Services\Onboarding\OnboardingChecklistService;
@@ -10,78 +10,32 @@ use App\Services\Usage\UsageLimitService;
 use App\Support\BusinessLocalization;
 use App\Support\StripePlans;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 
-class DashboardController extends Controller
+class CustomerController extends Controller
 {
-    public function __invoke(Request $request, DashboardDataService $dashboardData, OnboardingChecklistService $onboardingChecklist, UsageLimitService $usageLimitService, CustomerDashboardService $customers, string $section = 'overview'): Response
+    public function show(Request $request, Customer $customer, DashboardDataService $dashboardData, OnboardingChecklistService $onboardingChecklist, UsageLimitService $usageLimitService, CustomerDashboardService $customers): Response
     {
-        $allowed = ['overview', 'onboarding', 'ai-settings', 'conversations', 'voice-calls', 'whatsapp', 'locations', 'staff', 'services', 'bookings', 'customers', 'widget', 'billing', 'settings'];
-        abort_unless(in_array($section, $allowed, true), 404);
-
         $salon = $request->user()->salon()->firstOrCreate([], [
             'name' => "{$request->user()->name}'s Salon",
         ]);
+
+        abort_unless($customer->salon_id === $salon->id, 404);
+
         $salon->ensureWidgetKey();
         $this->ensureLocalizationDefaults($salon);
-        $now = Carbon::now($salon->timezone ?: config('app.timezone'));
-
-        $salon->bookings()
-            ->with('service')
-            ->whereIn('status', ['pending', 'confirmed'])
-            ->whereDate('date', '<=', $now->toDateString())
-            ->get()
-            ->each(function ($booking) use ($now) {
-                [$h, $m] = array_map('intval', explode(':', $booking->time));
-                $duration = $booking->service?->duration ?? 0;
-                $endTime = Carbon::create(
-                    $booking->date->year,
-                    $booking->date->month,
-                    $booking->date->day,
-                    $h, $m, 0,
-                    $now->timezone
-                )->addMinutes($duration);
-                if ($endTime <= $now) {
-                    $booking->update(['status' => 'completed']);
-                }
-            });
-
-        $salon->conversations()
-            ->where('intent', 'inquiry')
-            ->where('status', 'open')
-            ->where('last_message_at', '<', now()->subHour())
-            ->update(['intent' => 'abandoned', 'status' => 'completed']);
-
         $salon->load([
             'locations' => fn ($query) => $query->latest(),
             'staff' => fn ($query) => $query->with(['location', 'locations', 'services'])->latest(),
             'services' => fn ($query) => $query->with('staffMembers')->latest(),
-            'bookings' => fn ($query) => $query
-                ->with([
-                    'location',
-                    'service',
-                    'staffMember',
-                    'conversations' => fn ($conversationQuery) => $conversationQuery
-                        ->select(['id', 'booking_id', 'metadata', 'last_message_at'])
-                        ->latest('last_message_at')
-                        ->latest(),
-                ])
-                ->latest(),
+            'bookings' => fn ($query) => $query->with(['location', 'service', 'staffMember'])->latest(),
             'whatsappIntegration',
-            'conversations' => fn ($query) => $query
-                ->with([
-                    'messages' => fn ($messageQuery) => $messageQuery->oldest(),
-                    'booking.location',
-                    'booking.service',
-                ])
-                ->latest('last_message_at')
-                ->oldest('id'),
+            'conversations' => fn ($query) => $query->with(['messages' => fn ($messageQuery) => $messageQuery->oldest(), 'booking.location', 'booking.service'])->latest('last_message_at')->oldest('id'),
         ]);
 
         return Inertia::render('Dashboard/Index', [
-            'section' => $section,
+            'section' => 'customer-detail',
             'salon' => $salon,
             'overview' => $dashboardData->overview($salon),
             'onboarding' => $onboardingChecklist->forSalon($salon),
@@ -102,9 +56,7 @@ class DashboardController extends Controller
                     'payment_warning' => in_array($salon->subscription_status, ['past_due', 'unpaid', 'payment_failed'], true),
                 ],
             ],
-            'crm' => $section === 'customers'
-                ? $customers->index($salon, $request->string('search')->toString())
-                : null,
+            'crm' => $customers->detail($customer),
             'localization' => [
                 'countries' => BusinessLocalization::countryOptions($request->user()?->salon?->display_language ?? config('app.locale', 'ro')),
                 'timezones' => BusinessLocalization::timezoneOptions(),
@@ -123,7 +75,7 @@ class DashboardController extends Controller
         ]);
     }
 
-    private function ensureLocalizationDefaults(Salon $salon): void
+    private function ensureLocalizationDefaults($salon): void
     {
         $country = BusinessLocalization::normalizeCountry($salon->country);
         $updates = [];
