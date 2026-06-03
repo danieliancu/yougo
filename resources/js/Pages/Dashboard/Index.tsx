@@ -144,6 +144,7 @@ type CustomerDetailPayload = {
     email?: string | null;
     first_seen_at?: string | null;
     last_seen_at?: string | null;
+    updated_at?: string | null;
     notes?: string | null;
   };
   stats: {
@@ -158,8 +159,15 @@ type CustomerDetailPayload = {
     service?: string | null;
     staff?: string | null;
   };
-  bookings: Array<Pick<Booking, 'id' | 'client_name' | 'client_phone' | 'date' | 'time' | 'status' | 'source' | 'service' | 'location' | 'staff_member'>>;
+  highlights: {
+    next_upcoming_booking?: CustomerBookingSummary | null;
+    last_booking?: CustomerBookingSummary | null;
+  };
+  bookings: Array<CustomerBookingSummary & Pick<Booking, 'client_name' | 'client_phone'>>;
   conversations: Array<Pick<Conversation, 'id' | 'booking_id' | 'channel' | 'contact_name' | 'contact_phone' | 'contact_email' | 'status' | 'intent' | 'summary' | 'last_message_at'>>;
+};
+type CustomerBookingSummary = Pick<Booking, 'id' | 'date' | 'time' | 'status' | 'source' | 'service' | 'location' | 'staff_member'> & {
+  staff_name?: string | null;
 };
 
 const CONVERSATION_CHANNEL_FILTER_STORAGE_KEY = 'yougo.dashboard.conversations.channelFilter';
@@ -5991,12 +5999,17 @@ function Customers({ crm, query }: { crm?: CustomerCrmPayload | null; query: str
           {items.map((customer, index) => (
             <tr key={customer.id} className={dashboardTableRowClass(index)}>
               <td className="px-5 py-4">
-                <div className="font-semibold app-text">{customer.name || t('unnamedCustomer')}</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold app-text">{customer.name || t('unnamedCustomer')}</span>
+                  <span className={`rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase ${customer.phone || customer.email ? 'bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'}`}>
+                    {customer.phone || customer.email ? t('contactComplete') : t('incompleteContact')}
+                  </span>
+                </div>
                 <div className="mt-1 text-xs app-text-muted">{t('firstSeen')}: {customer.first_seen_at ? formatDate(customer.first_seen_at) : 'N/A'}</div>
               </td>
               <td className="px-5 py-4 text-sm app-text-soft">
-                <div>{customer.phone || t('phoneMissing')}</div>
-                <div className="mt-1 text-xs app-text-muted">{customer.email || t('emailMissing')}</div>
+                <div className={customer.phone ? 'app-text' : 'text-amber-600'}>{customer.phone || t('phoneMissing')}</div>
+                <div className={`mt-1 text-xs ${customer.email ? 'app-text-muted' : 'text-amber-600'}`}>{customer.email || t('emailMissing')}</div>
               </td>
               <td className="px-5 py-4">
                 <div className="text-sm font-semibold app-text">{customer.bookings_count} {t('bookings')}</div>
@@ -6038,10 +6051,25 @@ function Customers({ crm, query }: { crm?: CustomerCrmPayload | null; query: str
 
 function CustomerDetail({ crm, salon }: { crm?: CustomerDetailPayload | null; salon: Salon }) {
   const t = useT();
+  const notesForm = useForm({
+    notes: crm?.customer.notes ?? '',
+  });
+
+  useEffect(() => {
+    notesForm.setData('notes', crm?.customer.notes ?? '');
+  }, [crm?.customer.id, crm?.customer.notes]);
 
   if (!crm) {
     return <EmptyState title={t('customerDetail')} description={t('customerNotFound')} />;
   }
+
+  const hasContact = Boolean(crm.customer.phone || crm.customer.email);
+  const submitNotes = (event: FormEvent) => {
+    event.preventDefault();
+    notesForm.patch(`/dashboard/customers/${crm.customer.id}/notes`, {
+      preserveScroll: true,
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -6055,9 +6083,12 @@ function CustomerDetail({ crm, salon }: { crm?: CustomerDetailPayload | null; sa
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide app-text-muted">{t('customerProfile')}</p>
             <h2 className="mt-2 text-2xl font-bold app-text">{crm.customer.name || t('unnamedCustomer')}</h2>
-            <div className="mt-3 flex flex-wrap gap-2 text-sm app-text-soft">
-              <span className="rounded-lg border px-3 py-1.5 app-border app-panel-soft">{crm.customer.phone || t('phoneMissing')}</span>
-              <span className="rounded-lg border px-3 py-1.5 app-border app-panel-soft">{crm.customer.email || t('emailMissing')}</span>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-sm app-text-soft">
+              <span className={`rounded-lg border px-3 py-1.5 app-border app-panel-soft ${crm.customer.phone ? '' : 'text-amber-600'}`}>{crm.customer.phone || t('phoneMissing')}</span>
+              <span className={`rounded-lg border px-3 py-1.5 app-border app-panel-soft ${crm.customer.email ? '' : 'text-amber-600'}`}>{crm.customer.email || t('emailMissing')}</span>
+              <span className={`rounded-lg px-3 py-1.5 text-xs font-semibold uppercase ${hasContact ? 'bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'}`}>
+                {hasContact ? t('contactComplete') : t('incompleteContact')}
+              </span>
             </div>
           </div>
           <div className="grid gap-2 text-sm app-text-soft sm:grid-cols-2 lg:min-w-96">
@@ -6078,8 +6109,49 @@ function CustomerDetail({ crm, salon }: { crm?: CustomerDetailPayload | null; sa
       </div>
 
       <section className="rounded-2xl border p-5 app-border app-panel">
-        <h3 className="text-base font-bold app-text">{t('customerNotes')}</h3>
-        <p className="mt-2 text-sm app-text-muted">{crm.customer.notes || t('customerNotesPlaceholder')}</p>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base font-bold app-text">{t('operationalHighlights')}</h3>
+            <p className="mt-1 text-sm app-text-muted">{t('customerDetailSubtitle')}</p>
+          </div>
+          <span className="rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-semibold uppercase text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">{t('internalOnly')}</span>
+        </div>
+        <div className="grid gap-3 lg:grid-cols-4">
+          <CustomerBookingMini title={t('nextUpcomingBooking')} booking={crm.highlights.next_upcoming_booking} empty={t('noUpcomingBooking')} salon={salon} />
+          <CustomerBookingMini title={t('lastBooking')} booking={crm.highlights.last_booking} empty={t('noBookings')} salon={salon} />
+          <InfoLine label={t('preferredService')} value={crm.preferences.service || t('notEnoughData')} />
+          <InfoLine label={t('preferredStaff')} value={crm.preferences.staff || t('notEnoughData')} />
+        </div>
+      </section>
+
+      <section className="rounded-2xl border p-5 app-border app-panel">
+        <form onSubmit={submitNotes} className="space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-base font-bold app-text">{t('customerNotes')}</h3>
+              <p className="mt-1 text-sm app-text-muted">{t('internalOnly')} · {crm.customer.updated_at ? `${t('notesLastUpdated')}: ${formatDate(crm.customer.updated_at)}` : t('customerNotesPlaceholder')}</p>
+            </div>
+            {notesForm.recentlySuccessful && <span className="rounded-lg bg-green-100 px-3 py-1.5 text-xs font-semibold text-green-700 dark:bg-green-500/15 dark:text-green-300">{t('customerNotesSaved')}</span>}
+          </div>
+          <textarea
+            value={notesForm.data.notes}
+            onChange={(event) => notesForm.setData('notes', event.target.value)}
+            maxLength={5000}
+            rows={5}
+            className="min-h-32 w-full resize-y rounded-xl border px-4 py-3 text-sm app-border app-panel-soft app-text focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+            placeholder={t('customerNotesPlaceholder')}
+          />
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-xs app-text-muted">
+              {notesForm.data.notes.length}/5000
+              {notesForm.errors.notes && <span className="ml-3 font-semibold text-red-500">{notesForm.errors.notes}</span>}
+            </div>
+            <button type="submit" disabled={notesForm.processing} className="inline-flex h-10 items-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60">
+              <Save className="h-4 w-4" />
+              {notesForm.processing ? t('savingNotes') : t('saveNotes')}
+            </button>
+          </div>
+        </form>
       </section>
 
       <section className="space-y-3">
@@ -6087,13 +6159,15 @@ function CustomerDetail({ crm, salon }: { crm?: CustomerDetailPayload | null; sa
         {crm.bookings.length === 0 ? (
           <EmptyState title={t('noBookings')} description={t('customerNoBookings')} />
         ) : (
-          <DashboardTable headers={[t('date'), t('client'), t('service'), t('status')]} minWidth="760px">
+          <DashboardTable headers={[t('date'), t('client'), t('service'), t('staffMember'), t('status'), t('bookingSource')]} minWidth="920px">
             {crm.bookings.map((booking, index) => (
               <tr key={booking.id} className={dashboardTableRowClass(index)}>
                 <td className="px-5 py-4 text-sm font-semibold app-text">{booking.date ? formatBusinessDate(booking.date, salon) : 'N/A'} {booking.time}</td>
                 <td className="px-5 py-4 text-sm app-text-soft">{booking.client_name}<div className="text-xs app-text-muted">{booking.client_phone}</div></td>
                 <td className="px-5 py-4 text-sm app-text-soft">{booking.service?.name || t('service')}</td>
+                <td className="px-5 py-4 text-sm app-text-soft">{booking.staff_name || booking.staff_member?.name || 'N/A'}</td>
                 <td className="px-5 py-4"><BookingStatusCell booking={booking} t={t} /></td>
+                <td className="px-5 py-4 text-sm app-text-soft">{booking.source || 'manual'}</td>
               </tr>
             ))}
           </DashboardTable>
@@ -6111,6 +6185,7 @@ function CustomerDetail({ crm, salon }: { crm?: CustomerDetailPayload | null; sa
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold app-text">{conversation.channel} · {conversation.intent}</p>
+                    <p className="mt-1 text-xs app-text-muted">{t('channel')}: {conversation.channel} · {t('intent')}: {conversation.intent}</p>
                     <p className="mt-1 text-xs app-text-muted">{conversation.last_message_at ? formatDate(conversation.last_message_at) : 'N/A'}</p>
                   </div>
                   <span className="rounded-lg border px-2 py-1 text-xs font-semibold app-border app-panel-soft app-text-soft">{conversation.status}</span>
@@ -6121,6 +6196,22 @@ function CustomerDetail({ crm, salon }: { crm?: CustomerDetailPayload | null; sa
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+function CustomerBookingMini({ title, booking, empty, salon }: { title: string; booking?: CustomerBookingSummary | null; empty: string; salon: Pick<Salon, 'date_format'> }) {
+  return (
+    <div className="rounded-xl border p-4 app-border app-panel-soft">
+      <p className="text-xs font-semibold uppercase tracking-wide app-text-muted">{title}</p>
+      {booking ? (
+        <>
+          <p className="mt-2 text-sm font-semibold app-text">{booking.date ? formatBusinessDate(booking.date, salon) : 'N/A'} {booking.time}</p>
+          <p className="mt-1 text-xs app-text-muted">{booking.service?.name || 'Service'} · {booking.status}</p>
+        </>
+      ) : (
+        <p className="mt-2 text-sm app-text-muted">{empty}</p>
+      )}
     </div>
   );
 }
@@ -6689,7 +6780,7 @@ function BookingsDayCards({
   );
 }
 
-function BookingStatusCell({ booking, t }: { booking: Salon['bookings'][number]; t: TranslateFn }) {
+function BookingStatusCell({ booking, t }: { booking: Pick<Booking, 'status'>; t: TranslateFn }) {
   return (
     <div className="space-y-1.5">
       <StatusPill status={booking.status} t={t} />

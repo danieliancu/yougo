@@ -9,6 +9,7 @@ use App\Services\Onboarding\OnboardingChecklistService;
 use App\Services\Usage\UsageLimitService;
 use App\Support\BusinessLocalization;
 use App\Support\StripePlans;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -73,6 +74,27 @@ class CustomerController extends Controller
             ],
             'appUrl' => $request->getSchemeAndHttpHost(),
         ]);
+    }
+
+    public function updateNotes(Request $request, Customer $customer): RedirectResponse
+    {
+        $salon = $request->user()->salon()->firstOrCreate([], [
+            'name' => "{$request->user()->name}'s Salon",
+        ]);
+
+        abort_unless($customer->salon_id === $salon->id, 404);
+
+        $validated = $request->validate([
+            'notes' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        $notes = trim((string) ($validated['notes'] ?? ''));
+
+        $customer->forceFill([
+            'notes' => $notes === '' ? null : $notes,
+        ])->save();
+
+        return back()->with('success', 'Customer notes saved.');
     }
 
     private function ensureLocalizationDefaults($salon): void

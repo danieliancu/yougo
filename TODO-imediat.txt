@@ -1,0 +1,134 @@
+
+
+1. mesaj WhatsApp primit
+2. conversație salvată în dashboard
+3. AI răspunde pe WhatsApp
+4. AI ține contextul conversației
+5. AI citește programul/serviciile/locația
+6. AI creează booking
+7. bookingul apare în dashboard
+8. conversația apare în Conversations cu WhatsApp
+// am avut limita de 50 de mesaje zilnic si s-a resetat
+
+
+
+
+
+
+
+
+
+-> de rezolvat discutiile dintre clienti pe whatsapp. am aceasta conversatie:
+"Îmi pare rău, dar "tuns copilul" nu este un serviciu disponibil la Vasile Beauty.
+De asemenea, această conversație este dedicată programării tale anterioare.
+Dacă dorești să programezi un serviciu nou, te rog să apeși pe butonul "+" și să începi o conversație nouă.
+
+
+
+
+
+
+
+
+
+
+
+
+Remove automatic booking status change from WhatsApp booking change requests.
+
+Current issue:
+ConversationService::recordPendingBookingChangeRequest() changes the linked booking status to pending when a change request is recorded.
+
+This is risky because a WhatsApp customer asking to change/reschedule/cancel should not automatically alter the operational booking status.
+
+Goal:
+- Keep recording booking_change_requests in conversation metadata.
+- Keep email notification behavior.
+- Keep notified_at behavior.
+- Keep dashboard indicator.
+- Do NOT automatically change booking.status.
+- The booking status should remain unchanged until the business explicitly updates it.
+
+Update tests:
+- when a change request is recorded for an approved/confirmed/completed booking, booking.status remains unchanged.
+- metadata booking_change_requests is still created.
+- notification still sends if enabled.
+
+Run php artisan test and npm run build.
+
+Commit:
+git commit -m "Keep booking status unchanged for change requests"
+
+
+
+Etapa 1 — Queue hardening
+- webhook rapid
+- job pentru AI reply
+- deduplicare MessageSid păstrată
+- retry controlat
+- loguri clare
+
+
+Etapa 2 — Delivery status callbacks
+- endpoint /twilio/whatsapp/status
+- salvează delivered/failed/undelivered
+- dashboard arată status real de livrare
+
+
+
+- schimbari de design in settings (pregatit in studio)
+
+- pregatire un admin dashboard in care sa fiu informat cu tot ce se intampla (pregatit in openai)
+
+
+- sistemul funcționează corect, dar experiența arată că trebuie să educăm businessul să confirme programările în dashboard după ce le confirmă telefonic.
+Altfel AI-ul și echipa pot spune lucruri diferite.
+
+
+
+
+
+
+
+
+
+
+Platform Admin
+- camera de control YouGo
+
+Usage / Limits
+- cine consumă
+- cât consumă
+- cine trebuie upgrade
+
+
+WhatsApp Onboarding Queue
+lista centralizată:
+- requested
+- active
+- failed
+- waiting
+
+CRM Light
+- profil client
+- istoric client
+- preferințe client
+
+
+
+
+
+
+
+in Summary -> Clientul a intrebat despre -> este in Ro chiar si cand e En
+299 RON/lună -> chiar si cand e En
+Install widget - Coming soon -> sa scrie ca e folosibil; tot aici -> de adus plugin pentru Wordpress
+- chatul sa fie mai frumos si customizabil in timp real
+- cand schimb tara si moneda, sa se schimbe automat in dashboard/services
+- pe mobil, chatul va fi full pe tot ecranul, si va afisa tot timpul bottom la ultima discutie
+- de verificat -> 07450 767 246 - numerele astea de telefon cu spatii intre ele sunt bune?
+- la homepage, aici:
+Chat
+WhatsApp
+Phone
+sa fie o bifa in fata fiecareia

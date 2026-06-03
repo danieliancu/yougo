@@ -36,11 +36,15 @@ class CustomerDashboardService
             ])
             ->when(filled($search), function (Builder $query) use ($search): void {
                 $search = trim((string) $search);
-                $query->where(function (Builder $inner) use ($search): void {
+                $phoneSearch = preg_replace('/\D+/', '', $search);
+                $query->where(function (Builder $inner) use ($phoneSearch, $search): void {
                     $inner->where('name', 'like', "%{$search}%")
                         ->orWhere('phone', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%")
-                        ->orWhere('phone_normalized', 'like', '%'.preg_replace('/\D+/', '', $search).'%');
+                        ->orWhere('email', 'like', "%{$search}%");
+
+                    if (filled($phoneSearch)) {
+                        $inner->orWhere('phone_normalized', 'like', "%{$phoneSearch}%");
+                    }
                 });
             })
             ->latest('last_seen_at')
@@ -86,6 +90,17 @@ class CustomerDashboardService
         $bookings = $customer->bookings;
         $conversations = $customer->conversations;
         $today = now()->toDateString();
+        $nextUpcomingBooking = $bookings
+            ->whereIn('status', ['pending', 'confirmed'])
+            ->where('date', '>=', $today)
+            ->sortBy([
+                ['date', 'asc'],
+                ['time', 'asc'],
+            ])
+            ->first();
+        $lastBooking = $bookings
+            ->sortByDesc(fn (Booking $booking) => trim(($booking->date?->format('Y-m-d') ?? '').' '.($booking->time ?? '')))
+            ->first();
 
         return [
             'customer' => [
@@ -95,6 +110,7 @@ class CustomerDashboardService
                 'email' => $customer->email,
                 'first_seen_at' => $customer->first_seen_at?->toIso8601String(),
                 'last_seen_at' => $customer->last_seen_at?->toIso8601String(),
+                'updated_at' => $customer->updated_at?->toIso8601String(),
                 'notes' => $customer->notes,
             ],
             'stats' => [
@@ -109,17 +125,14 @@ class CustomerDashboardService
                 'service' => $this->clearPreference($bookings->pluck('service.name')->filter()->all()),
                 'staff' => $this->clearPreference($bookings->map(fn (Booking $booking) => $booking->staffMember?->name ?: collect($booking->staff ?? [])->first())->filter()->all()),
             ],
+            'highlights' => [
+                'next_upcoming_booking' => $nextUpcomingBooking ? $this->mapBooking($nextUpcomingBooking) : null,
+                'last_booking' => $lastBooking ? $this->mapBooking($lastBooking) : null,
+            ],
             'bookings' => $bookings->map(fn (Booking $booking) => [
-                'id' => $booking->id,
+                ...$this->mapBooking($booking),
                 'client_name' => $booking->client_name,
                 'client_phone' => $booking->client_phone,
-                'date' => $booking->date?->format('Y-m-d'),
-                'time' => $booking->time,
-                'status' => $booking->status,
-                'source' => $booking->source,
-                'service' => $booking->service?->only(['id', 'name', 'type']),
-                'location' => $booking->location?->only(['id', 'name']),
-                'staff_member' => $booking->staffMember?->only(['id', 'name']),
             ])->values()->all(),
             'conversations' => $conversations->map(fn (Conversation $conversation) => [
                 'id' => $conversation->id,
@@ -133,6 +146,21 @@ class CustomerDashboardService
                 'summary' => $conversation->summary,
                 'last_message_at' => $conversation->last_message_at?->toIso8601String(),
             ])->values()->all(),
+        ];
+    }
+
+    private function mapBooking(Booking $booking): array
+    {
+        return [
+            'id' => $booking->id,
+            'date' => $booking->date?->format('Y-m-d'),
+            'time' => $booking->time,
+            'status' => $booking->status,
+            'source' => $booking->source,
+            'service' => $booking->service?->only(['id', 'name', 'type']),
+            'location' => $booking->location?->only(['id', 'name']),
+            'staff_member' => $booking->staffMember?->only(['id', 'name']),
+            'staff_name' => $booking->staffMember?->name ?: collect($booking->staff ?? [])->first(),
         ];
     }
 

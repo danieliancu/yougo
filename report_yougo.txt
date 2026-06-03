@@ -232,7 +232,9 @@ In CRM, businessul poate vedea:
 - conversatii
 - istoric programari
 - preferinte inferate pentru serviciu sau staff
-- notite, momentan placeholder read-only
+- notite interne editabile
+
+Notitele CRM sunt interne pentru business. Clientii nu le vad, Platform Admin nu primeste o zona CRM in MVP, iar AI-ul nu primeste inca aceste notite sau profiluri CRM in prompturi.
 
 CRM-ul nu este inca conectat la AI prompts. Este doar vizibil in dashboard. Asta este o decizie buna pentru MVP, pentru ca datele trebuie intai verificate si stabilizate inainte ca AI-ul sa le foloseasca activ.
 

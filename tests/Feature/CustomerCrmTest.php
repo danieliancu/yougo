@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Salon;
 use App\Models\User;
 use App\Services\Assistant\CustomerBookingContextService;
+use App\Services\Assistant\GeminiPayloadBuilder;
 use App\Services\CRM\CustomerIdentityService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
@@ -216,12 +217,128 @@ class CustomerCrmTest extends TestCase
                 ->where('crm.stats.total_bookings', 2)
                 ->where('crm.preferences.service', 'Tuns')
                 ->where('crm.preferences.staff', 'Ioana')
+                ->where('crm.highlights.next_upcoming_booking.service.name', 'Tuns')
+                ->where('crm.highlights.last_booking.service.name', 'Tuns')
                 ->has('crm.bookings', 2)
                 ->has('crm.conversations', 1));
 
         $this->actingAs($user)
             ->get("/dashboard/customers/{$otherCustomer->id}")
             ->assertNotFound();
+    }
+
+    public function test_business_user_can_update_and_clear_own_customer_notes(): void
+    {
+        $user = User::factory()->create();
+        $salon = $this->createSalon(['user_id' => $user->id]);
+        $customer = $salon->customers()->create([
+            'name' => 'Ana Pop',
+            'phone' => '+40711111111',
+            'phone_normalized' => '40711111111',
+        ]);
+
+        $this->actingAs($user)
+            ->patch("/dashboard/customers/{$customer->id}/notes", [
+                'notes' => 'Prefers morning appointments.',
+            ])
+            ->assertRedirect();
+
+        $this->assertSame('Prefers morning appointments.', $customer->refresh()->notes);
+
+        $this->actingAs($user)
+            ->patch("/dashboard/customers/{$customer->id}/notes", [
+                'notes' => '   ',
+            ])
+            ->assertRedirect();
+
+        $this->assertNull($customer->refresh()->notes);
+    }
+
+    public function test_customer_notes_validation_and_cross_salon_access(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $salon = $this->createSalon(['user_id' => $user->id]);
+        $otherSalon = $this->createSalon(['user_id' => $otherUser->id]);
+        $customer = $salon->customers()->create(['phone' => '+40711111111', 'phone_normalized' => '40711111111']);
+        $otherCustomer = $otherSalon->customers()->create(['phone' => '+40722222222', 'phone_normalized' => '40722222222']);
+
+        $this->actingAs($user)
+            ->patch("/dashboard/customers/{$customer->id}/notes", [
+                'notes' => str_repeat('a', 5001),
+            ])
+            ->assertSessionHasErrors('notes');
+
+        $this->actingAs($user)
+            ->patch("/dashboard/customers/{$otherCustomer->id}/notes", [
+                'notes' => 'Should not save.',
+            ])
+            ->assertNotFound();
+    }
+
+    public function test_customers_dashboard_searches_by_name_phone_and_email(): void
+    {
+        $user = User::factory()->create();
+        $salon = $this->createSalon(['user_id' => $user->id]);
+        $salon->customers()->create([
+            'name' => 'Ana Pop',
+            'phone' => '+40711111111',
+            'phone_normalized' => '40711111111',
+            'email' => 'ana@example.com',
+            'email_normalized' => 'ana@example.com',
+            'last_seen_at' => now(),
+        ]);
+        $salon->customers()->create([
+            'name' => 'Mihai Ionescu',
+            'phone' => '+40722222222',
+            'phone_normalized' => '40722222222',
+            'email' => 'mihai@example.com',
+            'email_normalized' => 'mihai@example.com',
+            'last_seen_at' => now()->subDay(),
+        ]);
+
+        foreach ([
+            'Ana Pop' => 'Ana Pop',
+            '40722222222' => 'Mihai Ionescu',
+            'mihai@example.com' => 'Mihai Ionescu',
+        ] as $search => $expectedName) {
+            $this->actingAs($user)
+                ->get('/dashboard/customers?search='.urlencode($search))
+                ->assertOk()
+                ->assertInertia(fn (Assert $page) => $page
+                    ->component('Dashboard/Index')
+                    ->where('section', 'customers')
+                    ->where('crm.items.0.name', $expectedName)
+                    ->has('crm.items', 1));
+        }
+    }
+
+    public function test_ai_prompt_does_not_include_crm_notes_or_profile_data(): void
+    {
+        $salon = $this->createSalon();
+        $customer = $salon->customers()->create([
+            'name' => 'Private CRM Name',
+            'phone' => '+40711111111',
+            'phone_normalized' => '40711111111',
+            'notes' => 'VIP internal allergy note never send to AI.',
+        ]);
+        $conversation = $salon->conversations()->create([
+            'customer_id' => $customer->id,
+            'channel' => 'web_widget',
+            'contact_phone' => '+40711111111',
+            'status' => 'open',
+            'intent' => 'inquiry',
+            'last_message_at' => now(),
+        ]);
+
+        $payload = app(GeminiPayloadBuilder::class)->build($salon, [
+            ['role' => 'user', 'content' => 'Buna'],
+        ], $conversation);
+
+        $encoded = json_encode($payload);
+
+        $this->assertStringNotContainsString('VIP internal allergy note never send to AI.', $encoded);
+        $this->assertStringNotContainsString('Private CRM Name', $encoded);
     }
 
     public function test_customers_require_auth_and_business_login_still_works(): void

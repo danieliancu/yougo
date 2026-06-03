@@ -55,6 +55,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::redirect('/dashboard/chat-audio', '/dashboard/widget')->name('dashboard.chat-audio.redirect');
     Route::get('/dashboard/customers/{customer}', [CustomerController::class, 'show'])->name('dashboard.customers.show');
+    Route::patch('/dashboard/customers/{customer}/notes', [CustomerController::class, 'updateNotes'])->name('dashboard.customers.notes.update');
     Route::get('/dashboard/{section}', DashboardController::class)
         ->whereIn('section', ['overview', 'onboarding', 'ai-settings', 'conversations', 'voice-calls', 'whatsapp', 'locations', 'staff', 'services', 'bookings', 'customers', 'widget', 'billing', 'settings'])
         ->name('dashboard.section');
