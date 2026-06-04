@@ -33,6 +33,14 @@ class OnboardingChecklistService
                 true
             ),
             $this->step(
+                'notification_email',
+                'onboardingNotificationEmail',
+                'onboardingNotificationEmailDescription',
+                '/dashboard/settings',
+                filled($salon->notification_email),
+                true
+            ),
+            $this->step(
                 'service',
                 'onboardingService',
                 'onboardingServiceDescription',
@@ -80,10 +88,9 @@ class OnboardingChecklistService
                 'install_widget',
                 'onboardingInstallWidget',
                 'onboardingInstallWidgetDescription',
-                '/dashboard',
+                '/dashboard/widget',
                 false,
                 false,
-                true,
                 true
             ),
         ];

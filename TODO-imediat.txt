@@ -120,9 +120,9 @@ CRM Light
 
 
 
-in Summary -> Clientul a intrebat despre -> este in Ro chiar si cand e En
-299 RON/lună -> chiar si cand e En
-Install widget - Coming soon -> sa scrie ca e folosibil; tot aici -> de adus plugin pentru Wordpress
+
+rezolva ca la Profil business sa nu arate ca e finalizat pana nu sunt completate si Website, Telefon business, Email notificari
+Install widget  -> de adus plugin pentru Wordpress
 - chatul sa fie mai frumos si customizabil in timp real
 - cand schimb tara si moneda, sa se schimbe automat in dashboard/services
 - pe mobil, chatul va fi full pe tot ecranul, si va afisa tot timpul bottom la ultima discutie

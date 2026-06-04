@@ -352,21 +352,7 @@ Exemple:
 
 Dar editarea notitelor trebuie facuta cu grija, eventual cu audit ulterior.
 
-5. Notification Center
-
-In acest moment multe lucruri exista, dar businessul trebuie sa intre in sectiuni diferite ca sa le vada.
-
-Ar fi util un Notification Center in dashboardul businessului:
-- programare noua
-- programare anulata
-- cerere WhatsApp
-- mesaj esuat
-- limita aproape atinsa
-- programare neconfirmata
-
-Asta ar face dashboardul mai practic pentru utilizatorii reali.
-
-6. Audit timeline pentru programari
+5. Audit timeline pentru programari
 
 Problema cu businessul a confirmat telefonic, dar AI-ul nu stia a fost rezolvata pe partea de context WhatsApp, dar pe termen lung ar fi foarte util ca fiecare booking sa aiba o cronologie clara.
 
@@ -579,12 +565,11 @@ Ordinea realista de continuare ar fi:
 2. Redesign Platform Admin
 3. Login separat pentru Platform Admin
 4. Polish CRM Light
-5. Notification Center
-6. Audit timeline pentru bookinguri
-7. Billing/usage alerts
-8. Lead Mode
-9. Reservation Mode
-10. Phone AI
+5. Audit timeline pentru bookinguri
+6. Billing/usage alerts
+7. Lead Mode
+8. Reservation Mode
+9. Phone AI
 
 Daca ar fi sa aleg doar urmatorul pas imediat, as merge pe:
 Redesign Platform Admin + login separat Platform Admin

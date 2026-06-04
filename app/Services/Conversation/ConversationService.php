@@ -281,15 +281,29 @@ class ConversationService
 
     private function summarize(Conversation $conversation): string
     {
+        $conversation->loadMissing('salon');
         $messages = $conversation->messages()->latest()->limit(6)->get()->reverse();
         $userMessages = $messages->where('role', 'user')->pluck('content')->take(3)->implode(' ');
+        $isEnglish = ($conversation->salon?->display_language ?: config('app.locale', 'ro')) === 'en';
 
         if ($conversation->booking_id) {
+            if ($isEnglish) {
+                return 'The client spoke with the assistant and created a booking that is waiting for confirmation.';
+            }
+
             return 'Clientul a discutat cu asistentul si a creat o programare care asteapta confirmare.';
         }
 
         if ($userMessages) {
+            if ($isEnglish) {
+                return 'The client asked about '.$this->shorten($userMessages, 180);
+            }
+
             return 'Clientul a intrebat despre '.$this->shorten($userMessages, 180);
+        }
+
+        if ($isEnglish) {
+            return 'Conversation in progress with the virtual assistant.';
         }
 
         return 'Conversatie in desfasurare cu asistentul virtual.';

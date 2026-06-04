@@ -171,7 +171,7 @@ function PriceBlock({ plan, billingCycle, t }: { plan: Plan; billingCycle: Billi
 
   return (
     <div className="mt-6 mb-4">
-      <p className="text-3xl font-bold app-text">{priceLabel(plan, billingCycle)}</p>
+      <p className="text-3xl font-bold app-text">{priceLabel(plan, billingCycle, t)}</p>
       {billingCycle === 'annual' && monthly !== null && (
         <p className="mt-1 text-xs font-bold text-red-600">-{annualDiscountPercent()}% - {t('billedAnnually')}</p>
       )}
@@ -198,19 +198,21 @@ function MissingPlanFallback({ t }: { t: TranslateFn }) {
   return <p className="mt-6 rounded-lg border px-3 py-3 text-sm app-border app-text-muted">{t('pricingPlanUnavailable')}</p>;
 }
 
-export function priceLabel(plan: Plan, billingCycle: BillingCycle) {
+export function priceLabel(plan: Plan, billingCycle: BillingCycle, t: TranslateFn) {
   const monthly = monthlyPrice(plan);
 
-  if (billingCycle === 'monthly') {
-    return plan.price_label;
+  if (monthly === null) {
+    return stripMonthlySuffix(plan.price_label);
   }
 
-  if (monthly === null) {
-    return plan.price_label.replace('/lună', '').replace('/lunÄƒ', '');
+  if (billingCycle === 'monthly') {
+    const amount = new Intl.NumberFormat(numberLocale(t)).format(monthly);
+
+    return `${amount} RON${t('pricePerMonthSuffix')}`;
   }
 
   const value = billingCycle === 'annual' ? monthly * 10 : monthly;
-  const amount = new Intl.NumberFormat('ro-RO').format(value);
+  const amount = new Intl.NumberFormat(numberLocale(t)).format(value);
 
   return `${amount} RON`;
 }
@@ -220,6 +222,18 @@ function monthlyPrice(plan: Plan) {
   if (! match) return null;
 
   return Number(match[1].replaceAll('.', ''));
+}
+
+function numberLocale(t: TranslateFn) {
+  return t('monthly') === 'Monthly' ? 'en-GB' : 'ro-RO';
+}
+
+function stripMonthlySuffix(label: string) {
+  return label
+    .replace('/lună', '')
+    .replace('/lunÄƒ', '')
+    .replace('/lunÃ„Æ’', '')
+    .replace('/month', '');
 }
 
 function annualDiscountPercent() {

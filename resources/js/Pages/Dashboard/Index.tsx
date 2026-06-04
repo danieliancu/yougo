@@ -169,7 +169,6 @@ type CustomerDetailPayload = {
 type CustomerBookingSummary = Pick<Booking, 'id' | 'date' | 'time' | 'status' | 'source' | 'service' | 'location' | 'staff_member'> & {
   staff_name?: string | null;
 };
-
 const CONVERSATION_CHANNEL_FILTER_STORAGE_KEY = 'yougo.dashboard.conversations.channelFilter';
 
 const SERVICE_IMPORT_MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -183,20 +182,24 @@ type NavItem = {
   icon: typeof LayoutDashboard;
 };
 type NavGroup = {
-  id: 'assistantSettings' | 'administration';
+  id: 'activity' | 'assistantSettings' | 'administration';
   label: string;
   items: NavItem[];
 };
 
-const topLevelNavItems: NavItem[] = [
-  { id: 'overview', label: 'overview', href: '/dashboard', icon: LayoutDashboard },
-  { id: 'onboarding', label: 'setup', href: '/dashboard/onboarding', icon: List },
-  { id: 'bookings', label: 'bookings', href: '/dashboard/bookings', icon: Calendar },
-  { id: 'customers', label: 'customers', href: '/dashboard/customers', icon: Users },
-  { id: 'conversations', label: 'conversations', href: '/dashboard/conversations', icon: MessageSquare },
-];
+const topLevelNavItems: NavItem[] = [];
 
 const navGroups: NavGroup[] = [
+  {
+    id: 'activity',
+    label: 'navGroupActivity',
+    items: [
+      { id: 'overview', label: 'overview', href: '/dashboard', icon: LayoutDashboard },
+      { id: 'onboarding', label: 'setup', href: '/dashboard/onboarding', icon: List },
+      { id: 'bookings', label: 'bookings', href: '/dashboard/bookings', icon: Calendar },
+      { id: 'conversations', label: 'conversations', href: '/dashboard/conversations', icon: MessageSquare },
+    ],
+  },
   {
     id: 'assistantSettings',
     label: 'navGroupAssistantSettings',
@@ -214,6 +217,7 @@ const navGroups: NavGroup[] = [
       { id: 'services', label: 'services', href: '/dashboard/services', icon: Scissors },
       { id: 'staff', label: 'staff', href: '/dashboard/staff', icon: Users },
       { id: 'locations', label: 'locations', href: '/dashboard/locations', icon: MapPin },
+      { id: 'customers', label: 'customers', href: '/dashboard/customers', icon: Users },
       { id: 'billing', label: 'billing', href: '/dashboard/billing', icon: CreditCard },
       { id: 'settings', label: 'settings', href: '/dashboard/settings', icon: Settings },
     ],
@@ -1854,7 +1858,32 @@ function conversationSummary(conversation: Conversation, t: TranslateFn) {
   if (status === 'cancelled') return t('bookingSummaryCancelled');
   if (status === 'completed') return t('bookingSummaryCompleted');
 
-  return conversation.summary || t('noSummary');
+  return localizeStoredConversationSummary(conversation.summary, t) || t('noSummary');
+}
+
+function localizeStoredConversationSummary(summary: string | null | undefined, t: TranslateFn) {
+  if (!summary) return '';
+
+  const text = summary.trim();
+  const askedPrefix = 'Clientul a intrebat despre ';
+  if (text.startsWith(askedPrefix)) {
+    return t('customerAskedAboutSummary', { topic: text.slice(askedPrefix.length) });
+  }
+  const englishAskedPrefix = 'The client asked about ';
+  if (text.startsWith(englishAskedPrefix)) {
+    return t('customerAskedAboutSummary', { topic: text.slice(englishAskedPrefix.length) });
+  }
+
+  const knownSummaries: Record<string, string> = {
+    'Clientul a discutat cu asistentul si a creat o programare care asteapta confirmare.': t('bookingSummaryPending'),
+    'The client spoke with the assistant and created a booking that is waiting for confirmation.': t('bookingSummaryPending'),
+    'Conversatie in desfasurare cu asistentul virtual.': t('conversationInProgressSummary'),
+    'Conversation in progress with the virtual assistant.': t('conversationInProgressSummary'),
+    'Conversatie WhatsApp noua.': t('newWhatsappConversationSummary'),
+    'New WhatsApp conversation.': t('newWhatsappConversationSummary'),
+  };
+
+  return knownSummaries[text] ?? text;
 }
 
 function IntentPill({ intent, compact = false, bookingStatus }: { intent: string; compact?: boolean; bookingStatus?: string }) {
@@ -1932,7 +1961,9 @@ function StatusPill({ status, t, className = '' }: { status: string; t: Translat
 
 function formatDate(value?: string | null, timezone?: string | null) {
   if (!value) return 'N/A';
-  return new Intl.DateTimeFormat('ro-RO', {
+  const locale = preferredLocale() === 'en' ? 'en-GB' : 'ro-RO';
+
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: 'medium',
     timeStyle: 'short',
     timeZone: timezone || undefined,
@@ -1940,20 +1971,9 @@ function formatDate(value?: string | null, timezone?: string | null) {
 }
 
 function formatNaturalDatesInText(text: string) {
-  const months = [
-    'ianuarie',
-    'februarie',
-    'martie',
-    'aprilie',
-    'mai',
-    'iunie',
-    'iulie',
-    'august',
-    'septembrie',
-    'octombrie',
-    'noiembrie',
-    'decembrie',
-  ];
+  const months = preferredLocale() === 'en'
+    ? ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+    : ['ianuarie', 'februarie', 'martie', 'aprilie', 'mai', 'iunie', 'iulie', 'august', 'septembrie', 'octombrie', 'noiembrie', 'decembrie'];
 
   return text.replace(/\b(\d{2})-(\d{2})-(\d{4})\b/g, (match, first, second) => {
     const month = Number(first);
@@ -2611,7 +2631,7 @@ function BillingPage({ billing, currentPlan }: { billing: Props['billing']; curr
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide app-text-muted">{t('currentPlan')}</p>
             <h2 className="mt-2 text-3xl font-semibold app-text">{billing.summary.plan.name}</h2>
-            <p className="mt-1 text-sm app-text-soft">{priceLabel(billing.summary.plan, billingCycle)}</p>
+            <p className="mt-1 text-sm app-text-soft">{priceLabel(billing.summary.plan, billingCycle, t)}</p>
             <p className="mt-4 max-w-3xl text-sm leading-6 app-text-muted">{t('billingStripeConnected')}</p>
             {billing.stripe.subscription_status && (
               <p className="mt-2 text-sm app-text-muted">{t('subscriptionStatus')}: <span className="font-semibold app-text">{billing.stripe.subscription_status}</span></p>
@@ -2688,16 +2708,20 @@ function isVoicePlanKey(plan: string): plan is VoicePlanKey {
   return ['voice_starter', 'voice_growth', 'voice_pro'].includes(plan);
 }
 
-function priceLabel(plan: Plan, billingCycle: 'monthly' | 'annual') {
+function priceLabel(plan: Plan, billingCycle: 'monthly' | 'annual', t: TranslateFn) {
   const monthly = monthlyPrice(plan);
 
   if (monthly === null) {
-    return plan.price_label.replace('/lună', '');
+    return stripMonthlySuffix(plan.price_label);
   }
 
   const value = billingCycle === 'annual' ? monthly * 10 : monthly;
 
-  return `${new Intl.NumberFormat('ro-RO').format(value)} RON`;
+  const amount = new Intl.NumberFormat(preferredLocale() === 'en' ? 'en-GB' : 'ro-RO').format(value);
+
+  return billingCycle === 'monthly'
+    ? `${amount} RON${t('pricePerMonthSuffix')}`
+    : `${amount} RON`;
 }
 
 function monthlyPrice(plan: Plan) {
@@ -2705,6 +2729,14 @@ function monthlyPrice(plan: Plan) {
   if (! match) return null;
 
   return Number(match[1].replaceAll('.', ''));
+}
+
+function stripMonthlySuffix(label: string) {
+  return label
+    .replace('/lună', '')
+    .replace('/lunÄƒ', '')
+    .replace('/lunÃ„Æ’', '')
+    .replace('/month', '');
 }
 
 function annualDiscountPercent() {
@@ -6190,7 +6222,7 @@ function CustomerDetail({ crm, salon }: { crm?: CustomerDetailPayload | null; sa
                   </div>
                   <span className="rounded-lg border px-2 py-1 text-xs font-semibold app-border app-panel-soft app-text-soft">{conversation.status}</span>
                 </div>
-                <p className="mt-3 text-sm app-text-soft">{conversation.summary || t('noSummary')}</p>
+                <p className="mt-3 text-sm app-text-soft">{localizeStoredConversationSummary(conversation.summary, t) || t('noSummary')}</p>
               </div>
             ))}
           </div>

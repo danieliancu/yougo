@@ -33,10 +33,11 @@ class OnboardingTest extends TestCase
 
         $checklist = app(OnboardingChecklistService::class)->forSalon($salon);
 
-        $this->assertSame(25, $checklist['progress']);
+        $this->assertSame(20, $checklist['progress']);
         $this->assertFalse($checklist['can_complete']);
         $this->assertTrue($this->step($checklist, 'business_profile')['completed']);
         $this->assertFalse($this->step($checklist, 'location')['completed']);
+        $this->assertFalse($this->step($checklist, 'notification_email')['completed']);
         $this->assertFalse($this->step($checklist, 'service')['completed']);
         $this->assertFalse($this->step($checklist, 'ai_assistant')['completed']);
     }
@@ -51,7 +52,10 @@ class OnboardingTest extends TestCase
             'duration' => 30,
             'location_ids' => [$location->id],
         ]);
-        $salon->update(['ai_business_summary' => 'Salon premium cu servicii rapide.']);
+        $salon->update([
+            'ai_business_summary' => 'Salon premium cu servicii rapide.',
+            'notification_email' => 'owner@example.com',
+        ]);
 
         $checklist = app(OnboardingChecklistService::class)->forSalon($salon);
 
@@ -98,7 +102,9 @@ class OnboardingTest extends TestCase
         $this->assertFalse($this->step($checklist, 'install_widget')['required']);
         $this->assertFalse($this->step($checklist, 'capacity_rules')['required']);
         $this->assertTrue($this->step($checklist, 'capacity_rules')['optional']);
-        $this->assertTrue($this->step($checklist, 'install_widget')['coming_soon']);
+        $this->assertTrue($this->step($checklist, 'install_widget')['optional']);
+        $this->assertFalse($this->step($checklist, 'install_widget')['coming_soon']);
+        $this->assertFalse($this->step($checklist, 'install_widget')['completed']);
         $this->assertTrue($checklist['can_complete']);
     }
 
@@ -152,13 +158,14 @@ class OnboardingTest extends TestCase
                 ->component('Dashboard/Index')
                 ->where('onboarding.completed', false)
                 ->where('onboarding.next_step.key', 'location')
-                ->has('onboarding.steps', 8)
+                ->has('onboarding.steps', 9)
             );
     }
 
     private function createCompleteRequiredSalon(): Salon
     {
         $salon = $this->createSalon();
+        $salon->update(['notification_email' => 'owner@example.com']);
         $location = $salon->locations()->create(['name' => 'Central', 'address' => 'Main Street']);
         $salon->services()->create([
             'name' => 'Consultatie',
