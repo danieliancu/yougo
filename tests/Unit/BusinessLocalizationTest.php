@@ -53,4 +53,13 @@ class BusinessLocalizationTest extends TestCase
         $this->assertSame('£120', BusinessLocalization::formatServicePrice('120', $salon));
         $this->assertSame('$120', BusinessLocalization::formatServicePrice('120', $salon, 'USD'));
     }
+
+    public function test_formats_dates_with_written_month_in_display_language(): void
+    {
+        $romanianSalon = new Salon(['date_format' => 'dd month yyyy', 'display_language' => 'ro']);
+        $englishSalon = new Salon(['date_format' => 'dd month yyyy', 'display_language' => 'en']);
+
+        $this->assertSame('27 mai 2026', BusinessLocalization::formatDate('2026-05-27', $romanianSalon));
+        $this->assertSame('27 May 2026', BusinessLocalization::formatDate('2026-05-27', $englishSalon));
+    }
 }

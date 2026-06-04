@@ -89,7 +89,7 @@ class OnboardingChecklistService
                 'onboardingInstallWidget',
                 'onboardingInstallWidgetDescription',
                 '/dashboard/widget',
-                false,
+                (bool) $salon->widget_enabled,
                 false,
                 true
             ),

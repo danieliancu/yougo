@@ -168,6 +168,23 @@ class BusinessTaxonomyTest extends TestCase
         $this->assertSame('dd/mm/yyyy', $salon->date_format);
     }
 
+    public function test_settings_accepts_written_month_date_format(): void
+    {
+        $user = User::factory()->create();
+        $user->salon()->create([
+            'name' => 'Studio',
+            'plan' => 'free',
+            'business_type' => 'salon-beauty',
+            'mode' => Salon::MODE_APPOINTMENT,
+        ]);
+
+        $this->actingAs($user)->from('/dashboard/settings')->post('/settings', $this->validSettingsPayload([
+            'date_format' => 'dd month yyyy',
+        ]))->assertRedirect();
+
+        $this->assertSame('dd month yyyy', $user->salon->refresh()->date_format);
+    }
+
     public function test_settings_rejects_unsupported_timezone_and_date_format(): void
     {
         $user = User::factory()->create();

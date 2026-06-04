@@ -162,6 +162,7 @@ class BusinessLocalization
             'dd.mm.yyyy', 'dd.mm.yyyy.' => 'dd.mm.yyyy',
             'dd/mm/yyyy', 'dd-mm-yyyy' => 'dd/mm/yyyy',
             'yyyy-mm-dd', 'yyyy/mm/dd' => 'yyyy-mm-dd',
+            'dd month yyyy', 'd month yyyy', 'dd mmmm yyyy', 'd mmmm yyyy' => 'dd month yyyy',
             default => $normalized,
         };
 
@@ -192,6 +193,7 @@ class BusinessLocalization
             'dd.mm.yyyy' => $carbon->format('d.m.Y'),
             'dd/mm/yyyy' => $carbon->format('d/m/Y'),
             'yyyy-mm-dd' => $carbon->format('Y-m-d'),
+            'dd month yyyy' => $carbon->locale(($salon->display_language ?? 'ro') === 'en' ? 'en' : 'ro')->translatedFormat('d F Y'),
             default => $carbon->format('d.m.Y'),
         };
     }

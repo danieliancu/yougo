@@ -4,6 +4,7 @@ $dateFormats = [
     'dd.mm.yyyy',
     'dd/mm/yyyy',
     'yyyy-mm-dd',
+    'dd month yyyy',
 ];
 
 return [

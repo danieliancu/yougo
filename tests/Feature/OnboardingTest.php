@@ -106,8 +106,21 @@ class OnboardingTest extends TestCase
         $this->assertTrue($this->step($checklist, 'capacity_rules')['optional']);
         $this->assertTrue($this->step($checklist, 'install_widget')['optional']);
         $this->assertFalse($this->step($checklist, 'install_widget')['coming_soon']);
-        $this->assertFalse($this->step($checklist, 'install_widget')['completed']);
+        $this->assertTrue($this->step($checklist, 'install_widget')['completed']);
         $this->assertTrue($checklist['can_complete']);
+    }
+
+    public function test_install_widget_step_follows_widget_enabled_setting(): void
+    {
+        $salon = $this->createCompleteRequiredSalon();
+
+        $salon->update(['widget_enabled' => false]);
+        $checklist = app(OnboardingChecklistService::class)->forSalon($salon->refresh());
+        $this->assertFalse($this->step($checklist, 'install_widget')['completed']);
+
+        $salon->update(['widget_enabled' => true]);
+        $checklist = app(OnboardingChecklistService::class)->forSalon($salon->refresh());
+        $this->assertTrue($this->step($checklist, 'install_widget')['completed']);
     }
 
     public function test_user_can_skip_onboarding_without_blocking_dashboard(): void

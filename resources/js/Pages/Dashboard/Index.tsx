@@ -1054,13 +1054,15 @@ function normalizeDateFormatForUi(dateFormat?: string | null) {
   if (normalized === 'dd.mm.yyyy.' || normalized === 'dd.mm.yyyy') return 'dd.mm.yyyy';
   if (normalized === 'dd/mm/yyyy' || normalized === 'dd-mm-yyyy') return 'dd/mm/yyyy';
   if (normalized === 'yyyy-mm-dd' || normalized === 'yyyy/mm/dd') return 'yyyy-mm-dd';
+  if (['dd month yyyy', 'd month yyyy', 'dd mmmm yyyy', 'd mmmm yyyy'].includes(normalized)) return 'dd month yyyy';
 
   return normalized;
 }
 
-function dateFormatExample(dateFormat: string) {
+function dateFormatExample(dateFormat: string, locale: 'ro' | 'en' = preferredLocale()) {
   if (dateFormat === 'yyyy-mm-dd') return '2026-05-27';
   if (dateFormat === 'dd/mm/yyyy') return '27/05/2026';
+  if (dateFormat === 'dd month yyyy') return locale === 'en' ? '27 May 2026' : '27 Mai 2026';
 
   return '27.05.2026';
 }
@@ -1232,7 +1234,7 @@ function SettingsPage({ salon }: { salon: Salon }) {
             <DarkField label={t('dateFormat')} error={form.errors.date_format}>
               <DarkSelect value={form.data.date_format} onChange={(event) => form.setData('date_format', event.target.value)}>
                 {dateFormatOptions.map((dateFormat) => (
-                  <option key={dateFormat} value={dateFormat}>{dateFormatExample(dateFormat)}</option>
+                  <option key={dateFormat} value={dateFormat}>{dateFormatExample(dateFormat, preferredLocale(form.data.display_language))}</option>
                 ))}
               </DarkSelect>
             </DarkField>
@@ -6816,6 +6818,14 @@ function formatBusinessDate(date: string, salon: Pick<Salon, 'date_format'>) {
 
   if (format === 'yyyy-mm-dd') return `${year}-${month}-${day}`;
   if (format === 'dd/mm/yyyy') return `${day}/${month}/${year}`;
+  if (format === 'dd month yyyy') {
+    const locale = preferredLocale() === 'en' ? 'en-GB' : 'ro-RO';
+    return new Intl.DateTimeFormat(locale, {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(new Date(`${date}T00:00:00`));
+  }
 
   return `${day}.${month}.${year}`;
 }
