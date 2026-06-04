@@ -458,7 +458,7 @@ function HeroChannelCarousel({ t }: { t: (key: string, params?: Record<string, s
               key={slide.id}
               type="button"
               onClick={() => setActive(index)}
-              className={`inline-flex h-9 items-center justify-center rounded-full px-4 text-sm font-semibold transition ${
+              className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-full px-4 text-sm font-semibold transition ${
                 active === index
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-white dark:text-slate-600'
@@ -466,6 +466,7 @@ function HeroChannelCarousel({ t }: { t: (key: string, params?: Record<string, s
               aria-label={slide.label}
               aria-pressed={active === index}
             >
+              <Check className={`h-4 w-4 ${active === index ? 'text-white' : 'text-emerald-600'}`} aria-hidden />
               {slide.label}
             </button>
           ))}

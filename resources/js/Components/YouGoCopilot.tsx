@@ -131,7 +131,7 @@ export function YouGoCopilot({ locale, context }: { locale: PublicLocale; contex
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-[80] sm:bottom-5 sm:right-5">
+    <div className="fixed bottom-4 right-4 z-[80] flex flex-col items-end sm:bottom-5 sm:right-5">
       {open && (
         <section className="mb-3 flex h-[min(620px,calc(100vh-7rem))] w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border shadow-2xl app-border app-panel sm:w-[400px]" aria-label={t('publicChatTitle')}>
           <div className="flex items-center justify-between gap-3 border-b p-4 app-border">

@@ -33,9 +33,9 @@ class OnboardingTest extends TestCase
 
         $checklist = app(OnboardingChecklistService::class)->forSalon($salon);
 
-        $this->assertSame(20, $checklist['progress']);
+        $this->assertSame(0, $checklist['progress']);
         $this->assertFalse($checklist['can_complete']);
-        $this->assertTrue($this->step($checklist, 'business_profile')['completed']);
+        $this->assertFalse($this->step($checklist, 'business_profile')['completed']);
         $this->assertFalse($this->step($checklist, 'location')['completed']);
         $this->assertFalse($this->step($checklist, 'notification_email')['completed']);
         $this->assertFalse($this->step($checklist, 'service')['completed']);
@@ -54,6 +54,8 @@ class OnboardingTest extends TestCase
         ]);
         $salon->update([
             'ai_business_summary' => 'Salon premium cu servicii rapide.',
+            'website' => 'https://example.com',
+            'business_phone' => '+40700000000',
             'notification_email' => 'owner@example.com',
         ]);
 
@@ -157,7 +159,7 @@ class OnboardingTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Dashboard/Index')
                 ->where('onboarding.completed', false)
-                ->where('onboarding.next_step.key', 'location')
+                ->where('onboarding.next_step.key', 'business_profile')
                 ->has('onboarding.steps', 9)
             );
     }
@@ -165,7 +167,11 @@ class OnboardingTest extends TestCase
     private function createCompleteRequiredSalon(): Salon
     {
         $salon = $this->createSalon();
-        $salon->update(['notification_email' => 'owner@example.com']);
+        $salon->update([
+            'website' => 'https://example.com',
+            'business_phone' => '+40700000000',
+            'notification_email' => 'owner@example.com',
+        ]);
         $location = $salon->locations()->create(['name' => 'Central', 'address' => 'Main Street']);
         $salon->services()->create([
             'name' => 'Consultatie',

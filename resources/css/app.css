@@ -35,7 +35,7 @@ button:disabled,
 
 :root {
   color-scheme: light;
-  --app-bg: #f6f8fb;
+  --app-bg: #f2f4f6;
   --app-shell: #ffffff;
   --app-sidebar: #0f172a;
   --app-sidebar-soft: rgba(255, 255, 255, 0.08);

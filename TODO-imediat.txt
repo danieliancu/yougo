@@ -121,14 +121,6 @@ CRM Light
 
 
 
-rezolva ca la Profil business sa nu arate ca e finalizat pana nu sunt completate si Website, Telefon business, Email notificari
-Install widget  -> de adus plugin pentru Wordpress
-- chatul sa fie mai frumos si customizabil in timp real
-- cand schimb tara si moneda, sa se schimbe automat in dashboard/services
+
 - pe mobil, chatul va fi full pe tot ecranul, si va afisa tot timpul bottom la ultima discutie
-- de verificat -> 07450 767 246 - numerele astea de telefon cu spatii intre ele sunt bune?
-- la homepage, aici:
-Chat
-WhatsApp
-Phone
-sa fie o bifa in fata fiecareia
+

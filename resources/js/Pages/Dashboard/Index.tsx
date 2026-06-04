@@ -5,7 +5,7 @@ import { PricingPlansGrid, VoicePlanKey } from '@/Components/PricingPlansGrid';
 import { YouGoCopilot } from '@/Components/YouGoCopilot';
 import { Booking, Conversation, Location as SalonLocation, OfferedService, OnboardingChecklist, OnboardingStep, OverviewData, PageProps, Plan, Salon, Service, Staff, UsageSummary, User as AuthUser, WhatsappIntegration } from '@/types';
 import { AlertTriangle, Bell, Bot, Building2, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, CreditCard, Download, ExternalLink, FileText, Globe2, LayoutDashboard, List, Lock, LogOut, MapPin, Menu, MessageCircle, MessageSquare, MoreHorizontal, Pencil, Phone, Plus, Save, Scissors, Search, Settings, Smartphone, Sparkles, Trash2, User, Users, X, XCircle } from 'lucide-react';
-import { SiWhatsapp } from 'react-icons/si';
+import { SiBigcommerce, SiShopify, SiWhatsapp, SiWordpress } from 'react-icons/si';
 import { FormEvent, lazy, ReactNode, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
 import { businessTaxonomy, findBusinessType, normalizeBusinessTypeSlug } from '@/data/businessTaxonomy';
@@ -376,11 +376,13 @@ export default function DashboardIndex() {
           </div>
           <div className="flex shrink-0 items-center gap-3">
             {searchSections[section] && <HeaderSearch query={query} onChange={setQuery} placeholder={searchSections[section]!} />}
-            <ThemeToggle />
-            <LanguageToggle locale={activeLocale} onChange={switchLanguage} />
+            <div className="hidden items-center gap-3 sm:flex">
+              <ThemeToggle />
+              <LanguageToggle locale={activeLocale} onChange={switchLanguage} />
+            </div>
           </div>
         </header>
-        <div className={`min-h-0 min-w-0 flex-1 overflow-x-hidden ${section === 'conversations' ? 'overflow-hidden' : 'overflow-y-auto p-5 lg:p-8'}`}>
+        <div className={`min-h-0 min-w-0 flex-1 overflow-x-hidden ${section === 'conversations' ? 'overflow-hidden' : section === 'bookings' || section === 'overview' ? 'overflow-y-auto p-4 sm:p-5 lg:p-8' : 'overflow-y-auto p-5 lg:p-8'}`}>
           {section === 'overview' && <Overview salon={salon} overview={overview} onboarding={onboarding} />}
           {section === 'onboarding' && <OnboardingSetup onboarding={onboarding} />}
           {section === 'ai-settings' && <AiSettings salon={salon} />}
@@ -736,6 +738,7 @@ function WidgetSettings({ salon, query }: { salon: Salon; query: string }) {
   const t = useT();
   const { appUrl } = usePage<Props>().props;
   const embedCode = `<script async src="${appUrl}/widget/${salon.widget_key}.js"></script>`;
+  const previewHref = assistantPreviewHref(salon.id);
   const [domainsText, setDomainsText] = useState((salon.widget_allowed_domains ?? []).join('\n'));
   const [copied, setCopied] = useState(false);
   const conversations = filterWebsiteChatConversations(salon.conversations, query);
@@ -744,6 +747,7 @@ function WidgetSettings({ salon, query }: { salon: Salon; query: string }) {
     widget_enabled: Boolean(salon.widget_enabled ?? true),
     widget_allowed_domains: salon.widget_allowed_domains ?? [],
     widget_primary_color: salon.widget_primary_color ?? '',
+    widget_cta_text: salon.widget_cta_text ?? '',
     widget_position: salon.widget_position ?? 'bottom-right',
   });
 
@@ -765,6 +769,46 @@ function WidgetSettings({ salon, query }: { salon: Salon; query: string }) {
     window.setTimeout(() => setCopied(false), 1600);
   }
 
+  function downloadWordPressPlugin() {
+    downloadTextFile('yougo-widget.php', `<?php
+/**
+ * Plugin Name: YouGo Website Chat
+ * Description: Adds the YouGo AI assistant widget to your WordPress site.
+ * Version: 1.0.0
+ * Author: YouGo
+ */
+
+if (! defined('ABSPATH')) {
+    exit;
+}
+
+add_action('wp_footer', function () {
+    ?>
+    ${embedCode}
+    <?php
+}, 99);
+`);
+  }
+
+  function downloadShopifySnippet() {
+    downloadTextFile('yougo-widget.liquid', `{% comment %}
+  YouGo Website Chat
+  Add this snippet before the closing </body> tag in theme.liquid.
+{% endcomment %}
+${embedCode}
+`);
+  }
+
+  function downloadBigCommerceSnippet() {
+    downloadTextFile('yougo-widget-bigcommerce-script-manager.html', `<!--
+  YouGo Website Chat
+  BigCommerce install method: add this as a custom script in Storefront > Script Manager.
+  Location: Footer. Pages: Storefront pages where the assistant should appear.
+-->
+${embedCode}
+`);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-end">
@@ -778,7 +822,7 @@ function WidgetSettings({ salon, query }: { salon: Salon; query: string }) {
         </SecondaryButton>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
         <ChannelStat icon={MessageSquare} value={stats.total} label={t('totalChat')} tone="blue" />
         <ChannelStat icon={CheckCircle2} value={stats.completed} label={t('completedChats')} tone="green" />
         <ChannelStat icon={XCircle} value={stats.abandoned} label={t('abandonedChats')} tone="slate" />
@@ -790,7 +834,7 @@ function WidgetSettings({ salon, query }: { salon: Salon; query: string }) {
             <h2 className="text-xl font-bold app-text">{t('previewAssistantTitle')}</h2>
             <p className="mt-2 max-w-2xl text-sm app-text-muted">{t('previewAssistantHelp')}</p>
           </div>
-          <a href={`/assistant/${salon.id}`} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-bold text-white transition hover:bg-indigo-700">
+          <a href={previewHref} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-bold text-white transition hover:bg-indigo-700">
             <ExternalLink className="h-4 w-4" />
             {t('openPreview')}
           </a>
@@ -834,7 +878,30 @@ function WidgetSettings({ salon, query }: { salon: Salon; query: string }) {
             </div>
           </div>
 
-          <div className="mt-6 grid gap-4 lg:grid-cols-2">
+          <div className="mt-6 rounded-lg border p-4 app-panel-soft app-border">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-sm font-bold app-text">{t('widgetPluginDownloads')}</p>
+                <p className="mt-1 text-xs font-medium app-text-muted">{t('widgetPluginDownloadsHelp')}</p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <SecondaryButton type="button" onClick={downloadWordPressPlugin}>
+                  <SiWordpress className="h-4 w-4" />
+                  WordPress
+                </SecondaryButton>
+                <SecondaryButton type="button" onClick={downloadShopifySnippet}>
+                  <SiShopify className="h-4 w-4" />
+                  Shopify
+                </SecondaryButton>
+                <SecondaryButton type="button" onClick={downloadBigCommerceSnippet}>
+                  <SiBigcommerce className="h-4 w-4" />
+                  BigCommerce
+                </SecondaryButton>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-4 xl:grid-cols-[1fr_1fr_1fr]">
             <label className="flex items-center justify-between gap-4 rounded-lg border p-4 app-panel app-border">
               <span>
                 <span className="block text-sm font-bold app-text">{t('widgetEnabled')}</span>
@@ -843,24 +910,38 @@ function WidgetSettings({ salon, query }: { salon: Salon; query: string }) {
               <input type="checkbox" checked={form.data.widget_enabled} onChange={(event) => form.setData('widget_enabled', event.target.checked)} className="h-5 w-5 rounded border-slate-300 text-indigo-600" />
             </label>
 
-            <Field label={t('widgetPosition')} error={form.errors.widget_position}>
-              <select value={form.data.widget_position} onChange={(event) => form.setData('widget_position', event.target.value)} className="h-11 w-full rounded-lg border px-3 text-sm font-medium app-panel app-text">
-                <option value="bottom-right">bottom-right</option>
-                <option value="bottom-left">bottom-left</option>
-              </select>
-            </Field>
+            <div className="grid gap-4 md:grid-cols-3 xl:col-span-2">
+              <Field label={t('widgetPrimaryColor')} error={form.errors.widget_primary_color}>
+                <div className="flex gap-3">
+                  <input type="color" value={form.data.widget_primary_color || '#2563eb'} onChange={(event) => form.setData('widget_primary_color', event.target.value)} className="h-11 w-16 rounded-lg border app-panel app-border" />
+                  <Input value={form.data.widget_primary_color} onChange={(event) => form.setData('widget_primary_color', event.target.value)} placeholder="#2563eb" />
+                </div>
+              </Field>
 
-            <Field label={t('widgetPrimaryColor')} error={form.errors.widget_primary_color}>
-              <div className="flex gap-3">
-                <input type="color" value={form.data.widget_primary_color || '#2563eb'} onChange={(event) => form.setData('widget_primary_color', event.target.value)} className="h-11 w-16 rounded-lg border app-panel app-border" />
-                <Input value={form.data.widget_primary_color} onChange={(event) => form.setData('widget_primary_color', event.target.value)} placeholder="#2563eb" />
+              <Field label={t('widgetCtaText')} error={form.errors.widget_cta_text}>
+                <Input value={form.data.widget_cta_text} onChange={(event) => form.setData('widget_cta_text', event.target.value.slice(0, 40))} maxLength={40} placeholder={t('widgetCtaTextPlaceholder')} />
+                <p className="mt-2 text-xs font-medium app-text-muted">{t('widgetCtaTextHelp')}</p>
+              </Field>
+
+              <Field label={t('widgetPosition')} error={form.errors.widget_position}>
+                <select value={form.data.widget_position} onChange={(event) => form.setData('widget_position', event.target.value)} className="h-11 w-full rounded-lg border px-3 text-sm font-medium app-panel app-text">
+                  <option value="bottom-right">bottom-right</option>
+                  <option value="bottom-left">bottom-left</option>
+                </select>
+              </Field>
+            </div>
+
+            <div className="rounded-lg border p-4 app-panel app-border">
+              <p className="mb-3 text-sm font-bold app-text">{t('widgetIconPreview')}</p>
+              <div className="flex min-h-28 items-end justify-end rounded-lg border p-4 app-panel-soft app-border">
+                <WidgetLauncherPreview
+                  color={form.data.widget_primary_color || '#2563eb'}
+                  ctaText={form.data.widget_cta_text}
+                  position={form.data.widget_position}
+                />
               </div>
-            </Field>
+            </div>
 
-            <Field label={t('allowedDomains')} error={form.errors.widget_allowed_domains}>
-              <textarea value={domainsText} onChange={(event) => setDomainsText(event.target.value)} rows={4} placeholder="example.com&#10;www.example.ro" className="w-full rounded-lg border px-3 py-2 text-sm font-medium app-panel app-text placeholder:text-[var(--app-text-muted)]" />
-              <p className="mt-2 text-xs font-medium app-text-muted">{t('allowedDomainsHelp')}</p>
-            </Field>
           </div>
 
           <div className="mt-6 flex flex-wrap gap-3">
@@ -868,7 +949,7 @@ function WidgetSettings({ salon, query }: { salon: Salon; query: string }) {
               <Save className="h-4 w-4" />
               {t('saveChanges')}
             </Button>
-            <a href={`/assistant/${salon.id}`} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-bold transition app-panel app-text-soft hover:bg-[var(--app-panel-soft)]">
+            <a href={previewHref} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-bold transition app-panel app-text-soft hover:bg-[var(--app-panel-soft)]">
               <ExternalLink className="h-4 w-4" />
               {t('openPreview')}
             </a>
@@ -877,6 +958,55 @@ function WidgetSettings({ salon, query }: { salon: Salon; query: string }) {
       </form>
     </div>
   );
+}
+
+function WidgetLauncherPreview({ color, ctaText, position }: { color: string; ctaText?: string | null; position?: string | null }) {
+  const primaryColor = isHexColor(color) ? color : '#2563eb';
+  const label = ctaText?.trim();
+  const reverse = position === 'bottom-left';
+
+  return (
+    <div className={`flex items-center gap-2 ${reverse ? 'flex-row-reverse' : 'flex-row'}`}>
+      {label && (
+        <span className="max-w-52 truncate rounded-full border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-bold leading-tight text-slate-950 shadow-lg shadow-slate-900/10">
+          {label}
+        </span>
+      )}
+      <button
+        type="button"
+        className="relative flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-xl transition"
+        style={{ backgroundColor: primaryColor, boxShadow: '0 20px 40px rgba(79, 70, 229, 0.30)' }}
+        aria-label="Widget preview"
+      >
+        <MessageCircle className="h-6 w-6" aria-hidden />
+        <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full border-2 bg-emerald-400" style={{ borderColor: primaryColor }} aria-hidden />
+      </button>
+    </div>
+  );
+}
+
+function downloadTextFile(filename: string, content: string) {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+}
+
+function isHexColor(value: string) {
+  return /^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(value.trim());
+}
+
+function assistantPreviewHref(salonId: number) {
+  const backPath = typeof window === 'undefined'
+    ? '/dashboard/widget'
+    : `${window.location.pathname}${window.location.search}`;
+
+  return `/assistant/${salonId}?back=${encodeURIComponent(backPath)}`;
 }
 
 function filterWebsiteChatConversations(conversations: Conversation[], query: string) {
@@ -1438,15 +1568,19 @@ function whatsappActivationStateKey(plan: Plan | undefined | null, integration: 
   }
 }
 
-function Conversations({ salon, query, overview }: { salon: Salon; query: string; overview: OverviewData }) {
+function Conversations({ salon, query }: { salon: Salon; query: string; overview: OverviewData }) {
   const t = useT();
   const [selectedId, setSelectedId] = useState(salon.conversations[0]?.id ?? null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [channelFilter, setChannelFilter] = useState<ConversationChannelFilter>(() => initialConversationChannelFilter());
   const transcriptRef = useRef<HTMLDivElement | null>(null);
-  const metrics = overview.metrics;
-  const conversations = salon.conversations.filter((conversation) => {
-    if (!conversationMatchesChannel(conversation, channelFilter)) return false;
+  const channelConversations = useMemo(
+    () => salon.conversations.filter((conversation) => conversationMatchesChannel(conversation, channelFilter)),
+    [salon.conversations, channelFilter],
+  );
+  const channelStats = useMemo(() => buildConversationChannelStats(channelConversations, salon.timezone), [channelConversations, salon.timezone]);
+  const normalizedQuery = query.toLowerCase();
+  const conversations = channelConversations.filter((conversation) => {
 
     const haystack = [
       conversation.contact_name,
@@ -1456,7 +1590,7 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
       conversation.messages.at(-1)?.content,
     ].filter(Boolean).join(' ').toLowerCase();
 
-    return haystack.includes(query.toLowerCase());
+    return haystack.includes(normalizedQuery);
   });
   const selected = conversations.find((conversation) => conversation.id === selectedId) ?? conversations[0] ?? null;
   const emptyTitle = channelFilter === 'voice'
@@ -1497,17 +1631,19 @@ function Conversations({ salon, query, overview }: { salon: Salon; query: string
       }}
     />
     <div className="flex h-full min-w-0 flex-col overflow-hidden app-bg">
-      <div className="shrink-0 border-b p-3 app-border">
-        <div className="mb-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <ChannelStat label={t('totalConversations')} value={metrics.total_conversations} icon={MessageSquare} tone="blue" compact />
-          <ChannelStat label={t('conversationsToday')} value={metrics.conversations_today} icon={Clock} tone="purple" compact />
-          <ChannelStat label={t('openConversations')} value={metrics.open_conversations} icon={MessageCircle} tone="green" compact />
-          <ChannelStat label={t('abandonedConversations')} value={metrics.abandoned_conversations} icon={XCircle} tone="slate" compact />
+      <div className="shrink-0 p-4 app-border sm:p-5 lg:p-8">
+        <div className="flex items-center justify-end">
+          <div className="inline-flex gap-1">
+            <ConversationFilterButton active={channelFilter === 'voice'} onClick={() => selectChannelFilter('voice')} icon={Phone}>{t('phoneCalls')}</ConversationFilterButton>
+            <ConversationFilterButton active={channelFilter === 'chat'} onClick={() => selectChannelFilter('chat')} icon={MessageSquare}>{t('chat')}</ConversationFilterButton>
+            <ConversationFilterButton active={channelFilter === 'whatsapp'} onClick={() => selectChannelFilter('whatsapp')} icon={MessageCircle}>{t('whatsapp')}</ConversationFilterButton>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <ConversationFilterButton active={channelFilter === 'voice'} onClick={() => selectChannelFilter('voice')} icon={Phone}>{t('phoneCalls')}</ConversationFilterButton>
-          <ConversationFilterButton active={channelFilter === 'chat'} onClick={() => selectChannelFilter('chat')} icon={MessageSquare}>{t('chat')}</ConversationFilterButton>
-          <ConversationFilterButton active={channelFilter === 'whatsapp'} onClick={() => selectChannelFilter('whatsapp')} icon={MessageCircle}>{t('whatsapp')}</ConversationFilterButton>
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <ChannelStat label={t('totalConversations')} value={channelStats.total} icon={MessageSquare} tone="blue" />
+          <ChannelStat label={t('conversationsToday')} value={channelStats.today} icon={Clock} tone="purple" />
+          <ChannelStat label={t('openConversations')} value={channelStats.open} icon={MessageCircle} tone="green" />
+          <ChannelStat label={t('abandonedConversations')} value={channelStats.abandoned} icon={XCircle} tone="slate" />
         </div>
       </div>
       {selected ? (
@@ -1825,6 +1961,29 @@ function conversationMatchesChannel(conversation: Conversation, filter: 'all' | 
   return channel === filter;
 }
 
+function buildConversationChannelStats(conversations: Conversation[], timezone?: string | null) {
+  const todayKey = dateKeyInTimezone(new Date(), timezone);
+
+  return {
+    total: conversations.length,
+    today: conversations.filter((conversation) => conversation.created_at && dateKeyInTimezone(new Date(conversation.created_at), timezone) === todayKey).length,
+    open: conversations.filter((conversation) => conversation.status === 'open').length,
+    abandoned: conversations.filter((conversation) => conversation.intent === 'abandoned').length,
+  };
+}
+
+function dateKeyInTimezone(date: Date, timezone?: string | null) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: timezone || undefined,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const value = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
+
+  return `${value('year')}-${value('month')}-${value('day')}`;
+}
+
 function initialConversationChannelFilter(): ConversationChannelFilter {
   if (typeof window === 'undefined') {
     return 'chat';
@@ -1842,7 +2001,7 @@ function ConversationFilterButton({ active, onClick, icon: Icon, children }: { a
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex h-9 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-bold transition ${active ? 'border-indigo-500 bg-indigo-600 text-white' : 'app-panel app-text-soft hover:bg-[var(--app-panel-soft)]'}`}
+      className={`inline-flex h-9 items-center justify-center gap-2 rounded-md border px-3 text-sm font-bold transition ${active ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm' : 'app-border app-panel app-text-muted hover:bg-[var(--app-panel-soft)]'}`}
     >
       {Icon && <Icon className="h-4 w-4" />}
       {children}
@@ -2311,7 +2470,7 @@ function Overview({ salon, overview, onboarding }: { salon: Salon; overview: Ove
   return (
     <div className="space-y-6">
       <OnboardingReminder onboarding={onboarding} />
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Stat label={t('totalBookings')} value={metrics.total_bookings} icon={Calendar} tone="green" />
         <Stat label={t('conversionRate')} value={`${metrics.conversion_rate}%`} icon={CheckCircle2} tone="amber" />
         <Stat label={t('bookingsThisWeek')} value={metrics.bookings_this_week} icon={Calendar} />
@@ -2319,16 +2478,16 @@ function Overview({ salon, overview, onboarding }: { salon: Salon; overview: Ove
       </div>
       <UsageOverviewCard summary={overview.usage} />
       <div className="grid items-stretch gap-6 xl:grid-cols-[1.6fr_1fr]">
-        <Card className="flex h-full flex-col p-5">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <Card className="flex h-full flex-col p-4 sm:p-5">
+          <div className="mb-5 flex flex-col items-start gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <h2 className="text-xs font-bold uppercase tracking-wide app-text-muted">{t('activityReport')}</h2>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
               {activityRange === 'month' && (
                 <div className="inline-flex items-center rounded-lg border p-1 app-panel">
                   <button type="button" onClick={() => changeActivityMonth(-1)} className="flex h-11 w-11 items-center justify-center rounded-md app-text-muted hover:bg-[var(--app-panel-soft)]" aria-label={t('previousMonth')}>
                     <ChevronLeft className="h-4 w-4" />
                   </button>
-                  <span className="min-w-36 px-3 text-center text-xs font-bold capitalize app-text-soft">{activityMonthLabel}</span>
+                  <span className="min-w-0 px-3 text-center text-xs font-bold capitalize app-text-soft sm:min-w-36">{activityMonthLabel}</span>
                   <button type="button" onClick={() => changeActivityMonth(1)} className="flex h-11 w-11 items-center justify-center rounded-md app-text-muted hover:bg-[var(--app-panel-soft)]" aria-label={t('nextMonth')}>
                     <ChevronRight className="h-4 w-4" />
                   </button>
@@ -2365,7 +2524,7 @@ function Overview({ salon, overview, onboarding }: { salon: Salon; overview: Ove
             <ActivityLegendItem color="--chart-abandoned" label={t('intentAbandoned')} />
           </div>
         </Card>
-        <Card className="h-full p-5">
+        <Card className="h-full p-4 sm:p-5">
           <h2 className="mb-4 text-xs font-bold uppercase tracking-wide app-accent-text">{t('assistantLive')}</h2>
           <p className="text-2xl font-bold app-text">{t('bellaOnline', { name: assistantName })}</p>
           <p className="mt-2 text-sm app-text-soft">{t('overviewAiWorkSummary')}</p>
@@ -2765,30 +2924,49 @@ function formatUsageNumber(value: number): string {
 function OverviewConversationsTable({ conversations, t }: { conversations: Conversation[]; t: TranslateFn }) {
   if (conversations.length === 0) {
     return (
-      <div className="rounded-2xl border p-6 shadow-sm app-border app-panel">
+      <div className="rounded-2xl border p-5 shadow-sm app-border app-panel sm:p-6">
         <div className="flex min-h-24 items-center justify-center text-sm app-text-muted">{t('noConversations')}</div>
       </div>
     );
   }
 
   return (
-    <DashboardTable headers={[]} minWidth="560px">
-      {conversations.map((conversation, index) => (
-        <tr key={conversation.id} className={dashboardTableRowClass(index)}>
-          <td className="min-w-0 px-5 py-4 align-middle">
-            <p className="truncate text-sm font-semibold app-text">{conversationTitle(conversation, t)}</p>
-            <p className="mt-1 truncate text-xs app-text-muted">
-              {conversation.contact_phone || conversation.contact_email || conversation.contact_name || t('clientName')}
-            </p>
-          </td>
-          <td className="w-48 px-5 py-4 align-middle">
-            <div className="flex justify-end">
+    <>
+      <div className="space-y-2 md:hidden">
+        {conversations.map((conversation) => (
+          <Card key={conversation.id} className="p-4">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold app-text">{conversationTitle(conversation, t)}</p>
+              <p className="mt-1 truncate text-xs app-text-muted">
+                {conversation.contact_phone || conversation.contact_email || conversation.contact_name || t('clientName')}
+              </p>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-1.5">
               <IntentPill intent={conversation.intent} compact bookingStatus={conversation.booking?.status} />
             </div>
-          </td>
-        </tr>
-      ))}
-    </DashboardTable>
+          </Card>
+        ))}
+      </div>
+      <div className="hidden md:block">
+        <DashboardTable headers={[]} minWidth="560px">
+          {conversations.map((conversation, index) => (
+            <tr key={conversation.id} className={dashboardTableRowClass(index)}>
+              <td className="min-w-0 px-5 py-4 align-middle">
+                <p className="truncate text-sm font-semibold app-text">{conversationTitle(conversation, t)}</p>
+                <p className="mt-1 truncate text-xs app-text-muted">
+                  {conversation.contact_phone || conversation.contact_email || conversation.contact_name || t('clientName')}
+                </p>
+              </td>
+              <td className="w-48 px-5 py-4 align-middle">
+                <div className="flex justify-end">
+                  <IntentPill intent={conversation.intent} compact bookingStatus={conversation.booking?.status} />
+                </div>
+              </td>
+            </tr>
+          ))}
+        </DashboardTable>
+      </div>
+    </>
   );
 }
 
@@ -2802,26 +2980,53 @@ function OverviewBookingsTable({ bookings, salon, t }: { bookings: Booking[]; sa
   }
 
   return (
-    <DashboardTable headers={[]} minWidth="920px">
-      {bookings.map((booking, index) => (
-        <tr key={booking.id} className={dashboardTableRowClass(index)}>
-          <td className="w-56 px-5 py-4 align-top">
-            <p className="font-semibold app-text">{booking.client_name}</p>
-            <p className="mt-1 text-xs app-text-muted">{booking.client_phone || t('phoneMissingShort')}</p>
-          </td>
-          <td className="w-56 whitespace-nowrap px-5 py-4 align-top">
-            <p className="text-sm font-semibold app-text">{formatBookingDay(booking.date, salon)}</p>
-            <p className="mt-1 text-xs font-bold app-text-muted">{bookingTimeRange(booking.time, booking.service?.duration)}</p>
-          </td>
-          <td className="px-5 py-4 align-top">
-            <StatusPill status={booking.status} t={t} />
-          </td>
-          <td className="min-w-72 px-5 py-4 align-top app-text-soft">
-            <BookingDetailsCell booking={booking} salon={salon} t={t} />
-          </td>
-        </tr>
-      ))}
-    </DashboardTable>
+    <>
+      <div className="space-y-2 md:hidden">
+        {bookings.map((booking) => (
+          <Card key={booking.id} className="p-4">
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-bold app-text">{booking.client_name}</p>
+                <p className="mt-1 text-xs app-text-muted">{booking.client_phone || t('phoneMissingShort')}</p>
+              </div>
+              <StatusPill status={booking.status} t={t} />
+            </div>
+            <div className="mt-4 grid gap-3 text-sm">
+              <Detail icon={Calendar} label={t('date')} value={formatBookingDay(booking.date, salon)} />
+              <Detail icon={Clock} label={t('time')} value={bookingTimeRange(booking.time, booking.service?.duration)} />
+              <div className="rounded-lg border p-3 app-border app-panel-soft">
+                <p className="mb-2 text-xs font-bold uppercase tracking-wide app-text-muted">{t('details')}</p>
+                <div className="text-sm app-text-soft">
+                  <BookingDetailsCell booking={booking} salon={salon} t={t} />
+                </div>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+      <div className="hidden md:block">
+        <DashboardTable headers={[]} minWidth="920px">
+          {bookings.map((booking, index) => (
+            <tr key={booking.id} className={dashboardTableRowClass(index)}>
+              <td className="w-56 px-5 py-4 align-top">
+                <p className="font-semibold app-text">{booking.client_name}</p>
+                <p className="mt-1 text-xs app-text-muted">{booking.client_phone || t('phoneMissingShort')}</p>
+              </td>
+              <td className="w-56 whitespace-nowrap px-5 py-4 align-top">
+                <p className="text-sm font-semibold app-text">{formatBookingDay(booking.date, salon)}</p>
+                <p className="mt-1 text-xs font-bold app-text-muted">{bookingTimeRange(booking.time, booking.service?.duration)}</p>
+              </td>
+              <td className="px-5 py-4 align-top">
+                <StatusPill status={booking.status} t={t} />
+              </td>
+              <td className="min-w-72 px-5 py-4 align-top app-text-soft">
+                <BookingDetailsCell booking={booking} salon={salon} t={t} />
+              </td>
+            </tr>
+          ))}
+        </DashboardTable>
+      </div>
+    </>
   );
 }
 
@@ -2844,12 +3049,12 @@ function Stat({ label, value, icon: Icon, tone = 'indigo' }: { label: string; va
     red: 'bg-red-50 text-red-700',
   };
   return (
-    <Card className="p-5">
-      <div className={`mb-4 flex h-10 w-10 items-center justify-center rounded-lg ${colors[tone]}`}>
-        <Icon className="h-5 w-5" />
+    <Card className="p-3 sm:p-5">
+      <div className={`mb-3 flex h-9 w-9 items-center justify-center rounded-lg sm:mb-4 sm:h-10 sm:w-10 ${colors[tone]}`}>
+        <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
       </div>
-      <p className="text-xs font-bold uppercase tracking-wide app-text-muted">{label}</p>
-      <p className="mt-1 text-3xl font-bold app-text">{value}</p>
+      <p className="text-[11px] font-bold uppercase leading-4 tracking-wide app-text-muted sm:text-xs">{label}</p>
+      <p className="mt-1 text-2xl font-bold app-text sm:text-3xl">{value}</p>
     </Card>
   );
 }
@@ -2915,7 +3120,7 @@ function AiSettings({ salon }: { salon: Salon }) {
             </div>
           </div>
           <div className="flex shrink-0">
-            <a href={`/assistant/${salon.id}`} target="_blank" rel="noreferrer" className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700 lg:w-auto">
+            <a href={assistantPreviewHref(salon.id)} target="_blank" rel="noreferrer" className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700 lg:w-auto">
               {t('testAssistant')}
             </a>
           </div>
@@ -3092,7 +3297,7 @@ function AiSettings({ salon }: { salon: Salon }) {
         </div>
       </Card>
 
-      <div className="flex justify-end">
+      <div className="flex justify-start">
         <Button disabled={form.processing}>
           <Save className="h-4 w-4" />
           {t('saveChanges')}
@@ -4103,7 +4308,7 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
           </div>
         }
       />
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
         <ChannelStat label={t('services')} value={serviceStats.services} icon={Scissors} tone="blue" />
         <ChannelStat label={t('categories')} value={serviceStats.categories} icon={FileText} tone="purple" />
         <ChannelStat label={t('locations')} value={serviceStats.locations} icon={MapPin} tone="green" />
@@ -5225,7 +5430,7 @@ function VoiceCalls({ query: _query }: { query: string }) {
         </SecondaryButton>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
         <ChannelStat icon={Phone} value={0} label={t('totalCalls')} tone="blue" />
         <ChannelStat icon={Phone} value={0} label={t('answeredCalls')} tone="green" />
         <ChannelStat icon={Phone} value={0} label={t('missedCalls')} tone="red" />
@@ -5816,14 +6021,14 @@ function ChannelStat({ icon: Icon, value, label, tone, compact = false }: { icon
   };
 
   return (
-    <Card className={compact ? 'p-3' : 'p-5'}>
-      <div className={`flex items-center ${compact ? 'gap-3' : 'gap-4'}`}>
-        <span className={`flex shrink-0 items-center justify-center rounded-full ${compact ? 'h-8 w-8' : 'h-10 w-10'} ${tones[tone]}`}>
-          <Icon className={compact ? 'h-4 w-4' : 'h-5 w-5'} />
+    <Card className={compact ? 'p-3' : 'p-3 sm:p-5'}>
+      <div className={`flex items-center ${compact ? 'gap-3' : 'gap-3 sm:gap-4'}`}>
+        <span className={`flex shrink-0 items-center justify-center rounded-full ${compact ? 'h-8 w-8' : 'h-8 w-8 sm:h-10 sm:w-10'} ${tones[tone]}`}>
+          <Icon className={compact ? 'h-4 w-4' : 'h-4 w-4 sm:h-5 sm:w-5'} />
         </span>
-        <div>
-          <p className={`${compact ? 'text-xl' : 'text-2xl'} font-bold app-text`}>{value}</p>
-          <p className={`${compact ? 'text-xs' : 'text-sm'} app-text-muted`}>{label}</p>
+        <div className="min-w-0">
+          <p className={`${compact ? 'text-xl' : 'text-xl sm:text-2xl'} font-bold app-text`}>{value}</p>
+          <p className={`${compact ? 'text-xs' : 'text-xs leading-4 sm:text-sm'} app-text-muted`}>{label}</p>
         </div>
       </div>
     </Card>
@@ -6014,7 +6219,7 @@ function Customers({ crm, query }: { crm?: CustomerCrmPayload | null; query: str
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Stat label={t('totalCustomers')} value={crm.summary.total_customers} icon={Users} tone="blue" />
         <Stat label={t('customersWithPhone')} value={crm.summary.with_phone} icon={Phone} tone="green" />
         <Stat label={t('customersWithEmail')} value={crm.summary.with_email} icon={Bell} tone="purple" />
@@ -6132,7 +6337,7 @@ function CustomerDetail({ crm, salon }: { crm?: CustomerDetailPayload | null; sa
         </div>
       </section>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-5">
         <Stat label={t('totalBookings')} value={crm.stats.total_bookings} icon={Calendar} tone="blue" />
         <Stat label={t('upcomingBookings')} value={crm.stats.upcoming_bookings} icon={Clock} tone="green" />
         <Stat label={t('completedBookings')} value={crm.stats.completed_bookings} icon={CheckCircle2} tone="slate" />
@@ -6480,20 +6685,20 @@ function Bookings({ salon, query }: { salon: Salon; query: string }) {
           </div>
         </form>
       </EditModal>
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <button
           type="button"
           onClick={startAddBooking}
-          className="inline-flex h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white transition hover:bg-blue-700"
+          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-bold text-white transition hover:bg-blue-700 sm:w-auto"
         >
           <Plus className="h-4 w-4" />
           {t('newBooking')}
         </button>
-        <div className="inline-flex rounded-lg border p-1 app-panel">
+        <div className="grid w-full grid-cols-3 rounded-lg border p-1 app-panel sm:inline-flex sm:w-auto">
           <button
             type="button"
             onClick={() => setView('archive')}
-            className={`inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-bold transition ${view === 'archive' ? 'bg-indigo-600 text-white shadow-sm' : 'app-text-muted hover:bg-[var(--app-panel-soft)]'}`}
+            className={`inline-flex h-9 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition ${view === 'archive' ? 'bg-indigo-600 text-white shadow-sm' : 'app-text-muted hover:bg-[var(--app-panel-soft)]'}`}
           >
             <Clock className="h-4 w-4" />
             {t('archive')}
@@ -6501,7 +6706,7 @@ function Bookings({ salon, query }: { salon: Salon; query: string }) {
           <button
             type="button"
             onClick={() => setView('list')}
-            className={`inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-bold transition ${view === 'list' ? 'bg-indigo-600 text-white shadow-sm' : 'app-text-muted hover:bg-[var(--app-panel-soft)]'}`}
+            className={`inline-flex h-9 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition ${view === 'list' ? 'bg-indigo-600 text-white shadow-sm' : 'app-text-muted hover:bg-[var(--app-panel-soft)]'}`}
           >
             <List className="h-4 w-4" />
             {t('listView')}
@@ -6509,7 +6714,7 @@ function Bookings({ salon, query }: { salon: Salon; query: string }) {
           <button
             type="button"
             onClick={() => setView('calendar')}
-            className={`inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm font-bold transition ${view === 'calendar' ? 'bg-indigo-600 text-white shadow-sm' : 'app-text-muted hover:bg-[var(--app-panel-soft)]'}`}
+            className={`inline-flex h-9 items-center justify-center gap-2 rounded-md px-3 text-sm font-bold transition ${view === 'calendar' ? 'bg-indigo-600 text-white shadow-sm' : 'app-text-muted hover:bg-[var(--app-panel-soft)]'}`}
           >
             <Calendar className="h-4 w-4" />
             {t('calendarView')}
@@ -6517,7 +6722,7 @@ function Bookings({ salon, query }: { salon: Salon; query: string }) {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
         <BookingStat icon={Calendar} value={stats.today} label={t('today')} tone="blue" />
         <BookingStat icon={Calendar} value={stats.upcoming} label={t('upcoming')} tone="green" />
         <BookingStat icon={Calendar} value={stats.pending} label={t('pendingRequests')} tone="purple" />
@@ -6574,14 +6779,14 @@ function BookingStat({ icon: Icon, value, label, tone }: { icon: any; value: num
   };
 
   return (
-    <Card className="p-5">
-      <div className="flex items-center gap-4">
-        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${tones[tone]}`}>
-          <Icon className="h-5 w-5" />
+    <Card className="p-3 sm:p-5">
+      <div className="flex items-center gap-3 sm:gap-4">
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full sm:h-10 sm:w-10 ${tones[tone]}`}>
+          <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
         </span>
-        <div>
-          <p className="text-2xl font-bold app-text">{value}</p>
-          <p className="text-sm app-text-muted">{label}</p>
+        <div className="min-w-0">
+          <p className="text-xl font-bold app-text sm:text-2xl">{value}</p>
+          <p className="text-xs leading-4 app-text-muted sm:text-sm">{label}</p>
         </div>
       </div>
     </Card>
@@ -6734,81 +6939,182 @@ function BookingsDayCards({
 
   if (groups.length === 0) {
     return (
-      <DashboardTable headers={tableHeaders} minWidth="1040px">
-        <tr>
-          <td colSpan={7} className="px-5 py-8 text-center text-sm app-text-muted">
-            {t('noBookingsFound')}
-          </td>
-        </tr>
-      </DashboardTable>
+      <>
+        <Card className="p-5 text-center text-sm app-text-muted md:hidden">
+          {t('noBookingsFound')}
+        </Card>
+        <div className="hidden md:block">
+          <DashboardTable headers={tableHeaders} minWidth="1040px">
+            <tr>
+              <td colSpan={7} className="px-5 py-8 text-center text-sm app-text-muted">
+                {t('noBookingsFound')}
+              </td>
+            </tr>
+          </DashboardTable>
+        </div>
+      </>
     );
   }
 
   let rowIndex = 0;
 
   return (
-    <DashboardTable
-      headers={tableHeaders}
-      minWidth="1040px"
-    >
-      {groups.flatMap((group) => group.bookings.map((booking, bookingIndex) => {
-        const currentIndex = rowIndex++;
-        return (
-          <tr key={booking.id} className={dashboardTableRowClass(currentIndex)}>
-            <td className="w-48 px-5 py-4 align-top text-sm font-semibold app-text">
-              {bookingIndex === 0 ? formatBookingGroupDate(group.date, t, salon) : ''}
-            </td>
-            <td className="whitespace-nowrap px-5 py-4 align-top text-sm font-semibold app-text">
-              {bookingTimeRange(booking.time, booking.service?.duration)}
-            </td>
-            <td className="px-5 py-4 align-top">
-              <BookingStatusCell booking={booking} t={t} />
-            </td>
-            <td className="px-5 py-4 align-top font-semibold app-text">{booking.client_name}</td>
-            <td className="whitespace-nowrap px-5 py-4 align-top app-text-soft">{booking.client_phone || t('phoneMissingShort')}</td>
-            <td className="min-w-72 px-5 py-4 align-top app-text-soft">
-              <BookingDetailsCell booking={booking} salon={salon} t={t} />
-            </td>
-            <td className="w-14 px-5 py-4 align-top">
-              <RowActionsMenu label={t('actions')}>
-                {(close) => (
-                  <>
-                    {bookingAllowsDashboardActions(booking, isArchive) && booking.status === 'pending' && (
-                      <RowActionButton onClick={() => { close(); onConfirm(booking); }}>
-                        <CheckCircle2 className="h-4 w-4 text-green-600" />
-                        {t('confirmBooking')}
-                      </RowActionButton>
-                    )}
-                    {booking.client_phone && (
-                      <RowActionLink href={`tel:${booking.client_phone}`}>
-                        <Phone className="h-4 w-4 text-green-600" />
-                        {booking.client_phone}
-                      </RowActionLink>
-                    )}
-                    {bookingAllowsDashboardActions(booking, isArchive) && (
-                      <RowActionButton onClick={() => { close(); onCancel(booking); }}>
-                        <XCircle className="h-4 w-4 text-red-600" />
-                        {t('cancelBooking')}
-                      </RowActionButton>
-                    )}
-                    {bookingAllowsDashboardActions(booking, isArchive) && (
-                      <RowActionButton onClick={() => { close(); onEdit(booking); }}>
-                        <Pencil className="h-4 w-4" />
-                        {t('editBooking')}
-                      </RowActionButton>
-                    )}
-                    <RowActionButton tone="danger" onClick={() => { close(); onDelete(booking); }}>
-                      <Trash2 className="h-4 w-4" />
-                      {t('deleteBooking')}
-                    </RowActionButton>
-                  </>
-                )}
-              </RowActionsMenu>
-            </td>
-          </tr>
-        );
-      }))}
-    </DashboardTable>
+    <>
+      <div className="space-y-4 md:hidden">
+        {groups.map((group) => (
+          <section key={group.date} className="space-y-2">
+            <h3 className="px-1 text-xs font-bold uppercase tracking-wide app-text-muted">
+              {formatBookingGroupDate(group.date, t, salon)}
+            </h3>
+            <div className="space-y-2">
+              {group.bookings.map((booking) => (
+                <MobileBookingCard
+                  key={booking.id}
+                  booking={booking}
+                  salon={salon}
+                  t={t}
+                  isArchive={isArchive}
+                  onConfirm={onConfirm}
+                  onCancel={onCancel}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                />
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+      <div className="hidden md:block">
+        <DashboardTable
+          headers={tableHeaders}
+          minWidth="1040px"
+        >
+          {groups.flatMap((group) => group.bookings.map((booking, bookingIndex) => {
+            const currentIndex = rowIndex++;
+            return (
+              <tr key={booking.id} className={dashboardTableRowClass(currentIndex)}>
+                <td className="w-48 px-5 py-4 align-top text-sm font-semibold app-text">
+                  {bookingIndex === 0 ? formatBookingGroupDate(group.date, t, salon) : ''}
+                </td>
+                <td className="whitespace-nowrap px-5 py-4 align-top text-sm font-semibold app-text">
+                  {bookingTimeRange(booking.time, booking.service?.duration)}
+                </td>
+                <td className="px-5 py-4 align-top">
+                  <BookingStatusCell booking={booking} t={t} />
+                </td>
+                <td className="px-5 py-4 align-top font-semibold app-text">{booking.client_name}</td>
+                <td className="whitespace-nowrap px-5 py-4 align-top app-text-soft">{booking.client_phone || t('phoneMissingShort')}</td>
+                <td className="min-w-72 px-5 py-4 align-top app-text-soft">
+                  <BookingDetailsCell booking={booking} salon={salon} t={t} />
+                </td>
+                <td className="w-14 px-5 py-4 align-top">
+                  <BookingActionsMenu booking={booking} t={t} isArchive={isArchive} onConfirm={onConfirm} onCancel={onCancel} onEdit={onEdit} onDelete={onDelete} />
+                </td>
+              </tr>
+            );
+          }))}
+        </DashboardTable>
+      </div>
+    </>
+  );
+}
+
+function MobileBookingCard({
+  booking,
+  salon,
+  t,
+  isArchive,
+  onConfirm,
+  onCancel,
+  onEdit,
+  onDelete,
+}: {
+  booking: Salon['bookings'][number];
+  salon: Salon;
+  t: TranslateFn;
+  isArchive: boolean;
+  onConfirm: (booking: Salon['bookings'][number]) => void;
+  onCancel: (booking: Salon['bookings'][number]) => void;
+  onEdit: (booking: Salon['bookings'][number]) => void;
+  onDelete: (booking: Salon['bookings'][number]) => void;
+}) {
+  return (
+    <Card className="p-4">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-bold app-text">{booking.client_name}</p>
+          <p className="mt-1 text-xs font-semibold app-text-muted">{bookingTimeRange(booking.time, booking.service?.duration)}</p>
+        </div>
+        <div className="flex shrink-0 items-start gap-2">
+          <BookingStatusCell booking={booking} t={t} />
+          <BookingActionsMenu booking={booking} t={t} isArchive={isArchive} onConfirm={onConfirm} onCancel={onCancel} onEdit={onEdit} onDelete={onDelete} />
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 text-sm">
+        <Detail icon={Phone} label={t('phone')} value={booking.client_phone || t('phoneMissingShort')} />
+        <div className="rounded-lg border p-3 app-border app-panel-soft">
+          <p className="mb-2 text-xs font-bold uppercase tracking-wide app-text-muted">{t('details')}</p>
+          <div className="text-sm app-text-soft">
+            <BookingDetailsCell booking={booking} salon={salon} t={t} />
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function BookingActionsMenu({
+  booking,
+  t,
+  isArchive,
+  onConfirm,
+  onCancel,
+  onEdit,
+  onDelete,
+}: {
+  booking: Salon['bookings'][number];
+  t: TranslateFn;
+  isArchive: boolean;
+  onConfirm: (booking: Salon['bookings'][number]) => void;
+  onCancel: (booking: Salon['bookings'][number]) => void;
+  onEdit: (booking: Salon['bookings'][number]) => void;
+  onDelete: (booking: Salon['bookings'][number]) => void;
+}) {
+  return (
+    <RowActionsMenu label={t('actions')}>
+      {(close) => (
+        <>
+          {bookingAllowsDashboardActions(booking, isArchive) && booking.status === 'pending' && (
+            <RowActionButton onClick={() => { close(); onConfirm(booking); }}>
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              {t('confirmBooking')}
+            </RowActionButton>
+          )}
+          {booking.client_phone && (
+            <RowActionLink href={`tel:${booking.client_phone}`}>
+              <Phone className="h-4 w-4 text-green-600" />
+              {booking.client_phone}
+            </RowActionLink>
+          )}
+          {bookingAllowsDashboardActions(booking, isArchive) && (
+            <RowActionButton onClick={() => { close(); onCancel(booking); }}>
+              <XCircle className="h-4 w-4 text-red-600" />
+              {t('cancelBooking')}
+            </RowActionButton>
+          )}
+          {bookingAllowsDashboardActions(booking, isArchive) && (
+            <RowActionButton onClick={() => { close(); onEdit(booking); }}>
+              <Pencil className="h-4 w-4" />
+              {t('editBooking')}
+            </RowActionButton>
+          )}
+          <RowActionButton tone="danger" onClick={() => { close(); onDelete(booking); }}>
+            <Trash2 className="h-4 w-4" />
+            {t('deleteBooking')}
+          </RowActionButton>
+        </>
+      )}
+    </RowActionsMenu>
   );
 }
 

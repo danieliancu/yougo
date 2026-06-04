@@ -24,6 +24,9 @@ class AssistantWidgetTest extends TestCase
             'ai_business_summary' => 'Welcome clients with a premium tone.',
             'ai_handoff_message' => 'Un coleg va reveni cu detalii.',
             'display_language' => 'ro',
+            'widget_primary_color' => '#c9978e',
+            'widget_position' => 'bottom-left',
+            'widget_cta_text' => 'Scrie-ne',
         ]);
 
         $this->get("/assistant/{$salon->id}")
@@ -34,6 +37,17 @@ class AssistantWidgetTest extends TestCase
                 ->where('salon.ai_assistant_name', 'Mara')
                 ->where('salon.ai_business_summary', 'Welcome clients with a premium tone.')
                 ->where('salon.ai_handoff_message', 'Un coleg va reveni cu detalii.')
+                ->where('salon.widget_primary_color', '#c9978e')
+                ->where('salon.widget_position', 'bottom-left')
+                ->where('salon.widget_cta_text', 'Scrie-ne')
+                ->where('backUrl', '/dashboard/widget')
+            );
+
+        $this->get("/assistant/{$salon->id}?back=".urlencode('/dashboard/ai-settings?search=abc'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Assistant/Show')
+                ->where('backUrl', '/dashboard/ai-settings?search=abc')
             );
     }
 

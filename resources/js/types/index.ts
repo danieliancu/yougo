@@ -155,6 +155,7 @@ export type Salon = {
   widget_enabled?: boolean;
   widget_allowed_domains?: string[] | null;
   widget_primary_color?: string | null;
+  widget_cta_text?: string | null;
   widget_position?: 'bottom-right' | 'bottom-left' | string | null;
   onboarding_completed?: boolean;
   onboarding_skipped?: boolean;

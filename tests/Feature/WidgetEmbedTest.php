@@ -56,12 +56,20 @@ class WidgetEmbedTest extends TestCase
 
     public function test_widget_script_and_page_load(): void
     {
-        $salon = $this->createSalon();
+        $salon = $this->createSalon([
+            'widget_primary_color' => '#c9978e',
+            'widget_cta_text' => 'Ai nevoie de ajutor?',
+        ]);
 
         $this->get("/widget/{$salon->widget_key}.js")
             ->assertOk()
             ->assertHeader('content-type', 'application/javascript; charset=UTF-8')
-            ->assertSee("/widget/{$salon->widget_key}", false);
+            ->assertSee($salon->widget_key, false)
+            ->assertSee('lucide-message-circle', false)
+            ->assertSee('aria-expanded', false)
+            ->assertSee('Ai nevoie de ajutor?', false)
+            ->assertSee('#c9978e', false)
+            ->assertDontSee("button.innerHTML = 'Chat'", false);
 
         $this->get("/widget/{$salon->widget_key}")
             ->assertOk()
@@ -245,12 +253,14 @@ class WidgetEmbedTest extends TestCase
             'widget_enabled' => true,
             'widget_allowed_domains' => ['https://Example.com', 'www.example.com', 'client.test'],
             'widget_primary_color' => '#111827',
+            'widget_cta_text' => 'Scrie-ne acum',
             'widget_position' => 'bottom-left',
         ])->assertRedirect();
 
         $salon->refresh();
         $this->assertSame(['example.com', 'client.test'], $salon->widget_allowed_domains);
         $this->assertSame('#111827', $salon->widget_primary_color);
+        $this->assertSame('Scrie-ne acum', $salon->widget_cta_text);
         $this->assertSame('bottom-left', $salon->widget_position);
     }
 
@@ -264,6 +274,7 @@ class WidgetEmbedTest extends TestCase
             'widget_enabled' => false,
             'widget_allowed_domains' => [],
             'widget_primary_color' => '#000000',
+            'widget_cta_text' => '',
             'widget_position' => 'bottom-right',
         ])->assertRedirect();
 

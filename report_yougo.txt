@@ -1,577 +1,107 @@
-Raport YouGo - stadiul actual si urmatorii pasi
+Raport YouGo - stadiu si directie
 
-1. Cum este aplicatia acum
-
-YouGo a ajuns in punctul in care nu mai este doar un simplu chat AI. Este deja o platforma functionala pentru businessuri care vor sa primeasca mesaje, sa raspunda automat, sa creeze programari, sa urmareasca folosirea serviciilor si sa pastreze istoricul clientilor.
-
-Aplicatia are acum mai multe zone clare: dashboard pentru business, asistent AI pentru clienti, WhatsApp AI, sistem de programari, consumuri pe planuri, onboarding WhatsApp, platform admin si CRM Light.
-
-Dashboardul businessului
-
-Fiecare business are propriul dashboard. Acolo isi poate configura afacerea, serviciile, locatiile, membrii echipei, programarile, conversatiile, setarile AI, widgetul de chat, WhatsApp si billingul.
-
-Businessul nu vede detalii tehnice inutile. Ideea este ca utilizatorul normal sa inteleaga lucruri simple:
-- AI este activ
-- WhatsApp este activat sau in curs de activare
-- exista conversatii
-- exista programari
-- exista clienti
-- exista consum lunar
-
-Detalii interne precum twilio_sender, sandbox, provider, loguri tehnice sau comenzi de server sunt tinute in Platform Admin, nu in dashboardul clientului.
+1. CE ESTE IMPLEMENTAT ACUM
 
 Appointment Mode
-
-Fluxul principal al aplicatiei este inca Appointment Mode. Acesta este modul in care AI-ul actioneaza ca un receptioner virtual.
-
-Clientul intra in chat sau scrie pe WhatsApp, intreaba despre servicii, ore, preturi, locatii sau disponibilitate, iar AI-ul il ghideaza catre o cerere de programare.
-
-AI-ul poate colecta date precum:
-- nume client
-- telefon
-- serviciu dorit
-- locatie
-- data
-- ora
-- eventual membru al echipei
-
-Apoi creeaza o programare in sistem, de obicei in status pending, pentru ca echipa businessului sa o confirme.
-
-Businessul vede programarea in dashboard si o poate confirma, anula sau gestiona.
+- Mod functional de baza.
+- Pentru businessuri unde clientii programeaza un serviciu la o data si ora.
+- Exemple: salon, clinica, dentist, service auto, consultant, terapeut, cursuri.
+- Colecteaza serviciu, locatie, staff, data, ora, nume si telefon.
+- Creeaza programari in dashboard.
 
 Website Chat
-
-Website Chat este functional. Businessul poate avea un widget de chat pe site, iar vizitatorii pot discuta cu AI-ul direct de acolo.
-
-Pentru chatul de website exista un comportament special: daca o conversatie are deja o programare creata, utilizatorul este invitat sa apese pe butonul + si sa inceapa o conversatie noua daca vrea alta programare. Asta pastreaza claritatea: o conversatie = un flux de programare.
-
-Este un model potrivit pentru website, pentru ca acolo utilizatorul interactioneaza intr-un widget, nu intr-un fir continuu ca pe WhatsApp.
+- Widgetul de website functioneaza.
+- AI-ul poate ghida clientii si poate crea cereri de programare.
+- Chatul de website are comportament de conversatie noua prin butonul +.
 
 WhatsApp AI
+- WhatsApp inbound/outbound functioneaza.
+- Raspunsurile sunt procesate prin queue/job.
+- Exista deduplicare.
+- Statusurile de livrare si citire sunt urmarite.
+- Exista onboarding pentru sender real.
+- Exista context recent de programare, astfel incat AI-ul poate raspunde despre statusul unei programari anterioare chiar daca in dashboard conversatia este vizual noua.
 
-WhatsApp AI este una dintre cele mai dezvoltate parti ale aplicatiei.
-
-Acum fluxul functioneaza cap-coada:
-- clientul scrie pe WhatsApp
-- mesajul intra prin Twilio
-- YouGo salveaza mesajul
-- raspunsul AI este procesat in queue
-- AI genereaza raspunsul
-- YouGo trimite raspunsul prin Twilio
-- mesajul este salvat in conversatie
-- Twilio trimite statusuri de livrare
-- dashboardul poate afisa daca mesajul a fost trimis, livrat sau citit
-
-Un lucru foarte important este ca raspunsurile WhatsApp nu mai sunt generate sincron in webhook. Ele sunt mutate in queue/job. Asta reduce riscul de timeout si face sistemul mai stabil.
-
-Sistemul are si deduplicare pe MessageSid, deci daca Twilio trimite acelasi mesaj de mai multe ori, aplicatia nu raspunde dublu.
-
-Statusuri reale pentru mesajele WhatsApp
-
-Acum aplicatia nu mai stie doar ca mesajul a fost trimis catre Twilio. Stie si ce s-a intamplat dupa aceea.
-
-Twilio trimite statusuri precum:
-- queued
-- sent
-- delivered
-- read
-- failed
-- undelivered
-
-YouGo le salveaza pe mesajul respectiv si dashboardul poate arata starea reala.
-
-Asta este foarte important operational. Daca un client spune ca nu a primit mesajul, nu mai ghicesti. Poti vedea daca mesajul a fost livrat, citit, respins sau esuat.
-
-WhatsApp real sender onboarding
-
-Initial aplicatia folosea numarul de sandbox Twilio. Acum exista flux de onboarding pentru numere reale.
-
-Businessul poate cere activarea propriului numar de WhatsApp Business. Procesul este intentionat manual in MVP, pentru ca onboardingul Meta/Twilio este complex si nu trebuie automatizat prea devreme.
-
-Fluxul este:
-- businessul introduce numarul WhatsApp Business
-- businessul completeaza detaliile pentru configurare
-- YouGo primeste cererea
-- se stabileste apel video sau telefonic
-- clientul se autentifica singur in Meta/Facebook daca este nevoie
-- YouGo configureaza manual senderul in Twilio/Meta
-- operatorul YouGo activeaza numarul in sistem
-- businessul poate porni WhatsApp AI
-
-Pagina explica foarte clar ca YouGo nu cere parola de Facebook, coduri 2FA sau date sensibile. Clientul se logheaza singur in timpul apelului, daca este nevoie.
-
-WhatsApp Onboarding Queue
-
-In Platform Admin exista deja zona pentru WhatsApp onboarding. Acolo operatorul YouGo poate vedea cererile de activare WhatsApp.
-
-Pentru fiecare business se pot vedea:
-- businessul
-- numarul cerut
-- statusul activarii
-- emailul ownerului
-- daca AI-ul este activ
-- data cererii
-- detaliile pentru apelul de configurare
-- daca are Meta Business
-- daca numarul este deja folosit in WhatsApp
-- daca poate primi SMS/apel
-- notite
-- comanda de activare
-
-Aceasta zona devine coada operationala pentru activarile WhatsApp.
-
-Programari si comportament post-booking
-
-Au fost clarificate regulile dupa ce o programare este creata.
-
-Pe Website Chat, daca exista deja o programare in conversatie, utilizatorul este trimis catre o conversatie noua prin butonul +.
-
-Pe WhatsApp, lucrurile sunt diferite, pentru ca WhatsApp este un fir continuu. Clientul poate reveni dupa ore sau zile in aceeasi discutie reala. In dashboard, conversatiile pot fi separate vizual, dar clientul vede totul ca acelasi WhatsApp.
-
-S-au introdus reguli clare:
-- programarile confirmate/completate/anulate/istorice nu se editeaza automat
-- schimbarile se directioneaza catre telefon
-- programarile pending pot avea reguli speciale pentru anulare, daca backendul permite
-- programarile vechi nu sunt modificate automat
-
-Context recent de programare pentru WhatsApp
-
-Aceasta a fost o imbunatatire foarte importanta.
-
-Problema era urmatoarea: clientul avea o programare creata si confirmata in dashboard, dar apoi scria pe WhatsApp intr-o conversatie noua vizual. Acea conversatie noua nu avea booking_id, deci AI-ul nu stia despre programarea confirmata si raspundea generic ca programarile AI sunt pending.
-
-Acum aplicatia cauta, doar pentru WhatsApp, ultima programare relevanta a aceluiasi client, in acelasi business, pe baza numarului de telefon. AI-ul primeste context read-only despre acea programare:
-- status
-- data
-- ora
-- serviciu
-- locatie
-- staff
-- client
-- telefon
-
-Asta inseamna ca daca un client intreaba daca a fost confirmata programarea, AI-ul poate raspunde din statusul real din baza de date.
-
-Fara sa ataseze vechiul booking la conversatia noua si fara sa il modifice.
-
-Usage / Limits
-
-In Platform Admin exista deja zona de Usage. Acolo se vede consumul curent pe business.
-
-Aplicatia poate afisa consumuri precum:
-- conversatii chat
-- mesaje AI
-- programari AI
-- mesaje WhatsApp inbound/outbound
-- minute Phone AI, momentan planned
-
-Exista si o diferentiere importanta:
-- monthly_whatsapp_messages = limita reala pentru mesaje WhatsApp inbound + outbound
-- whatsapp_conversation = indicator analitic, nu limita principala
-
-Asta este foarte important pentru planuri, billing si upgrade-uri.
+Business Dashboard
+- Businessul poate gestiona servicii, staff, locatii, programari, conversatii, setari AI, widget, WhatsApp, billing si setari.
 
 Platform Admin
+- Exista admin intern YouGo.
+- Afiseaza businessuri, usage, onboarding WhatsApp si issues.
+- Platform Admin este separat de dashboardul businessului.
+- Campurile tehnice WhatsApp sunt tinute in afara dashboardului normal al businessului.
 
-Platform Admin exista deja si este camera de control interna pentru YouGo.
+Usage / Limits
+- Usage-ul este urmarit si vizibil.
+- Sunt disponibile mesaje WhatsApp, programari, consum chat si limite de plan.
 
-Are rute separate:
-- /platform-admin
-- /platform-admin/businesses
-- /platform-admin/businesses/{salon}
-- /platform-admin/whatsapp-onboarding
-- /platform-admin/usage
-- /platform-admin/issues
-
-In Platform Admin se pot vedea:
-- toate businessurile
-- planurile
-- statusurile abonamentelor
-- consumurile
-- statusurile WhatsApp
-- cererile de onboarding
-- problemele operationale
-- mesajele WhatsApp esuate
-- businessurile fara notification_email
-- usage aproape de limita
-- failed jobs, daca exista tabela
-
-Platform Admin nu este un dashboard pentru business. Este pentru operatorul YouGo.
-
-Recent a fost clarificata si directia de autentificare: va avea login separat vizual, prin /platform-admin/login, dar pentru MVP va folosi aceeasi tabela users si campul is_platform_admin. Nu se creeaza inca tabel separat platform_admins.
+WhatsApp Onboarding Queue
+- Businessurile pot cere activarea WhatsApp.
+- Detaliile pentru setup call sunt salvate.
+- Platform Admin afiseaza coada de activare si comanda de activare.
 
 CRM Light
-
-CRM Light MVP a fost implementat.
-
-Acum businessul are o zona de clienti:
-- /dashboard/customers
-- /dashboard/customers/{customer}
-
-Clientii sunt construiti automat din programari si conversatii.
-
-Matchingul este prudent:
-- telefonul este principal
-- emailul este secundar
-- numele nu este folosit niciodata singur pentru unire
-
-Asta evita greseli periculoase, cum ar fi unirea a doi clienti diferiti doar pentru ca au acelasi nume.
-
-Fiecare client apartine unui singur business. Acelasi numar de telefon poate exista separat in doua businessuri diferite.
-
-In CRM, businessul poate vedea:
-- nume client
-- telefon
-- email
-- prima interactiune
-- ultima interactiune
-- numar programari
-- programari viitoare
-- programari finalizate
-- programari anulate
-- conversatii
-- istoric programari
-- preferinte inferate pentru serviciu sau staff
-- notite interne editabile
-
-Notitele CRM sunt interne pentru business. Clientii nu le vad, Platform Admin nu primeste o zona CRM in MVP, iar AI-ul nu primeste inca aceste notite sau profiluri CRM in prompturi.
-
-CRM-ul nu este inca conectat la AI prompts. Este doar vizibil in dashboard. Asta este o decizie buna pentru MVP, pentru ca datele trebuie intai verificate si stabilizate inainte ca AI-ul sa le foloseasca activ.
-
-Planuri si billing
-
-Aplicatia are deja concept de planuri si limite. Businessurile pot avea planuri diferite, iar dashboardul afiseaza serviciile disponibile, consumurile si limitele.
-
-WhatsApp AI este tratat ca serviciu disponibil, cu activare separata. Phone AI este pastrat ca planned.
-
-Stripe/billing exista ca structura, dar nu pare sa fie inca zona principala de dezvoltare activa. Momentan focusul a fost pe produs, onboarding, WhatsApp, Platform Admin si CRM.
-
-Stadiul general al produsului
-
-YouGo este acum in stadiul de MVP avansat / produs operational incipient.
-
-Nu mai este doar un prototip. Are deja:
-- chat AI
-- programari
-- WhatsApp AI
-- queue
-- delivery status
-- real sender onboarding
-- dashboard business
-- platform admin
-- usage
-- issues
-- CRM Light
-
-Cel mai mare castig este ca aplicatia incepe sa fie operabila. Adica nu doar merge, ci poate fi urmarita, administrata si explicata businessurilor.
-
-2. Ce a mai ramas de facut
-
-Aplicatia este intr-o pozitie buna, dar mai sunt cateva zone importante inainte sa fie un produs comercial solid, usor de vandut si usor de operat.
-
-1. Testare reala cap-coada in productie
-
-Acum este esential sa nu mai adaugam prea multe functionalitati fara testare operationala.
-
-Trebuie testate scenarii reale:
-- business nou se inregistreaza
-- configureaza servicii
-- configureaza staff
-- configureaza program
-- activeaza widget
-- primeste conversatii
-- creeaza programari
-- confirma programari
-- clientul revine pe WhatsApp
-- AI stie statusul corect
-- clientul cere anulare
-- businessul vede totul in dashboard
-
-La fel pentru WhatsApp:
-- business cere activare
-- completeaza setup request
-- apare in Platform Admin
-- operatorul configureaza senderul
-- activeaza numarul
-- clientul scrie pe WhatsApp
-- AI raspunde
-- statusurile apar delivered/read
-
-Aceste fluxuri trebuie verificate manual in browser si pe telefon.
-
-2. Redesign Platform Admin
-
-Platform Admin exista, dar merita adus vizual la nivel de produs SaaS profesionist.
-
-Directia corecta este un admin de tip:
-- sidebar dark
-- topbar
-- carduri statistice
-- panouri albe
-- tabele clare
-- badge-uri pentru status
-- layout aerisit
-
-Asta nu schimba logica, dar schimba perceptia. Platform Admin trebuie sa para control center, nu pagina interna temporara.
-
-3. Login separat pentru Platform Admin
-
-Momentan Platform Admin foloseste autentificarea existenta si is_platform_admin.
-
-Urmatorul pas bun este /platform-admin/login.
-
-Business login ramane /login.
-
-Platform admin login devine /platform-admin/login.
-
-Pentru MVP, se poate pastra tabela users si campul is_platform_admin, dar experienta trebuie sa fie separata. Un business user normal nu trebuie sa simta ca Platform Admin este parte din dashboardul lui.
-
-Pe termen mai lung, se poate lua in calcul tabel separat platform_admins, dar nu este nevoie acum.
-
-4. Polish CRM Light
-
-CRM Light exista, dar va avea nevoie de polish.
-
-Ce ar trebui urmarit:
-- date duplicate
-- clienti fara telefon
-- clienti cu email dar fara telefon
-- bookinguri istorice
-- conversatii nelegate
-- cautare
-- afisare mai clara
-- notite editabile
-
-Urmatorul pas natural pentru CRM ar fi editarea notitelor.
-
-Exemple:
-- prefera dupa ora 17
-- nu doreste notificari pe WhatsApp
-- prefera un anumit membru al echipei
-- client sensibil la anulari
-
-Dar editarea notitelor trebuie facuta cu grija, eventual cu audit ulterior.
-
-5. Audit timeline pentru programari
-
-Problema cu businessul a confirmat telefonic, dar AI-ul nu stia a fost rezolvata pe partea de context WhatsApp, dar pe termen lung ar fi foarte util ca fiecare booking sa aiba o cronologie clara.
-
-Exemplu:
-- 10:02 - AI a creat programarea
-- 10:05 - businessul a confirmat programarea
-- 10:06 - email trimis
-- 10:08 - clientul a intrebat pe WhatsApp
-- 10:08 - AI a raspuns ca este confirmata
-
-Asta ajuta enorm la suport, incredere si debugging.
-
-7. Health Dashboard
-
-In Platform Admin ar trebui, ulterior, o zona de sanatate tehnica:
-- queue worker ruleaza
-- WhatsApp webhook activ
-- status callback activ
-- ultimul mesaj procesat
-- ultimul job esuat
-- Twilio status
-- AI provider status
-
-In momentul in care ai clienti reali, nu vrei sa descoperi din intamplare ca workerul s-a oprit.
-
-8. Phone AI
-
-Phone AI este inca planned. Nu l-as incepe inainte de stabilizarea completa a Platform Admin + CRM + WhatsApp onboarding.
-
-Phone AI va aduce complexitate mare:
-- apeluri telefonice
-- speech-to-text
-- text-to-speech
-- latenta
-- minute consumate
-- costuri
-- provider telefonie
-- fallback daca AI-ul nu raspunde
-
-Va trebui tratat ca produs separat in interiorul YouGo.
-
-Directia corecta va fi:
-- Phone AI onboarding
-- numar telefonic
-- voce
-- limba
-- program
-- routing
-- minute incluse in plan
-- transcript
-- rezumat apel
-- booking din apel
-
-Dar nu este urmatorul lucru urgent.
-
-9. Lead Mode
-
-Lead Mode este pregatit ca idee, dar nu este inca flux real.
-
-Acesta ar fi pentru businessuri care nu vor programari exacte, ci cereri de contact sau oferte.
-
-Exemple:
-- vreau o oferta
-- vreau sa fiu sunat
-- vreau mai multe detalii
-- vreau o consultatie
-
-AI-ul ar colecta:
-- nume
-- telefon
-- email
-- ce doreste clientul
-- mesaj
-- eventual buget sau preferinte
-
-si ar crea un lead in dashboard.
-
-Lead Mode va extinde piata YouGo dincolo de saloane si programari.
-
-10. Reservation Mode
-
-Reservation Mode este pentru rezervari, nu programari clasice.
-
-Exemple:
-- restaurant
-- hotel
-- sala evenimente
-- tururi
-- inchirieri
-- experiente
-
-AI-ul ar colecta:
-- data
-- ora
-- numar persoane
-- preferinte
-- nume
-- telefon
-- observatii
-
-si ar crea o rezervare.
-
-Reservation Mode merita facut dupa ce Appointment Mode este matur si dupa ce CRM-ul are o baza buna.
-
-11. Conectarea CRM-ului la AI
-
-Momentan CRM-ul nu intra in prompturile AI, si este bine asa.
-
-Dar mai tarziu, dupa ce datele sunt curate, AI-ul ar putea folosi anumite informatii controlate:
-- clientul are programari anterioare
-- prefera un anumit serviciu
-- are o programare viitoare
-- a mai discutat cu businessul
-
-Asta trebuie facut cu grija. AI-ul nu trebuie sa devina prea invaziv sau sa scoata informatii sensibile intr-un mod ciudat.
-
-12. Billing mai matur
-
-Usage exista, dar mai ramane zona comerciala:
-- upgrade prompts
-- limit reached flows
-- emailuri de avertizare
-- facturi
-- planuri clare
-- Stripe portal polish
-
-In special trebuie clarificat ce se intampla cand un client atinge limita:
-- se opreste AI-ul?
-- primeste fallback?
-- businessul primeste notificare?
-- se propune upgrade?
-
-13. Onboarding general pentru business
-
-WhatsApp onboarding este destul de clar. Dar onboardingul general al businessului poate fi imbunatatit.
-
-Un business nou ar trebui ghidat prin pasi:
-- completeaza profil business
-- adauga locatie
-- adauga servicii
-- adauga staff
-- seteaza program
-- activeaza widget
-- testeaza AI
-- activeaza WhatsApp, optional
-
-Cu un checklist clar, produsul devine mai usor de folosit.
-
-14. Polish UI business dashboard
-
-Pe masura ce functionalitatile cresc, dashboardul businessului trebuie sa ramana simplu.
-
-Exista riscul sa devina aglomerat:
-- overview
-- bookings
-- conversations
-- customers
-- whatsapp
-- billing
-- settings
-- services
-- staff
-- locations
-- AI settings
-
-Va trebui probabil organizat mai clar pe grupuri:
-- Operations
-- Customers
-- AI Channels
-- Business Setup
-- Billing
-
-15. Documentatie interna si procese
-
-Pentru operatorul YouGo, trebuie documentate procesele reale:
-- cum activezi WhatsApp
-- cum verifici workerul
-- cum verifici status callbacks
-- cum promovezi platform admin
-- cum investighezi mesaj failed
-- cum verifici usage
-- cum ajuti clientul la onboarding Meta
-
-Asta pare secundar, dar devine critic cand ai mai multi clienti sau cand revii la un flow dupa cateva saptamani.
-
-Concluzie generala
-
-YouGo este acum intr-un punct foarte bun.
-
-Are deja nucleul produsului:
-- AI care discuta cu clientul
-- programari
-- WhatsApp
-- dashboard business
-- platform admin
-- usage
-- onboarding
-- CRM Light
-
-Ce lipseste nu mai este sa facem aplicatia sa mearga. Aplicatia merge.
-
-Ce lipseste acum este:
-- sa fie mai usor de administrat
-- sa fie mai usor de vandut
-- sa fie mai usor de folosit de businessuri reale
-- sa fie mai usor de monitorizat cand ceva nu merge
-
-Ordinea realista de continuare ar fi:
-1. Testare manuala completa in productie
-2. Redesign Platform Admin
-3. Login separat pentru Platform Admin
-4. Polish CRM Light
-5. Audit timeline pentru bookinguri
-6. Billing/usage alerts
-7. Lead Mode
-8. Reservation Mode
-9. Phone AI
-
-Daca ar fi sa aleg doar urmatorul pas imediat, as merge pe:
-Redesign Platform Admin + login separat Platform Admin
-
-Apoi as testa cap-coada CRM Light si WhatsApp onboarding in browser, cu date reale.
+- Exista tabela de clienti.
+- Programarile si conversatiile sunt legate de clienti.
+- Businessul are /dashboard/customers si pagini de detaliu pentru clienti.
+- Matchingul se face dupa telefon mai intai, apoi email, niciodata doar dupa nume.
+- CRM-ul nu este conectat inca la prompturile AI.
+
+2. CE MAI ESTE DE FACUT
+
+Lead Mode
+- Status: neimplementat ca flux real.
+- Scop: pentru businessuri care nu au nevoie de programari exacte.
+- AI-ul colecteaza o cerere/lead in loc sa creeze o programare.
+- Exemple: avocati, contabili, imobiliare, agentii, constructii, vanzari auto, servicii profesionale.
+- Flow:
+  - Ce cauti?
+  - Buget?
+  - Locatie?
+  - Urgenta?
+  - Nume?
+  - Telefon/email?
+- Rezultat: leadul apare in dashboard pentru follow-up de catre business.
+- De ce primul:
+  - Este mai simplu decat Reservation Mode.
+  - Nu necesita disponibilitate, sloturi, capacitate sau telefonie.
+
+Reservation Mode
+- Status: neimplementat ca flux real.
+- Scop: pentru businessuri unde clientii rezerva o resursa sau un loc, nu o programare pentru un serviciu.
+- Exemple: restaurante, hoteluri, inchirieri, inchirieri auto, inchirieri echipamente, spatii pentru evenimente, experiente.
+- Flow:
+  - Ce resursa/loc?
+  - De cand?
+  - Pana cand?
+  - Cate persoane/articole?
+  - Preferinte?
+  - Date de contact?
+- Rezultat: cererea de rezervare apare in dashboard.
+- De ce al doilea:
+  - Este mai complex decat Lead Mode.
+  - Are nevoie de logica pentru disponibilitate, capacitate si resurse.
+
+Phone AI
+- Status: neimplementat.
+- Scop: AI-ul preia sau asista apeluri telefonice.
+- Clarificare importanta:
+  - Phone AI este canal de comunicare, nu mod de business.
+  - Trebuie sa foloseasca ulterior Appointment Mode, Lead Mode sau Reservation Mode.
+- Necesita:
+  - provider de telefonie
+  - speech-to-text
+  - text-to-speech
+  - transcript apel
+  - tracking de minute
+  - control costuri
+  - fallback/handoff
+- De ce ultimul:
+  - Are cea mai mare complexitate.
+  - Trebuie construit dupa ce modurile de business sunt clare.
+
+Concluzie
+
+Baza YouGo este stabila: Appointment Mode, Website Chat, WhatsApp AI, Platform Admin, Usage, WhatsApp Onboarding si CRM Light exista deja ca MVP. De aici inainte, focusul trebuie restrans la trei extinderi esentiale: Lead Mode, Reservation Mode si Phone AI.
+
+Ordinea de lucru recomandata: Lead Mode -> Reservation Mode -> Phone AI.

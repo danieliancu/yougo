@@ -39,6 +39,7 @@ class Salon extends Model
         'widget_enabled',
         'widget_allowed_domains',
         'widget_primary_color',
+        'widget_cta_text',
         'widget_position',
         'onboarding_completed',
         'onboarding_skipped',

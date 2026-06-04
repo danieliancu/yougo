@@ -21,7 +21,7 @@ class OnboardingChecklistService
                 'onboardingBusinessProfile',
                 'onboardingBusinessProfileDescription',
                 '/dashboard/settings',
-                filled($salon->name) && filled($salon->business_type),
+                $this->hasBusinessProfile($salon),
                 true
             ),
             $this->step(
@@ -139,5 +139,14 @@ class OnboardingChecklistService
         return filled($salon->ai_business_summary)
             || filled($salon->ai_custom_instructions)
             || count($salon->ai_custom_context ?? []) > 0;
+    }
+
+    private function hasBusinessProfile(Salon $salon): bool
+    {
+        return filled($salon->name)
+            && filled($salon->business_type)
+            && filled($salon->website)
+            && filled($salon->business_phone)
+            && filled($salon->notification_email);
     }
 }

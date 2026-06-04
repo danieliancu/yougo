@@ -19,14 +19,27 @@ class AssistantController extends Controller
     ) {
     }
 
-    public function show(Salon $salon): Response
+    public function show(Request $request, Salon $salon): Response
     {
         $salon->load(['locations', 'services']);
+        $backUrl = $this->safeBackUrl($request->query('back'));
 
         return Inertia::render('Assistant/Show', [
             'salon' => $salon,
             'locale' => $salon->display_language ?? config('app.locale', 'ro'),
+            'backUrl' => $backUrl,
         ]);
+    }
+
+    private function safeBackUrl(mixed $back): string
+    {
+        $back = is_string($back) ? trim($back) : '';
+
+        if ($back !== '' && str_starts_with($back, '/') && ! str_starts_with($back, '//')) {
+            return $back;
+        }
+
+        return route('dashboard.section', ['section' => 'widget'], false);
     }
 
     public function abandon(Request $request, Salon $salon): JsonResponse
