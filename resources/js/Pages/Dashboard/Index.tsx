@@ -82,6 +82,7 @@ type ImportedServiceCandidate = {
   selected: boolean;
   duplicate?: boolean;
 };
+type BulkServiceAction = 'duration' | 'type' | 'max_concurrent_bookings' | 'price' | 'location_ids' | 'delete';
 
 type WhatsappSetupRequestForm = {
   business_name: string;
@@ -185,6 +186,15 @@ type NavGroup = {
   id: 'activity' | 'assistantSettings' | 'administration';
   label: string;
   items: NavItem[];
+};
+type UsageRingTone = 'indigo' | 'emerald' | 'sky' | 'slate';
+type UsageSummaryItem = {
+  key: string;
+  label: string;
+  used: number;
+  limit: number | null;
+  icon: any;
+  tone: UsageRingTone;
 };
 
 const topLevelNavItems: NavItem[] = [];
@@ -388,10 +398,10 @@ export default function DashboardIndex() {
           {section === 'ai-settings' && <AiSettings salon={salon} />}
           {section === 'conversations' && <Conversations salon={salon} query={query} overview={overview} />}
           {section === 'voice-calls' && <VoiceCalls query={query} />}
-          {section === 'whatsapp' && <WhatsAppSettings salon={salon} plan={billing.summary.plan} />}
+          {section === 'whatsapp' && <WhatsAppSettings salon={salon} plan={billing.summary.plan} query={query} />}
           {section === 'locations' && <Locations salon={salon} />}
           {section === 'staff' && <StaffManagement salon={salon} query={query} />}
-          {section === 'services' && <Services salon={salon} query={query} />}
+          {section === 'services' && <Services salon={salon} query={query} onResetSearch={() => setQuery('')} />}
           {section === 'bookings' && <Bookings salon={salon} query={query} />}
           {section === 'customers' && <Customers crm={crm as CustomerCrmPayload | null | undefined} query={query} />}
           {section === 'customer-detail' && <CustomerDetail crm={crm as CustomerDetailPayload | null | undefined} salon={salon} />}
@@ -1029,6 +1039,27 @@ function filterWebsiteChatConversations(conversations: Conversation[], query: st
     });
 }
 
+function filterWhatsappConversations(conversations: Conversation[], query: string) {
+  const normalizedQuery = query.trim().toLowerCase();
+
+  return conversations
+    .filter((conversation) => isWhatsappConversation(conversation))
+    .filter((conversation) => {
+      if (!normalizedQuery) return true;
+
+      return [
+        conversation.contact_name,
+        conversation.contact_phone,
+        conversation.external_contact_id,
+        conversation.external_sender,
+        conversation.summary,
+        conversation.intent,
+        conversation.status,
+        ...conversation.messages.map((message) => message.content),
+      ].filter(Boolean).some((value) => String(value).toLowerCase().includes(normalizedQuery));
+    });
+}
+
 function websiteChatStats(conversations: Conversation[]) {
   return {
     total: conversations.length,
@@ -1215,7 +1246,7 @@ function SettingsPage({ salon }: { salon: Salon }) {
         </SettingsPanel>
 
         <SettingsPanel icon={Globe2} title={t('languageRegion')} subtitle={t('languageRegionSubtitle')}>
-          <p className="mb-5 text-sm text-sky-300">{t('localizationHelp')}</p>
+          <p className="mb-5 text-sm text-sky-500">{t('localizationHelp')}</p>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <DarkField label={t('country')} error={form.errors.country}>
               <DarkSelect value={form.data.country} onChange={(event) => updateCountry(event.target.value)}>
@@ -1277,7 +1308,7 @@ function SettingsPage({ salon }: { salon: Salon }) {
               </div>
             </div>
             {form.errors.logo ? <p className="mt-2 text-xs text-red-400">{form.errors.logo}</p> : null}
-            <p className="mt-2 text-xs text-sky-300">{t('logoHint')}</p>
+            <p className="mt-2 text-xs text-sky-500">{t('logoHint')}</p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -1315,7 +1346,7 @@ function SettingsPage({ salon }: { salon: Salon }) {
           <DarkField label={t('notificationEmail')} error={form.errors.notification_email}>
             <DarkInput value={form.data.notification_email} onChange={(event) => form.setData('notification_email', event.target.value)} placeholder={t('notificationEmailPlaceholder')} />
           </DarkField>
-          <p className="mt-2 text-sm text-sky-300">{t('notificationEmailHelp')}</p>
+          <p className="mt-2 text-sm text-sky-500">{t('notificationEmailHelp')}</p>
           <div className="mt-7 grid gap-4 lg:grid-cols-3">
             <div className="rounded-lg border border-slate-800/70 px-4 app-panel-soft">
               <ToggleRow title={t('newBookingEmailsTitle')} subtitle={t('newBookingEmailsDescription')} checked={form.data.booking_confirmations} onChange={(checked) => form.setData('booking_confirmations', checked)} disabled={!paidEmailSettingsAvailable} helper={!paidEmailSettingsAvailable ? t('availableOnPaidPlans') : undefined} />
@@ -1409,7 +1440,7 @@ function ToggleRow({ title, subtitle, checked, onChange, disabled = false, helpe
       <div>
         <p className="font-bold app-text">{title}</p>
         <p className="mt-1 text-sm app-text-muted">{subtitle}</p>
-        {helper && <p className="mt-2 text-xs font-bold text-sky-300">{helper}</p>}
+        {helper && <p className="mt-2 text-xs font-bold text-sky-500">{helper}</p>}
       </div>
     </div>
   );
@@ -2099,7 +2130,7 @@ function StatusPill({ status, t, className = '' }: { status: string; t: Translat
     programat: 'bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300',
     cancelled: 'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300',
     completed: 'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300',
-    open: 'bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300',
+    open: 'bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-400',
   };
   const labels: Record<string, string> = {
     pending: t('statusPending'),
@@ -2561,14 +2592,14 @@ function UsageOverviewCard({ summary }: { summary: UsageSummary }) {
 
 function UsageSummaryPanel({ summary, action, compact = false }: { summary: UsageSummary; action?: ReactNode; compact?: boolean }) {
   const t = useT();
-  const items = [
+  const items: UsageSummaryItem[] = [
     {
       key: 'conversations',
       label: t('chatConversationsUsage'),
       used: summary.usage.conversations,
       limit: summary.limits.conversations,
       icon: MessageSquare,
-      tone: 'indigo' as const,
+      tone: 'indigo',
     },
     {
       key: 'ai_messages',
@@ -2576,7 +2607,7 @@ function UsageSummaryPanel({ summary, action, compact = false }: { summary: Usag
       used: summary.usage.ai_messages,
       limit: summary.limits.ai_messages,
       icon: Sparkles,
-      tone: 'emerald' as const,
+      tone: 'emerald',
     },
     {
       key: 'bookings',
@@ -2584,7 +2615,7 @@ function UsageSummaryPanel({ summary, action, compact = false }: { summary: Usag
       used: summary.usage.bookings,
       limit: summary.limits.bookings,
       icon: Calendar,
-      tone: 'sky' as const,
+      tone: 'sky',
     },
   ];
   if (planHasService(summary.plan, 'whatsapp_ai')) {
@@ -2594,7 +2625,7 @@ function UsageSummaryPanel({ summary, action, compact = false }: { summary: Usag
       used: summary.usage.whatsapp_messages ?? 0,
       limit: summary.limits.whatsapp_messages ?? 0,
       icon: SiWhatsapp,
-      tone: 'slate' as const,
+      tone: 'slate',
     });
   }
   if (planHasService(summary.plan, 'phone_ai')) {
@@ -2604,7 +2635,7 @@ function UsageSummaryPanel({ summary, action, compact = false }: { summary: Usag
       used: summary.usage.phone_minutes ?? 0,
       limit: summary.limits.phone_minutes ?? 0,
       icon: Phone,
-      tone: 'slate' as const,
+      tone: 'slate',
     });
   }
 
@@ -2624,7 +2655,7 @@ function UsageSummaryPanel({ summary, action, compact = false }: { summary: Usag
   );
 }
 
-function UsageRing({ label, used, limit, icon: Icon, tone, compact = false, locked = false }: { label: string; used: number; limit: number | null; icon: any; tone: 'indigo' | 'emerald' | 'sky' | 'slate'; compact?: boolean; locked?: boolean }) {
+function UsageRing({ label, used, limit, icon: Icon, tone, compact = false, locked = false }: { label: string; used: number; limit: number | null; icon: any; tone: UsageRingTone; compact?: boolean; locked?: boolean }) {
   const t = useT();
   const percentage = limit && limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
   const unavailable = limit === 0;
@@ -3065,13 +3096,21 @@ function AiSettings({ salon }: { salon: Salon }) {
   const t = useT();
   const selectedBusinessType = findBusinessType(normalizeBusinessTypeSlug(salon.business_type) || 'salon-beauty');
   const [customContextInput, setCustomContextInput] = useState('');
+  const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(false);
+  const [specialRulesOpen, setSpecialRulesOpen] = useState(false);
   const form = useForm({
     ai_assistant_name: salon.ai_assistant_name ?? 'Bella',
     ai_tone: salon.ai_tone ?? 'polite',
     ai_response_style: salon.ai_response_style ?? 'short',
     ai_language_mode: salon.ai_language_mode ?? 'auto',
+    ai_greeting_message: salon.ai_greeting_message ?? '',
     ai_custom_instructions: salon.ai_custom_instructions ?? '',
     ai_business_summary: salon.ai_business_summary ?? '',
+    ai_about_business: salon.ai_about_business ?? '',
+    ai_policies: salon.ai_policies ?? '',
+    ai_faq: salon.ai_faq ?? '',
+    ai_recommendations: salon.ai_recommendations ?? '',
+    ai_avoid: salon.ai_avoid ?? '',
     ai_industry_categories: salon.ai_industry_categories ?? [],
     ai_main_focus: salon.ai_main_focus ?? '',
     ai_custom_context: salon.ai_custom_context ?? [],
@@ -3152,6 +3191,18 @@ function AiSettings({ salon }: { salon: Salon }) {
               <option value="balanced">{t('aiStyleBalanced')}</option>
               <option value="detailed">{t('aiStyleDetailed')}</option>
             </select>
+          </Field>
+        </div>
+        <div className="mt-4">
+          <Field label={t('aiGreetingMessage')} error={form.errors.ai_greeting_message}>
+            <textarea
+              rows={3}
+              value={form.data.ai_greeting_message}
+              onChange={(event) => form.setData('ai_greeting_message', event.target.value)}
+              className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none app-panel app-text"
+              placeholder={t('aiGreetingMessagePlaceholder')}
+            />
+            <span className="block text-xs app-text-muted">{t('aiGreetingMessageHelp')}</span>
           </Field>
         </div>
       </Card>
@@ -3250,7 +3301,7 @@ function AiSettings({ salon }: { salon: Salon }) {
             <p className="mt-1 text-sm app-text-muted">{t('aiKnowledgeHelp')}</p>
           </div>
         </div>
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4">
           <Field label={t('aiBusinessSummary')} error={form.errors.ai_business_summary}>
             <textarea
               rows={6}
@@ -3260,27 +3311,67 @@ function AiSettings({ salon }: { salon: Salon }) {
               placeholder={t('aiBusinessSummaryPlaceholder')}
             />
           </Field>
-          <Field label={t('aiCustomInstructions')} error={form.errors.ai_custom_instructions}>
-            <textarea
-              rows={6}
-              value={form.data.ai_custom_instructions}
-              onChange={(event) => form.setData('ai_custom_instructions', event.target.value)}
-              className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none app-panel app-text"
-              placeholder={t('aiCustomInstructionsPlaceholder')}
-            />
-          </Field>
         </div>
       </Card>
 
-      <Card className="p-6">
-        <div className="mb-6 flex items-start gap-3">
-          <Calendar className="mt-1 h-5 w-5 text-indigo-500" />
-          <div>
-            <h2 className="text-xl font-bold app-text">{t('aiBookingBehavior')}</h2>
-            <p className="mt-1 text-sm app-text-muted">{t('aiBookingBehaviorHelp')}</p>
-          </div>
-        </div>
+      <CollapsibleSettingsPanel
+        icon={Calendar}
+        title={t('aiAdvancedSettings')}
+        description={t('aiAdvancedSettingsHelp')}
+        open={advancedSettingsOpen}
+        onToggle={() => setAdvancedSettingsOpen((open) => !open)}
+      >
         <div className="space-y-5">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Field label={t('aiAboutBusiness')} error={form.errors.ai_about_business}>
+              <textarea
+                rows={4}
+                value={form.data.ai_about_business}
+                onChange={(event) => form.setData('ai_about_business', event.target.value)}
+                className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none app-panel app-text"
+                placeholder={t('aiAboutBusinessPlaceholder')}
+              />
+            </Field>
+            <Field label={t('aiPolicies')} error={form.errors.ai_policies}>
+              <textarea
+                rows={4}
+                value={form.data.ai_policies}
+                onChange={(event) => form.setData('ai_policies', event.target.value)}
+                className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none app-panel app-text"
+                placeholder={t('aiPoliciesPlaceholder')}
+              />
+            </Field>
+            <Field label={t('aiFaq')} error={form.errors.ai_faq}>
+              <textarea
+                rows={4}
+                value={form.data.ai_faq}
+                onChange={(event) => form.setData('ai_faq', event.target.value)}
+                className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none app-panel app-text"
+                placeholder={t('aiFaqPlaceholder')}
+              />
+            </Field>
+            <Field label={t('aiRecommendations')} error={form.errors.ai_recommendations}>
+              <textarea
+                rows={4}
+                value={form.data.ai_recommendations}
+                onChange={(event) => form.setData('ai_recommendations', event.target.value)}
+                className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none app-panel app-text"
+                placeholder={t('aiRecommendationsPlaceholder')}
+              />
+            </Field>
+            <Field label={t('aiAvoid')} error={form.errors.ai_avoid}>
+              <textarea
+                rows={4}
+                value={form.data.ai_avoid}
+                onChange={(event) => form.setData('ai_avoid', event.target.value)}
+                className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none app-panel app-text"
+                placeholder={t('aiAvoidPlaceholder')}
+              />
+            </Field>
+          </div>
+          <div className="border-t pt-5 app-border">
+            <p className="mb-4 text-sm font-bold app-text">{t('aiBookingBehavior')}</p>
+          </div>
           <div className="grid gap-4 lg:grid-cols-2">
             <ToggleRow title={t('aiBookingEnabled')} subtitle={t('aiBookingEnabledHelp')} checked={form.data.ai_booking_enabled} onChange={(checked) => form.setData('ai_booking_enabled', checked)} />
             <ToggleRow title={t('aiCollectPhone')} subtitle={t('aiCollectPhoneHelp')} checked={form.data.ai_collect_phone} onChange={(checked) => form.setData('ai_collect_phone', checked)} />
@@ -3297,7 +3388,25 @@ function AiSettings({ salon }: { salon: Salon }) {
             </Field>
           </div>
         </div>
-      </Card>
+      </CollapsibleSettingsPanel>
+
+      <CollapsibleSettingsPanel
+        icon={AlertTriangle}
+        title={t('aiSpecialRules')}
+        description={t('aiSpecialRulesHelp')}
+        open={specialRulesOpen}
+        onToggle={() => setSpecialRulesOpen((open) => !open)}
+      >
+        <Field label={t('aiSpecialRules')} error={form.errors.ai_custom_instructions}>
+          <textarea
+            rows={6}
+            value={form.data.ai_custom_instructions}
+            onChange={(event) => form.setData('ai_custom_instructions', event.target.value)}
+            className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none app-panel app-text"
+            placeholder={t('aiCustomInstructionsPlaceholder')}
+          />
+        </Field>
+      </CollapsibleSettingsPanel>
 
       <div className="flex justify-start">
         <Button disabled={form.processing}>
@@ -3306,6 +3415,33 @@ function AiSettings({ salon }: { salon: Salon }) {
         </Button>
       </div>
     </form>
+  );
+}
+
+function CollapsibleSettingsPanel({ icon: Icon, title, description, open, onToggle, children }: { icon: any; title: string; description: string; open: boolean; onToggle: () => void; children: ReactNode }) {
+  return (
+    <div className="rounded-lg border app-border app-panel">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-start gap-3 px-5 py-4 text-left transition hover:bg-[var(--app-panel-soft)]"
+      >
+        <Icon className="mt-1 h-5 w-5 shrink-0 text-indigo-500" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-base font-bold app-text">{title}</span>
+          <span className="mt-1 block text-sm app-text-muted">{description}</span>
+        </span>
+        <ChevronDown className={`mt-1 h-4 w-4 shrink-0 app-text-muted transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      <div className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+        <div className="min-h-0 overflow-hidden">
+          <div className="border-t p-5 app-border">
+            {children}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -3963,7 +4099,7 @@ function InfoLine({ label, value }: { label: string; value: string | string[] })
   );
 }
 
-function Services({ salon, query }: { salon: Salon; query: string }) {
+function Services({ salon, query, onResetSearch }: { salon: Salon; query: string; onResetSearch: () => void }) {
   const t = useT();
   const { localization } = usePage<Props>().props;
   const [adding, setAdding] = useState(false);
@@ -3976,11 +4112,16 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
   const [branchFilter, setBranchFilter] = useState<number[]>([]);
   const [categoryDrafts, setCategoryDrafts] = useState<string[]>(salon.service_categories ?? []);
   const [serviceNameError, setServiceNameError] = useState('');
+  const [selectedServiceIds, setSelectedServiceIds] = useState<number[]>([]);
+  const [bulkAction, setBulkAction] = useState<BulkServiceAction>('duration');
+  const [bulkValue, setBulkValue] = useState('');
+  const [bulkLocationIds, setBulkLocationIds] = useState<number[]>([]);
+  const selectAllServicesRef = useRef<HTMLInputElement>(null);
   const defaultServiceLocationIds = salon.locations.length === 1 ? [salon.locations[0].id] : [];
   const defaultCurrency = defaultServiceCurrency(salon);
   const currencyOptions = serviceCurrencyOptions(localization, salon);
-  const form = useForm({ name: '', type: '', price: '', currency: defaultCurrency, duration: 30, max_concurrent_bookings: '', location_ids: defaultServiceLocationIds, notes: '' });
-  const editForm = useForm({ name: '', type: '', price: '', currency: defaultCurrency, duration: 30, max_concurrent_bookings: '', location_ids: [] as number[], notes: '' });
+  const form = useForm({ name: '', type: '', price: '', currency: '', duration: 30, max_concurrent_bookings: '', location_ids: defaultServiceLocationIds, notes: '' });
+  const editForm = useForm({ name: '', type: '', price: '', currency: '', duration: 30, max_concurrent_bookings: '', location_ids: [] as number[], notes: '' });
   const serviceFormCurrencyOptions = Array.from(new Map([
     ...currencyOptions,
     { code: form.data.currency, label: form.data.currency },
@@ -3992,6 +4133,13 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
     locations: salon.locations.length,
     staff: (salon.staff ?? []).length,
   };
+  const categoryServiceCounts = salon.services.reduce<Record<string, number>>((counts, service) => {
+    const category = service.type?.trim();
+    if (!category) return counts;
+
+    counts[category] = (counts[category] ?? 0) + 1;
+    return counts;
+  }, {});
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const filteredServices = salon.services.filter((service) => {
     if (categoryFilter.length > 0 && !categoryFilter.includes(service.type ?? '')) return false;
@@ -4019,6 +4167,40 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
       .filter((value) => value !== null && value !== undefined)
       .some((value) => String(value).toLocaleLowerCase().includes(normalizedQuery));
   });
+  const visibleServiceIds = filteredServices.map((service) => service.id);
+  const visibleServiceIdSet = new Set(visibleServiceIds);
+  const selectedVisibleServiceIds = selectedServiceIds.filter((id) => visibleServiceIdSet.has(id));
+  const allVisibleServicesSelected = visibleServiceIds.length > 0 && selectedVisibleServiceIds.length === visibleServiceIds.length;
+  const someVisibleServicesSelected = selectedVisibleServiceIds.length > 0 && !allVisibleServicesSelected;
+  const hasServiceFilters = Boolean(normalizedQuery) || categoryFilter.length > 0 || branchFilter.length > 0;
+  const bulkActionRequiresValue = bulkAction !== 'delete';
+  const bulkApplyDisabled = selectedVisibleServiceIds.length === 0
+    || (bulkAction === 'duration' && bulkValue === '')
+    || (bulkAction === 'price' && bulkValue.trim() === '')
+    || (bulkAction === 'location_ids' && bulkLocationIds.length === 0);
+
+  useEffect(() => {
+    setSelectedServiceIds((current) => current.filter((id) => visibleServiceIdSet.has(id)));
+  }, [query, categoryFilter, branchFilter, salon.services.length]);
+
+  useEffect(() => {
+    if (salon.locations.length < 2 && branchFilter.length > 0) {
+      setBranchFilter([]);
+    }
+  }, [salon.locations.length, branchFilter.length]);
+
+  useEffect(() => {
+    if (salon.locations.length < 2 && bulkAction === 'location_ids') {
+      setBulkAction('duration');
+      setBulkLocationIds([]);
+    }
+  }, [salon.locations.length, bulkAction]);
+
+  useEffect(() => {
+    if (selectAllServicesRef.current) {
+      selectAllServicesRef.current.indeterminate = someVisibleServicesSelected;
+    }
+  }, [someVisibleServicesSelected, selectedVisibleServiceIds.length]);
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -4038,7 +4220,7 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
       onSuccess: () => {
         form.reset();
         form.setData('location_ids', defaultServiceLocationIds);
-        form.setData('currency', defaultCurrency);
+        form.setData('currency', '');
         setServiceNameError('');
         setAdding(false);
       },
@@ -4052,7 +4234,7 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
       name: service.name,
       type: service.type ?? '',
       price: String(service.price ?? ''),
-      currency: service.currency ?? defaultCurrency,
+      currency: service.currency ?? '',
       duration: service.duration,
       location_ids: locationIds,
       notes: service.notes ?? '',
@@ -4064,7 +4246,7 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
       name: service.name,
       type,
       price: String(service.price ?? ''),
-      currency: service.currency ?? defaultCurrency,
+      currency: service.currency ?? '',
       duration: service.duration,
       max_concurrent_bookings: service.max_concurrent_bookings ? String(service.max_concurrent_bookings) : '',
       location_ids: service.location_ids ?? [],
@@ -4078,7 +4260,7 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
       name: service.name,
       type: service.type ?? '',
       price: String(service.price ?? ''),
-      currency: service.currency ?? defaultCurrency,
+      currency: service.currency ?? '',
       duration: service.duration,
       location_ids: service.location_ids ?? [],
       notes: service.notes ?? '',
@@ -4125,6 +4307,77 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
     }, {
       preserveScroll: true,
       onSuccess: () => setManagingCategories(false),
+    });
+  }
+
+  function toggleVisibleServices(checked: boolean) {
+    setSelectedServiceIds((current) => {
+      const currentSet = new Set(current);
+
+      if (checked) {
+        visibleServiceIds.forEach((id) => currentSet.add(id));
+      } else {
+        visibleServiceIds.forEach((id) => currentSet.delete(id));
+      }
+
+      return Array.from(currentSet);
+    });
+  }
+
+  function toggleServiceSelection(serviceId: number, checked: boolean) {
+    setSelectedServiceIds((current) => checked
+      ? Array.from(new Set([...current, serviceId]))
+      : current.filter((id) => id !== serviceId));
+  }
+
+  function clearBulkSelection() {
+    setSelectedServiceIds([]);
+    setBulkValue('');
+    setBulkLocationIds([]);
+  }
+
+  function resetServiceSearch() {
+    onResetSearch();
+    setCategoryFilter([]);
+    setBranchFilter([]);
+    clearBulkSelection();
+  }
+
+  function bulkUpdatePayload() {
+    if (bulkAction === 'type') return { type: bulkValue };
+    if (bulkAction === 'duration') return { duration: Number(bulkValue) };
+    if (bulkAction === 'max_concurrent_bookings') return { max_concurrent_bookings: bulkValue === '' ? null : Number(bulkValue) };
+    if (bulkAction === 'price') return { price: bulkValue };
+    if (bulkAction === 'location_ids') return { location_ids: bulkLocationIds };
+
+    return {};
+  }
+
+  function applyBulkAction() {
+    if (selectedVisibleServiceIds.length === 0) return;
+
+    if (bulkAction === 'delete') {
+      setConfirmation({
+        title: t('bulkDeleteServices'),
+        message: t('bulkDeleteServicesConfirm', { count: selectedVisibleServiceIds.length }),
+        onConfirm: () => {
+          router.post('/services/bulk-delete', {
+            service_ids: selectedVisibleServiceIds,
+          }, {
+            preserveScroll: true,
+            onSuccess: clearBulkSelection,
+          });
+        },
+      });
+      return;
+    }
+
+    router.post('/services/bulk-update', {
+      service_ids: selectedVisibleServiceIds,
+      updates: bulkUpdatePayload(),
+    }, {
+      preserveScroll: true,
+      onSuccess: () => setBulkValue(''),
     });
   }
 
@@ -4198,6 +4451,7 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
             <Field label={t('priceRon')} error={editForm.errors.price}><Input value={editForm.data.price} onChange={(event) => editForm.setData('price', event.target.value)} placeholder={t('pricePlaceholder')} /></Field>
             <Field label={t('currency')} error={editForm.errors.currency}>
               <select className="h-10 w-full rounded-lg border px-3 text-sm outline-none app-panel app-text" value={editForm.data.currency} onChange={(event) => editForm.setData('currency', event.target.value)}>
+                <option value="">{t('businessCurrencyOption', { currency: defaultCurrency })}</option>
                 {serviceFormCurrencyOptions.map((currency) => (
                   <option key={currency.code} value={currency.code}>{currency.label}</option>
                 ))}
@@ -4224,7 +4478,12 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
           <div className="space-y-3">
             {categoryDrafts.map((category, index) => (
               <div key={index} className="flex gap-2">
-                <Input value={category} onChange={(event) => updateCategoryDraft(index, event.target.value)} placeholder={t('category')} />
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <Input value={category} onChange={(event) => updateCategoryDraft(index, event.target.value)} placeholder={t('category')} />
+                  <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-red-600 px-2 text-xs font-bold text-white">
+                    {categoryServiceCounts[category.trim()] ?? 0}
+                  </span>
+                </div>
                 <DangerButton type="button" onClick={() => setConfirmation({
                   title: t('removeCategory'),
                   message: t('removeCategoryConfirm'),
@@ -4266,6 +4525,7 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
               <Field label={t('priceRon')} error={form.errors.price}><Input value={form.data.price} onChange={(event) => form.setData('price', event.target.value)} placeholder={t('pricePlaceholder')} /></Field>
               <Field label={t('currency')} error={form.errors.currency}>
                 <select className="h-10 w-full rounded-lg border px-3 text-sm outline-none app-panel app-text" value={form.data.currency} onChange={(event) => form.setData('currency', event.target.value)}>
+                  <option value="">{t('businessCurrencyOption', { currency: defaultCurrency })}</option>
                   {serviceFormCurrencyOptions.map((currency) => (
                     <option key={currency.code} value={currency.code}>{currency.label}</option>
                   ))}
@@ -4316,15 +4576,92 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
         <ChannelStat label={t('locations')} value={serviceStats.locations} icon={MapPin} tone="green" />
         <ChannelStat label={t('staff')} value={serviceStats.staff} icon={Users} tone="slate" />
       </div>
+      <div className="flex flex-col gap-3 rounded-lg border px-4 py-3 app-border app-panel sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-wide app-text-muted">{t('bulkActions')}</p>
+          <p className="mt-1 text-sm font-semibold app-text">{t('selectedServicesCount', { count: selectedVisibleServiceIds.length })}</p>
+        </div>
+        <div className="grid min-w-0 flex-1 gap-2 sm:max-w-3xl sm:grid-cols-[minmax(160px,220px)_minmax(160px,1fr)_auto_auto]">
+          <select
+            className="h-10 rounded-lg border px-3 text-sm font-semibold outline-none app-panel app-text"
+            value={bulkAction}
+            onChange={(event) => {
+              setBulkAction(event.target.value as BulkServiceAction);
+              setBulkValue('');
+              setBulkLocationIds([]);
+            }}
+          >
+            <option value="duration">{t('bulkSetDuration')}</option>
+            <option value="type">{t('bulkSetCategory')}</option>
+            <option value="max_concurrent_bookings">{t('bulkSetCapacity')}</option>
+            <option value="price">{t('bulkSetPrice')}</option>
+            {salon.locations.length > 1 && <option value="location_ids">{t('bulkSetLocations')}</option>}
+            <option value="delete">{t('bulkDeleteServices')}</option>
+          </select>
+          {bulkActionRequiresValue ? (
+            bulkAction === 'type' ? (
+              <select
+                className="h-10 rounded-lg border px-3 text-sm outline-none app-panel app-text"
+                value={bulkValue}
+                onChange={(event) => setBulkValue(event.target.value)}
+              >
+                <option value="">{t('noCategory')}</option>
+                {(salon.service_categories ?? []).map((category) => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+            ) : bulkAction === 'location_ids' ? (
+              <BranchPicker
+                locations={salon.locations}
+                selectedIds={bulkLocationIds}
+                onChange={setBulkLocationIds}
+                emptyLabel={t('noBranches')}
+              />
+            ) : (
+              <Input
+                type={bulkAction === 'duration' || bulkAction === 'max_concurrent_bookings' ? 'number' : 'text'}
+                min={bulkAction === 'duration' ? 5 : bulkAction === 'max_concurrent_bookings' ? 1 : undefined}
+                max={bulkAction === 'duration' ? 1440 : bulkAction === 'max_concurrent_bookings' ? 100 : undefined}
+                value={bulkValue}
+                onChange={(event) => setBulkValue(event.target.value)}
+                placeholder={bulkAction === 'duration' ? t('durationMin') : bulkAction === 'max_concurrent_bookings' ? t('defaultCapacityOne') : t('pricePlaceholder')}
+              />
+            )
+          ) : (
+            <span className="hidden sm:block" />
+          )}
+          <Button type="button" disabled={bulkApplyDisabled} onClick={applyBulkAction}>{t('apply')}</Button>
+          <SecondaryButton type="button" onClick={clearBulkSelection}>{t('clearSelection')}</SecondaryButton>
+        </div>
+      </div>
       {filteredServices.length === 0 ? (
         <Card className="flex min-h-52 flex-col items-center justify-center p-8 text-center">
           <Scissors className="mb-4 h-10 w-10 app-text-muted" />
           <p className="text-lg font-bold app-text">{t('servicesEmptyTitle')}</p>
-          <p className="mt-2 max-w-xl text-sm app-text-muted">{normalizedQuery || categoryFilter.length > 0 || branchFilter.length > 0 ? t('servicesEmptyFilteredHelp') : t('servicesEmptyHelp')}</p>
-          <Button className="mt-5" onClick={() => setAdding(true)}><Plus className="h-4 w-4" /> {t('addService')}</Button>
+          <p className="mt-2 max-w-xl text-sm app-text-muted">{hasServiceFilters ? t('servicesEmptyFilteredHelp') : t('servicesEmptyHelp')}</p>
+          <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+            <Button onClick={() => setAdding(true)}><Plus className="h-4 w-4" /> {t('addService')}</Button>
+            {hasServiceFilters && <SecondaryButton type="button" onClick={resetServiceSearch}>{t('resetSearch')}</SecondaryButton>}
+          </div>
         </Card>
       ) : (
         <DashboardTable headers={[
+          <input
+            ref={selectAllServicesRef}
+            type="checkbox"
+            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            checked={allVisibleServicesSelected}
+            onChange={(event) => toggleVisibleServices(event.target.checked)}
+            aria-label={t('selectVisibleServices')}
+          />,
+          <CategoryFilterHeader
+            key="cat-filter"
+            label={t('category')}
+            categories={salon.service_categories ?? []}
+            counts={categoryServiceCounts}
+            selected={categoryFilter}
+            onChange={setCategoryFilter}
+          />,
           <DashboardTableHeaderLabel>{t('service')}</DashboardTableHeaderLabel>,
           <span key="capacity-header" className="inline-flex items-center gap-1.5">
             <span className="leading-tight">
@@ -4338,13 +4675,6 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
               </span>
             </span>
           </span>,
-          <CategoryFilterHeader
-            key="cat-filter"
-            label={t('category')}
-            categories={salon.service_categories ?? []}
-            selected={categoryFilter}
-            onChange={setCategoryFilter}
-          />,
           <BranchFilterHeader
             key="branch-filter"
             label={t('branches')}
@@ -4355,10 +4685,20 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
           <DashboardTableHeaderLabel>{t('duration')}</DashboardTableHeaderLabel>,
           <DashboardTableHeaderLabel>{t('priceRon')}</DashboardTableHeaderLabel>,
           <span className="sr-only">{t('actions')}</span>,
-        ]} minWidth="980px">
+        ]} minWidth="1060px">
           {filteredServices.map((service, index) => (
             <tr key={service.id} className={dashboardTableRowClass(index)}>
               <>
+                  <td className="w-12 px-5 py-4 align-top">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      checked={selectedServiceIds.includes(service.id)}
+                      onChange={(event) => toggleServiceSelection(service.id, event.target.checked)}
+                      aria-label={t('selectService', { service: service.name })}
+                    />
+                  </td>
+                  <td className="px-5 py-4 text-sm app-text-soft">{service.type || ''}</td>
                   <td className="px-5 py-4 align-top">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-semibold app-text">{service.name}</p>
@@ -4381,7 +4721,6 @@ function Services({ salon, query }: { salon: Salon; query: string }) {
                     )}
                   </td>
                   <td className="px-5 py-4 text-sm font-semibold app-text">{service.max_concurrent_bookings ?? 1}</td>
-                  <td className="px-5 py-4 text-sm app-text-soft">{service.type || ''}</td>
                   <td className="px-5 py-4">
                     <BranchPicker
                       locations={salon.locations}
@@ -4868,7 +5207,7 @@ function normalizeServiceName(name: string): string {
   return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLocaleLowerCase().replace(/\s+/g, ' ');
 }
 
-function CategoryFilterHeader({ label, categories, selected, onChange }: { label: string; categories: string[]; selected: string[]; onChange: (next: string[]) => void }) {
+function CategoryFilterHeader({ label, categories, counts, selected, onChange }: { label: string; categories: string[]; counts: Record<string, number>; selected: string[]; onChange: (next: string[]) => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const active = selected.length > 0;
@@ -4923,7 +5262,10 @@ function CategoryFilterHeader({ label, categories, selected, onChange }: { label
                 <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${checked ? 'border-indigo-600 bg-indigo-600' : 'border-[var(--app-border)]'}`}>
                   {checked && <Check className="h-2.5 w-2.5 text-white" />}
                 </span>
-                <span className="app-text">{category}</span>
+                <span className="min-w-0 flex-1 truncate text-left app-text">{category}</span>
+                <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-bold leading-none text-white">
+                  {counts[category] ?? 0}
+                </span>
               </button>
             );
           })}
@@ -4963,6 +5305,10 @@ function BranchFilterHeader({ label, locations, selected, onChange }: { label: s
         </Link>
       </span>
     );
+  }
+
+  if (locations.length === 1) {
+    return <span>{label.toLocaleUpperCase()}</span>;
   }
 
   return (
@@ -5284,24 +5630,22 @@ function BranchPicker({ locations, selectedIds, onChange, label, emptyLabel, com
     return (
       <div>
         {label && <p className="mb-2 text-xs font-bold uppercase tracking-wide app-text-muted">{label}</p>}
-        <div className="flex flex-wrap items-center gap-y-1 text-sm app-text-soft">
-          {locations.map((location, index) => {
+        <div className="flex flex-col items-start gap-1 text-sm app-text-soft">
+          {locations.map((location) => {
             const active = normalizedSelectedIds.includes(location.id);
             return (
-              <span key={location.id} className="inline-flex items-center">
-                {index > 0 && <span className="mx-2 app-text-muted" aria-hidden="true">{'\u2022'}</span>}
-                <button
-                  type="button"
-                  onClick={() => toggle(location.id)}
-                  className="inline-flex items-center gap-2 text-sm app-text-soft transition hover:app-text"
-                  title={location.address}
-                >
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-slate-300 bg-white dark:border-slate-600 dark:bg-white/5" aria-hidden="true">
-                    {active && <Check className="h-3 w-3 text-blue-600" strokeWidth={4} />}
-                  </span>
-                  <span>{location.name}</span>
-                </button>
-              </span>
+              <button
+                key={location.id}
+                type="button"
+                onClick={() => toggle(location.id)}
+                className="flex w-full items-center gap-2 text-left text-sm app-text-soft transition hover:app-text"
+                title={location.address}
+              >
+                <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-slate-300 bg-white dark:border-slate-600 dark:bg-white/5" aria-hidden="true">
+                  {active && <Check className="h-3 w-3 text-blue-600" strokeWidth={4} />}
+                </span>
+                <span className="min-w-0 truncate">{location.name}</span>
+              </button>
             );
           })}
         </div>
@@ -5449,9 +5793,11 @@ function VoiceCalls({ query: _query }: { query: string }) {
   );
 }
 
-function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
+function WhatsAppSettings({ salon, plan, query }: { salon: Salon; plan: Plan; query: string }) {
   const t = useT();
   const { auth } = usePage<Props>().props;
+  const conversations = filterWhatsappConversations(salon.conversations, query);
+  const stats = websiteChatStats(conversations);
   const [integration, setIntegration] = useState<WhatsappIntegration | null>(salon.whatsapp_integration ?? null);
   const [requestedNumber, setRequestedNumber] = useState(integration?.requested_number ?? salon.business_phone ?? '');
   const [localSubmittedWhatsappNumber, setLocalSubmittedWhatsappNumber] = useState(integration?.requested_number || (integration?.status === 'active' ? integration?.display_number : '') || '');
@@ -5715,6 +6061,23 @@ function WhatsAppSettings({ salon, plan }: { salon: Salon; plan: Plan }) {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <SecondaryButton
+          type="button"
+          disabled={conversations.length === 0}
+          onClick={() => exportConversationsCsv(conversations, 'whatsapp-conversations', salon.timezone)}
+        >
+          <Download className="h-4 w-4" />
+          {t('exportCsv')}
+        </SecondaryButton>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
+        <ChannelStat icon={MessageSquare} value={stats.total} label={t('totalChat')} tone="blue" />
+        <ChannelStat icon={CheckCircle2} value={stats.completed} label={t('completedChats')} tone="green" />
+        <ChannelStat icon={XCircle} value={stats.abandoned} label={t('abandonedChats')} tone="slate" />
+      </div>
+
       <Card className="p-6">
         <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
           <div className="flex items-start gap-4">

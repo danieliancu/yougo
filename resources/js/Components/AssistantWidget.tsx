@@ -26,12 +26,10 @@ function assistantTypingLabel(salon: Salon, locale: string): string {
 function buildGreeting(salon: Salon, locale: string): string {
   const isRo = locale !== 'en';
   const name = assistantName(salon);
-  const configuredSummary = salon.ai_business_summary?.trim();
+  const configuredGreeting = salon.ai_greeting_message?.trim();
 
-  if (configuredSummary) {
-    return isRo
-      ? `Buna! Sunt ${name}, asistentul virtual pentru ${salon.name}.\n\n${configuredSummary}`
-      : `Hi! I'm ${name}, the virtual assistant for ${salon.name}.\n\n${configuredSummary}`;
+  if (configuredGreeting) {
+    return configuredGreeting;
   }
 
   return isRo

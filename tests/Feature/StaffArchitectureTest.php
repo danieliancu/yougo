@@ -6,6 +6,7 @@ use App\Models\Salon;
 use App\Models\User;
 use App\Services\Assistant\GeminiPayloadBuilder;
 use App\Services\Booking\BookingCreator;
+use App\Support\BusinessLocalization;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -304,6 +305,232 @@ class StaffArchitectureTest extends TestCase
         $service = $salon->services()->where('name', 'New Service')->firstOrFail();
         $this->assertSame([], $service->staff ?? []);
         $this->assertSame('GBP', $service->currency);
+    }
+
+    public function test_service_create_without_currency_inherits_business_currency(): void
+    {
+        [$salon, $location, , $user] = $this->salonSetup([
+            'country' => 'GB',
+            'currency' => 'GBP',
+        ]);
+
+        $response = $this->actingAs($user)->post('/services', [
+            'name' => 'Business Currency Service',
+            'type' => '',
+            'price' => '200',
+            'duration' => 60,
+            'location_ids' => [$location->id],
+            'notes' => '',
+        ]);
+
+        $response->assertRedirect();
+
+        $service = $salon->services()->where('name', 'Business Currency Service')->firstOrFail();
+        $this->assertNull($service->currency);
+        $this->assertSame('£200', BusinessLocalization::formatServicePrice($service->price, $salon, $service->currency));
+    }
+
+    public function test_service_currency_override_can_be_set_and_cleared(): void
+    {
+        [$salon, $location, $service, $user] = $this->salonSetup([
+            'country' => 'GB',
+            'currency' => 'GBP',
+        ], [
+            'currency' => null,
+        ]);
+
+        $this->actingAs($user)->put("/services/{$service->id}", [
+            'name' => $service->name,
+            'type' => '',
+            'price' => '100',
+            'currency' => 'USD',
+            'duration' => 30,
+            'location_ids' => [$location->id],
+            'notes' => '',
+        ])->assertRedirect();
+
+        $this->assertSame('USD', $service->refresh()->currency);
+
+        $this->actingAs($user)->put("/services/{$service->id}", [
+            'name' => $service->name,
+            'type' => '',
+            'price' => '100',
+            'currency' => '',
+            'duration' => 30,
+            'location_ids' => [$location->id],
+            'notes' => '',
+        ])->assertRedirect();
+
+        $this->assertNull($service->refresh()->currency);
+    }
+
+    public function test_service_quick_update_preserves_currency_inheritance(): void
+    {
+        [$salon, $location, $service, $user] = $this->salonSetup([
+            'country' => 'GB',
+            'currency' => 'GBP',
+        ], [
+            'currency' => null,
+        ]);
+
+        $this->actingAs($user)->put("/services/{$service->id}", [
+            'name' => $service->name,
+            'type' => 'Consulting',
+            'price' => '100',
+            'currency' => '',
+            'duration' => 30,
+            'location_ids' => [$location->id],
+            'notes' => '',
+        ])->assertRedirect();
+
+        $this->assertNull($service->refresh()->currency);
+        $this->assertSame('Consulting', $service->type);
+    }
+
+    public function test_bulk_update_service_duration(): void
+    {
+        [$salon, , $service, $user] = $this->salonSetup();
+        $secondService = $salon->services()->create([
+            'name' => 'Masaj',
+            'price' => '180',
+            'duration' => 30,
+        ]);
+
+        $this->actingAs($user)->post('/services/bulk-update', [
+            'service_ids' => [$service->id, $secondService->id],
+            'updates' => ['duration' => 45],
+        ])->assertRedirect();
+
+        $this->assertSame(45, $service->refresh()->duration);
+        $this->assertSame(45, $secondService->refresh()->duration);
+    }
+
+    public function test_bulk_update_service_category_capacity_and_price(): void
+    {
+        [$salon, , $service, $user] = $this->salonSetup([], [
+            'type' => 'Initial',
+            'max_concurrent_bookings' => 3,
+        ]);
+        $secondService = $salon->services()->create([
+            'name' => 'Masaj',
+            'type' => 'Initial',
+            'price' => '180',
+            'duration' => 30,
+            'max_concurrent_bookings' => 3,
+        ]);
+
+        $this->actingAs($user)->post('/services/bulk-update', [
+            'service_ids' => [$service->id, $secondService->id],
+            'updates' => [
+                'type' => '',
+                'max_concurrent_bookings' => null,
+                'price' => '150',
+            ],
+        ])->assertRedirect();
+
+        $service->refresh();
+        $secondService->refresh();
+        $this->assertNull($service->type);
+        $this->assertNull($secondService->type);
+        $this->assertNull($service->max_concurrent_bookings);
+        $this->assertNull($secondService->max_concurrent_bookings);
+        $this->assertSame('150', $service->price);
+        $this->assertSame('150', $secondService->price);
+    }
+
+    public function test_bulk_update_service_locations(): void
+    {
+        [$salon, $location, $service, $user] = $this->salonSetup();
+        $secondLocation = $salon->locations()->create([
+            'name' => 'Nord',
+            'address' => 'Second Street',
+        ]);
+        $secondService = $salon->services()->create([
+            'name' => 'Masaj',
+            'price' => '180',
+            'duration' => 30,
+            'location_ids' => [$location->id],
+        ]);
+
+        $this->actingAs($user)->post('/services/bulk-update', [
+            'service_ids' => [$service->id, $secondService->id],
+            'updates' => ['location_ids' => [$secondLocation->id]],
+        ])->assertRedirect();
+
+        $this->assertSame([$secondLocation->id], $service->refresh()->location_ids);
+        $this->assertSame([$secondLocation->id], $secondService->refresh()->location_ids);
+    }
+
+    public function test_bulk_update_service_locations_rejects_locations_from_another_salon(): void
+    {
+        [, , $service, $user] = $this->salonSetup();
+        [, $otherLocation] = $this->salonSetup();
+
+        $this->actingAs($user)->from('/dashboard/services')->post('/services/bulk-update', [
+            'service_ids' => [$service->id],
+            'updates' => ['location_ids' => [$otherLocation->id]],
+        ])->assertSessionHasErrors('location_ids');
+    }
+
+    public function test_bulk_delete_services(): void
+    {
+        [$salon, , $service, $user] = $this->salonSetup();
+        $secondService = $salon->services()->create([
+            'name' => 'Masaj',
+            'price' => '180',
+            'duration' => 30,
+        ]);
+        $keptService = $salon->services()->create([
+            'name' => 'Consultanta',
+            'price' => '220',
+            'duration' => 30,
+        ]);
+
+        $this->actingAs($user)->post('/services/bulk-delete', [
+            'service_ids' => [$service->id, $secondService->id],
+        ])->assertRedirect();
+
+        $this->assertDatabaseMissing('services', ['id' => $service->id]);
+        $this->assertDatabaseMissing('services', ['id' => $secondService->id]);
+        $this->assertDatabaseHas('services', ['id' => $keptService->id]);
+    }
+
+    public function test_bulk_actions_cannot_touch_services_from_another_salon(): void
+    {
+        [$salon, , $service, $user] = $this->salonSetup();
+        [$otherSalon, , $otherService] = $this->salonSetup();
+
+        $this->actingAs($user)->post('/services/bulk-update', [
+            'service_ids' => [$service->id, $otherService->id],
+            'updates' => ['duration' => 45],
+        ])->assertForbidden();
+
+        $this->actingAs($user)->post('/services/bulk-delete', [
+            'service_ids' => [$otherService->id],
+        ])->assertForbidden();
+
+        $this->assertSame(30, $service->refresh()->duration);
+        $this->assertTrue($otherSalon->services()->whereKey($otherService->id)->exists());
+    }
+
+    public function test_bulk_update_validates_service_ids_and_values(): void
+    {
+        [, , , $user] = $this->salonSetup();
+
+        $this->actingAs($user)->from('/dashboard/services')->post('/services/bulk-update', [
+            'service_ids' => [],
+            'updates' => ['duration' => 45],
+        ])->assertSessionHasErrors('service_ids');
+
+        $this->actingAs($user)->from('/dashboard/services')->post('/services/bulk-update', [
+            'service_ids' => [1],
+            'updates' => ['duration' => 2],
+        ])->assertSessionHasErrors('updates.duration');
+
+        $this->actingAs($user)->from('/dashboard/services')->post('/services/bulk-update', [
+            'service_ids' => [1],
+            'updates' => ['price' => ''],
+        ])->assertSessionHasErrors('updates.price');
     }
 
     public function test_gemini_payload_includes_new_staff_data_when_available(): void

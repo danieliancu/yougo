@@ -19,8 +19,14 @@ class AssistantPromptTest extends TestCase
             'ai_tone' => 'professional',
             'ai_response_style' => 'detailed',
             'ai_language_mode' => 'en',
+            'ai_greeting_message' => 'Visible greeting only.',
             'ai_custom_instructions' => 'Mention the cancellation policy.',
             'ai_business_summary' => 'Premium appointment studio.',
+            'ai_about_business' => 'Boutique studio for premium clients.',
+            'ai_policies' => 'Cancellations require 24 hours notice.',
+            'ai_faq' => 'Parking? Yes, in front.',
+            'ai_recommendations' => 'Recommend the initial consultation.',
+            'ai_avoid' => 'Do not promise guaranteed results.',
         ]);
 
         $payload = $this->buildPayload($salon);
@@ -28,8 +34,14 @@ class AssistantPromptTest extends TestCase
 
         $this->assertStringContainsString('Esti Mara', $instruction);
         $this->assertStringContainsString('Premium appointment studio.', $instruction);
+        $this->assertStringContainsString('Boutique studio for premium clients.', $instruction);
+        $this->assertStringContainsString('Cancellations require 24 hours notice.', $instruction);
+        $this->assertStringContainsString('Parking? Yes, in front.', $instruction);
+        $this->assertStringContainsString('Recommend the initial consultation.', $instruction);
+        $this->assertStringContainsString('Do not promise guaranteed results.', $instruction);
         $this->assertStringContainsString('Mention the cancellation policy.', $instruction);
         $this->assertStringContainsString('Raspunde intotdeauna in engleza.', $instruction);
+        $this->assertStringNotContainsString('Visible greeting only.', $instruction);
     }
 
     public function test_booking_tool_is_omitted_when_ai_booking_is_disabled(): void

@@ -206,7 +206,7 @@ class BusinessLocalization
 
         $price = trim((string) $price);
 
-        if (preg_match('/\b(RON|GBP|EUR|USD)\b|£|€|\$/i', $price)) {
+        if (preg_match('/\b(RON|GBP|EUR|USD)\b|£|€|\$/iu', $price)) {
             return $price;
         }
 

@@ -21,6 +21,7 @@ class AssistantWidgetTest extends TestCase
     {
         $salon = $this->createSalon([
             'ai_assistant_name' => 'Mara',
+            'ai_greeting_message' => 'Buna, sunt Mara. Te pot ajuta cu programari.',
             'ai_business_summary' => 'Welcome clients with a premium tone.',
             'ai_handoff_message' => 'Un coleg va reveni cu detalii.',
             'display_language' => 'ro',
@@ -35,6 +36,7 @@ class AssistantWidgetTest extends TestCase
                 ->component('Assistant/Show')
                 ->where('locale', 'ro')
                 ->where('salon.ai_assistant_name', 'Mara')
+                ->where('salon.ai_greeting_message', 'Buna, sunt Mara. Te pot ajuta cu programari.')
                 ->where('salon.ai_business_summary', 'Welcome clients with a premium tone.')
                 ->where('salon.ai_handoff_message', 'Un coleg va reveni cu detalii.')
                 ->where('salon.widget_primary_color', '#c9978e')

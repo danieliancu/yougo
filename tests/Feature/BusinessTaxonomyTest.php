@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Salon;
 use App\Models\User;
+use App\Support\BusinessLocalization;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
@@ -166,6 +167,38 @@ class BusinessTaxonomyTest extends TestCase
         $this->assertSame('+44', $salon->phone_prefix);
         $this->assertSame('Europe/London', $salon->timezone);
         $this->assertSame('dd/mm/yyyy', $salon->date_format);
+    }
+
+    public function test_services_without_currency_override_follow_business_currency_after_country_change(): void
+    {
+        $user = User::factory()->create();
+        $salon = $user->salon()->create([
+            'name' => 'Studio',
+            'plan' => 'free',
+            'business_type' => 'salon-beauty',
+            'mode' => Salon::MODE_APPOINTMENT,
+            'country' => 'RO',
+            'currency' => 'RON',
+        ]);
+        $service = $salon->services()->create([
+            'name' => 'Consultatie',
+            'price' => '100',
+            'currency' => null,
+            'duration' => 30,
+        ]);
+
+        $this->actingAs($user)->from('/dashboard/settings')->post('/settings', $this->validSettingsPayload([
+            'country' => 'UK',
+            'timezone' => 'Europe/London',
+            'date_format' => 'dd/mm/yyyy',
+        ]))->assertRedirect();
+
+        $salon->refresh();
+        $service->refresh();
+
+        $this->assertSame('GBP', $salon->currency);
+        $this->assertNull($service->currency);
+        $this->assertSame('£100', BusinessLocalization::formatServicePrice($service->price, $salon, $service->currency));
     }
 
     public function test_settings_accepts_written_month_date_format(): void

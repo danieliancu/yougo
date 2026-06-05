@@ -59,6 +59,7 @@ class GeminiPayloadBuilder
             'Foloseste exclusiv informatiile configurate aici pentru a raspunde.',
             'Detalii business: '.($this->businessDetails($salon) ?: 'nu sunt configurate').'.',
             $this->aiBusinessContext($salon),
+            $this->aiStructuredKnowledge($salon),
             "Context produs: modul curent este {$this->businessMode($salon)}. Pentru moment aplicatia activeaza doar fluxul appointment.",
             $this->channelInstructions($conversation),
             $currentBookingContext,
@@ -241,6 +242,23 @@ class GeminiPayloadBuilder
             $mainFocus ? "Main focus: {$mainFocus}." : null,
             'These categories are only context; answer based on configured services, locations, staff and AI settings. Services configured in the dashboard remain the source of truth.',
         ])->filter()->implode(' ');
+    }
+
+    private function aiStructuredKnowledge(Salon $salon): ?string
+    {
+        $parts = collect([
+            filled($salon->ai_about_business) ? "Despre business: {$salon->ai_about_business}." : null,
+            filled($salon->ai_policies) ? "Politici configurate de owner: {$salon->ai_policies}." : null,
+            filled($salon->ai_faq) ? "Intrebari frecvente configurate de owner: {$salon->ai_faq}." : null,
+            filled($salon->ai_recommendations) ? "Ce sa recomanzi cand este relevant: {$salon->ai_recommendations}." : null,
+            filled($salon->ai_avoid) ? "Ce sa eviti: {$salon->ai_avoid}." : null,
+        ])->filter();
+
+        if ($parts->isEmpty()) {
+            return null;
+        }
+
+        return 'Cunostinte AI avansate configurate de owner. Foloseste aceste informatii cand sunt relevante, dar nu le afisa ca text brut si nu le lasa sa contrazica serviciile, preturile, locatiile, staff-ul sau programul configurat. '.$parts->implode(' ');
     }
 
     private function aiBehaviorRules(Salon $salon): string

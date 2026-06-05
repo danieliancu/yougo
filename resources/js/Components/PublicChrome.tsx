@@ -214,7 +214,7 @@ function MobileLandingMenu({
         {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </button>
       {open && (
-        <div className="absolute right-0 top-12 z-50 max-h-[75vh] w-[calc(100vw-2rem)] overflow-y-auto rounded-2xl border p-4 shadow-2xl app-panel">
+        <div className="fixed inset-x-4 top-20 z-50 max-h-[75vh] overflow-y-auto rounded-2xl border p-4 shadow-2xl app-panel">
           <button
             type="button"
             onClick={() => setLanguageOpen((value) => !value)}

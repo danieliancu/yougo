@@ -79,6 +79,8 @@ Route::middleware('auth')->group(function () {
         ->name('services.import-image.store');
     Route::put('/services/categories', [ServiceController::class, 'updateCategories'])->name('services.categories.update');
     Route::put('/services/staff', [ServiceController::class, 'updateStaff'])->name('services.staff.update');
+    Route::post('/services/bulk-update', [ServiceController::class, 'bulkUpdate'])->name('services.bulk-update');
+    Route::post('/services/bulk-delete', [ServiceController::class, 'bulkDelete'])->name('services.bulk-delete');
     Route::put('/services/{service}', [ServiceController::class, 'update'])->name('services.update');
     Route::delete('/services/{service}', [ServiceController::class, 'destroy'])->name('services.destroy');
 

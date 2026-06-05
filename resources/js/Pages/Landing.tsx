@@ -51,7 +51,7 @@ export default function Landing() {
   const t = (key: string, params?: Record<string, string | number>) => translate(locale, key, params);
 
   return (
-    <main className="min-h-screen app-bg landing-page-bg">
+    <main className="min-h-screen overflow-x-hidden app-bg landing-page-bg">
       <Head title={t('landingTitle')} />
       <div className="landing-hero-bg min-[1600px]:border-b min-[1600px]:border-slate-200 min-[1600px]:dark:border-white/10">
         <PublicHeader

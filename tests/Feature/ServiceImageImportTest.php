@@ -310,7 +310,7 @@ JSON,
 
         $service = $salon->services()->where('name', 'Tuns dama')->firstOrFail();
         $this->assertSame('120', $service->price);
-        $this->assertSame('RON', $service->currency);
+        $this->assertNull($service->currency);
         $this->assertSame('Coafor', $service->type);
         $this->assertSame(45, $service->duration);
         $this->assertSame([$location->id], $service->location_ids);
@@ -518,6 +518,10 @@ JSON,
         $this->assertStringContainsString('ServiceImageImportModal', $source);
         $this->assertStringContainsString('/dashboard/services/import-image/analyze', $source);
         $this->assertStringContainsString('/dashboard/services/import-image/store', $source);
+        $this->assertStringContainsString('/services/bulk-update', $source);
+        $this->assertStringContainsString('/services/bulk-delete', $source);
+        $this->assertStringContainsString("t('bulkActions')", $source);
+        $this->assertStringContainsString("t('selectVisibleServices')", $source);
         $this->assertStringContainsString('serviceImportResponseData', $source);
         $this->assertStringContainsString('response.status === 413', $source);
         $this->assertStringContainsString('serviceImportImageTooLargeServer', $source);

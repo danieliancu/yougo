@@ -33,7 +33,7 @@ class ServiceController extends Controller
         if ($request->has('staff')) {
             $data['staff'] = $this->normalizeStaff($data['staff'] ?? []);
         }
-        $data['currency'] = BusinessLocalization::normalizeServiceCurrency($data['currency'] ?? null, $salon->country);
+        $data['currency'] = $this->normalizeCurrencyOverride($data['currency'] ?? null, $salon->country);
 
         $salon->services()->create($data);
 
@@ -63,7 +63,7 @@ class ServiceController extends Controller
             $data['staff'] = $this->normalizeStaff($data['staff'] ?? []);
         }
         if ($request->has('currency')) {
-            $data['currency'] = BusinessLocalization::normalizeServiceCurrency($data['currency'] ?? null, $request->user()->salon?->country);
+            $data['currency'] = $this->normalizeCurrencyOverride($data['currency'] ?? null, $request->user()->salon?->country);
         }
 
         $service->update($data);
@@ -77,6 +77,84 @@ class ServiceController extends Controller
         $service->delete();
 
         return back()->with('success', 'Serviciu sters.');
+    }
+
+    public function bulkUpdate(Request $request): RedirectResponse
+    {
+        $salon = $request->user()->salon;
+
+        $data = $request->validate([
+            'service_ids' => ['required', 'array', 'min:1'],
+            'service_ids.*' => ['required', 'integer', 'distinct'],
+            'updates' => ['required', 'array'],
+            'updates.type' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'updates.duration' => ['sometimes', 'required', 'integer', 'min:5', 'max:1440'],
+            'updates.max_concurrent_bookings' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:100'],
+            'updates.price' => ['sometimes', 'required', 'string', 'min:1', 'max:255'],
+            'updates.location_ids' => ['sometimes', 'required', 'array'],
+            'updates.location_ids.*' => ['integer', 'distinct'],
+        ]);
+
+        $updates = collect($data['updates'])
+            ->only(['type', 'duration', 'max_concurrent_bookings', 'price', 'location_ids'])
+            ->all();
+
+        if ($updates === []) {
+            throw ValidationException::withMessages([
+                'updates' => 'Selecteaza cel putin o modificare.',
+            ]);
+        }
+
+        if (array_key_exists('type', $updates)) {
+            $updates['type'] = trim((string) $updates['type']) ?: null;
+        }
+
+        if (array_key_exists('price', $updates)) {
+            $updates['price'] = trim((string) $updates['price']);
+
+            if ($updates['price'] === '') {
+                throw ValidationException::withMessages([
+                    'updates.price' => 'Pretul este obligatoriu.',
+                ]);
+            }
+        }
+
+        if (array_key_exists('location_ids', $updates)) {
+            $updates['location_ids'] = $this->normalizeLocations($request, $updates['location_ids'] ?? []);
+            $this->validateLocations($request, $updates['location_ids']);
+        }
+
+        $serviceIds = array_values(array_unique($data['service_ids']));
+        $this->authorizeServiceIds($request, $serviceIds);
+
+        DB::transaction(function () use ($salon, $serviceIds, $updates) {
+            $salon->services()
+                ->whereIn('id', $serviceIds)
+                ->update($updates);
+        });
+
+        return back()->with('success', 'Servicii actualizate.');
+    }
+
+    public function bulkDelete(Request $request): RedirectResponse
+    {
+        $salon = $request->user()->salon;
+
+        $data = $request->validate([
+            'service_ids' => ['required', 'array', 'min:1'],
+            'service_ids.*' => ['required', 'integer', 'distinct'],
+        ]);
+
+        $serviceIds = array_values(array_unique($data['service_ids']));
+        $this->authorizeServiceIds($request, $serviceIds);
+
+        DB::transaction(function () use ($salon, $serviceIds) {
+            $salon->services()
+                ->whereIn('id', $serviceIds)
+                ->delete();
+        });
+
+        return back()->with('success', 'Servicii sterse.');
     }
 
     public function updateCategories(Request $request): RedirectResponse
@@ -150,6 +228,16 @@ class ServiceController extends Controller
     private function authorizeOwner(Request $request, Service $service): void
     {
         abort_unless($service->salon_id === $request->user()->salon?->id, 403);
+    }
+
+    private function authorizeServiceIds(Request $request, array $serviceIds): void
+    {
+        $salon = $request->user()->salon;
+        $ownedCount = $salon?->services()
+            ->whereIn('id', $serviceIds)
+            ->count() ?? 0;
+
+        abort_unless($ownedCount === count($serviceIds), 403);
     }
 
     private function sanitizeCategories(array $categories): array
@@ -247,5 +335,14 @@ class ServiceController extends Controller
             ->unique()
             ->values()
             ->all();
+    }
+
+    private function normalizeCurrencyOverride(?string $currency, ?string $country): ?string
+    {
+        $currency = trim((string) $currency);
+
+        return $currency === ''
+            ? null
+            : BusinessLocalization::normalizeServiceCurrency($currency, $country);
     }
 }

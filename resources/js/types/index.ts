@@ -179,8 +179,14 @@ export type Salon = {
   ai_tone?: 'polite' | 'friendly' | 'professional' | 'warm' | string | null;
   ai_response_style?: 'short' | 'balanced' | 'detailed' | string | null;
   ai_language_mode?: 'auto' | 'ro' | 'en' | string | null;
+  ai_greeting_message?: string | null;
   ai_custom_instructions?: string | null;
   ai_business_summary?: string | null;
+  ai_about_business?: string | null;
+  ai_policies?: string | null;
+  ai_faq?: string | null;
+  ai_recommendations?: string | null;
+  ai_avoid?: string | null;
   ai_industry_categories?: string[] | null;
   ai_main_focus?: string | null;
   ai_custom_context?: string[] | null;

@@ -25,8 +25,14 @@ class AiSettingsTest extends TestCase
             'ai_tone' => 'friendly',
             'ai_response_style' => 'balanced',
             'ai_language_mode' => 'ro',
+            'ai_greeting_message' => 'Buna, sunt Mara si te pot ajuta cu programari.',
             'ai_custom_instructions' => 'Mentioneaza politica de anulare.',
             'ai_business_summary' => 'Studio pentru servicii rapide.',
+            'ai_about_business' => 'Lucram cu flote comerciale.',
+            'ai_policies' => 'Anularea se face cu minimum 24h inainte.',
+            'ai_faq' => 'Aveti parcare? Da.',
+            'ai_recommendations' => 'Recomanda inspectia initiala.',
+            'ai_avoid' => 'Nu promite disponibilitate fara verificare.',
             'ai_industry_categories' => ['mot-inspection', 'tyres', 'car-diagnostics'],
             'ai_main_focus' => 'mot-inspection',
             'ai_custom_context' => ['flote comerciale', 'urgente'],
@@ -43,8 +49,14 @@ class AiSettingsTest extends TestCase
         $this->assertSame('friendly', $salon->ai_tone);
         $this->assertSame('balanced', $salon->ai_response_style);
         $this->assertSame('ro', $salon->ai_language_mode);
+        $this->assertSame('Buna, sunt Mara si te pot ajuta cu programari.', $salon->ai_greeting_message);
         $this->assertSame('Mentioneaza politica de anulare.', $salon->ai_custom_instructions);
         $this->assertSame('Studio pentru servicii rapide.', $salon->ai_business_summary);
+        $this->assertSame('Lucram cu flote comerciale.', $salon->ai_about_business);
+        $this->assertSame('Anularea se face cu minimum 24h inainte.', $salon->ai_policies);
+        $this->assertSame('Aveti parcare? Da.', $salon->ai_faq);
+        $this->assertSame('Recomanda inspectia initiala.', $salon->ai_recommendations);
+        $this->assertSame('Nu promite disponibilitate fara verificare.', $salon->ai_avoid);
         $this->assertSame(['mot-inspection', 'tyres', 'car-diagnostics'], $salon->ai_industry_categories);
         $this->assertSame('mot-inspection', $salon->ai_main_focus);
         $this->assertSame(['flote comerciale', 'urgente'], $salon->ai_custom_context);
@@ -107,8 +119,14 @@ class AiSettingsTest extends TestCase
             'ai_tone' => 'friendly',
             'ai_response_style' => 'balanced',
             'ai_language_mode' => 'ro',
+            'ai_greeting_message' => '',
             'ai_custom_instructions' => '',
             'ai_business_summary' => '',
+            'ai_about_business' => '',
+            'ai_policies' => '',
+            'ai_faq' => '',
+            'ai_recommendations' => '',
+            'ai_avoid' => '',
             'ai_industry_categories' => ['mot-inspection'],
             'ai_main_focus' => '',
             'ai_custom_context' => [],
