@@ -21,6 +21,13 @@ use Illuminate\Support\Str;
  */
 class OnboardingEntityDeduplicator
 {
+    private readonly ImportedFactMerger $factMerger;
+
+    public function __construct(?ImportedFactMerger $factMerger = null)
+    {
+        $this->factMerger = $factMerger ?? new ImportedFactMerger;
+    }
+
     public function process(OnboardingDraft $draft, NormalizedExtractionResult $result): NormalizedExtractionResult
     {
         return $result->withEntities(
@@ -134,35 +141,9 @@ class OnboardingEntityDeduplicator
         );
     }
 
-    /**
-     * Same-fingerprint fact merge: identical values keep the first mention; conflicting
-     * values are kept as a conflict on the field and force requires_confirmation=true
-     * rather than silently picking one.
-     */
     private function mergeFact(?ImportedFact $a, ?ImportedFact $b): ?ImportedFact
     {
-        if ($a === null) {
-            return $b;
-        }
-
-        if ($b === null) {
-            return $a;
-        }
-
-        if ($this->factValuesEqual($a->value, $b->value)) {
-            return $a;
-        }
-
-        return $a->withConflicts([...$a->conflicts, $b], true);
-    }
-
-    private function factValuesEqual(mixed $a, mixed $b): bool
-    {
-        if (is_string($a) && is_string($b)) {
-            return mb_strtolower(trim($a)) === mb_strtolower(trim($b));
-        }
-
-        return $a == $b; // phpcs:ignore
+        return $this->factMerger->merge($a, $b);
     }
 
     private function forceRequiresConfirmation(?ImportedFact $fact): ?ImportedFact

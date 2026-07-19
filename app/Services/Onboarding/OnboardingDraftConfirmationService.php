@@ -37,6 +37,8 @@ class OnboardingDraftConfirmationService
         'business.website' => 'website',
         'business.service_at_customer_location' => 'service_at_customer_location',
         'business.opening_hours' => 'opening_hours',
+        'business.business_type' => 'business_type',
+        'business.description' => 'ai_about_business',
         'contact.business_phone' => 'business_phone',
         'contact.notification_email' => 'notification_email',
     ];
@@ -48,10 +50,16 @@ class OnboardingDraftConfirmationService
         'hours' => 'opening_hours',
     ];
 
+    private const RECOGNIZED_LANGUAGE_CODES = [
+        'ro' => 'ro', 'ron' => 'ro', 'romana' => 'ro', 'română' => 'ro', 'romanian' => 'ro',
+        'en' => 'en', 'eng' => 'en', 'engleza' => 'en', 'engleză' => 'en', 'english' => 'en',
+    ];
+
     public function __construct(
         private readonly OnboardingStateMachine $salonMachine,
         private readonly OnboardingDraftStateMachine $draftMachine,
         private readonly OnboardingHoursValidator $hoursValidator,
+        private readonly OnboardingPriceFormatter $priceFormatter,
     ) {}
 
     public function confirm(OnboardingDraft $draft, User $user, ConfirmedSelections $selections): Salon
@@ -336,9 +344,53 @@ class OnboardingDraftConfirmationService
             }
         }
 
+        // business.languages -> Salon::ai_language_mode is not a 1:1 column mapping
+        // (it needs interpreting), so it's handled separately from the generic loop
+        // above. Only written when the resolved value unambiguously names a single
+        // recognized language (ro|en) — a multi-language or unrecognized value is left
+        // in the draft only, since ai_language_mode also drives live AI behavior.
+        if (array_key_exists('languages', $resolvedBusinessFields)) {
+            $languageCode = $this->resolveLanguageMode($resolvedBusinessFields['languages']);
+            $overwrite = $selections->shouldOverwrite('ai_language_mode');
+
+            if ($languageCode !== null && (blank($salon->ai_language_mode) || $salon->ai_language_mode === 'auto' || $overwrite)) {
+                $salon->ai_language_mode = $languageCode;
+                $audit['business.languages'] = ['applied' => true, 'value' => $languageCode];
+            } else {
+                $audit['business.languages'] = ['applied' => false, 'reason' => $languageCode === null ? 'ambiguous_or_unrecognized' : 'live_value_already_set'];
+            }
+        }
+
         $salon->save();
 
         return $audit;
+    }
+
+    /**
+     * Returns a recognized single language code (ro|en) only when every language
+     * candidate present resolves to the same code — a mix of Romanian and English (or
+     * anything unrecognized) is treated as ambiguous and returns null.
+     */
+    private function resolveLanguageMode(mixed $value): ?string
+    {
+        $candidates = is_array($value) ? $value : [$value];
+        $codes = [];
+
+        foreach ($candidates as $candidate) {
+            if (! is_string($candidate)) {
+                continue;
+            }
+
+            $normalized = mb_strtolower(trim($candidate));
+
+            if (isset(self::RECOGNIZED_LANGUAGE_CODES[$normalized])) {
+                $codes[] = self::RECOGNIZED_LANGUAGE_CODES[$normalized];
+            }
+        }
+
+        $unique = array_values(array_unique($codes));
+
+        return count($unique) === 1 ? $unique[0] : null;
     }
 
     /**
@@ -451,7 +503,7 @@ class OnboardingDraftConfirmationService
         $created = $salon->services()->create([
             'name' => $resolved['name'] ?? '',
             'type' => $resolved['category'] ?? '',
-            'price' => isset($resolved['price']) ? (string) $resolved['price'] : '',
+            'price' => $this->priceFormatter->toDisplayString($resolved['price'] ?? null),
             'currency' => $resolved['currency'] ?? null,
             'duration' => $resolved['duration'] ?? 30,
             'notes' => $resolved['description'] ?? null,
@@ -535,7 +587,7 @@ class OnboardingDraftConfirmationService
             }
 
             if (blank($service->{$column})) {
-                $service->{$column} = $sourceField === 'price' ? (string) $resolved[$sourceField] : $resolved[$sourceField];
+                $service->{$column} = $sourceField === 'price' ? $this->priceFormatter->toDisplayString($resolved[$sourceField]) : $resolved[$sourceField];
                 $dirty = true;
             }
         }

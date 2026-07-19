@@ -180,6 +180,30 @@ class OnboardingImportController extends Controller
             'finished_at' => $draft->finished_at?->toISOString(),
             'confirmed_at' => $draft->confirmed_at?->toISOString(),
             'superseded_at' => $draft->superseded_at?->toISOString(),
+            'analysis_progress' => $this->analysisProgress($draft),
+        ];
+    }
+
+    /**
+     * A safe subset of metadata.last_analysis (set by AnalyzeOnboardingDraftJob's
+     * Phase C) for a future UI to show crawl progress — never the raw field, never
+     * prompts, never storage paths.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function analysisProgress(OnboardingDraft $draft): ?array
+    {
+        $providerMetadata = $draft->metadata['last_analysis']['provider_metadata'] ?? null;
+
+        if ($providerMetadata === null) {
+            return null;
+        }
+
+        return [
+            'pages_discovered' => $providerMetadata['pages_discovered'] ?? null,
+            'pages_processed' => $providerMetadata['pages_processed'] ?? null,
+            'warnings' => $draft->metadata['last_analysis']['warnings'] ?? [],
+            'stop_reason' => $providerMetadata['stop_reason'] ?? null,
         ];
     }
 }

@@ -15,7 +15,53 @@ return [
     */
 
     'analyzer' => [
+        // null | fake | gemini_website
         'driver' => env('ONBOARDING_ANALYZER_DRIVER', 'null'),
+        'confidence_auto_accept_threshold' => 0.75,
+        'gemini' => [
+            // Reuses services.gemini.key/ca_bundle (config/services.php) — no separate API key.
+            'model' => env('ONBOARDING_GEMINI_MODEL', env('GEMINI_MODEL', 'gemini-3-flash-preview')),
+            'timeout_seconds' => (int) env('ONBOARDING_GEMINI_TIMEOUT', 30),
+            'max_repair_attempts' => 1,
+            // Global AI cost/latency ceilings, independent of the crawl limits below —
+            // 12 pages x a 30s Gemini call each would make onboarding slow and costly.
+            'max_ai_calls' => (int) env('ONBOARDING_GEMINI_MAX_CALLS', 6),
+            'max_input_characters_per_call' => (int) env('ONBOARDING_GEMINI_MAX_CHARS_PER_CALL', 12000),
+            'max_output_tokens' => (int) env('ONBOARDING_GEMINI_MAX_OUTPUT_TOKENS', 4096),
+            'total_analyzer_timeout_seconds' => (int) env('ONBOARDING_GEMINI_TOTAL_TIMEOUT', 90),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Website crawling
+    |--------------------------------------------------------------------------
+    |
+    | Limits applied by OnboardingWebsiteCrawler / HttpWebsiteSourceFetcher when
+    | analyzing a public business website (Task 2). Crawling stops controlledly once
+    | any of these limits is reached — it never fails the import just because a limit
+    | was hit; whatever was already extracted is kept.
+    |
+    */
+
+    'crawl' => [
+        'max_pages' => (int) env('ONBOARDING_CRAWL_MAX_PAGES', 12),
+        'max_depth' => (int) env('ONBOARDING_CRAWL_MAX_DEPTH', 2),
+        'max_redirects' => (int) env('ONBOARDING_CRAWL_MAX_REDIRECTS', 5),
+        'connect_timeout_seconds' => (int) env('ONBOARDING_CRAWL_CONNECT_TIMEOUT', 5),
+        'request_timeout_seconds' => (int) env('ONBOARDING_CRAWL_REQUEST_TIMEOUT', 12),
+        'total_timeout_seconds' => (int) env('ONBOARDING_CRAWL_TOTAL_TIMEOUT', 45),
+        'max_html_bytes_per_page' => (int) env('ONBOARDING_CRAWL_MAX_HTML_BYTES', 2 * 1024 * 1024),
+        'max_sitemap_bytes' => (int) env('ONBOARDING_CRAWL_MAX_SITEMAP_BYTES', 512 * 1024),
+        'max_total_download_bytes' => (int) env('ONBOARDING_CRAWL_MAX_TOTAL_BYTES', 8 * 1024 * 1024),
+        'max_extracted_characters_per_page' => (int) env('ONBOARDING_CRAWL_MAX_CHARS_PER_PAGE', 30000),
+        'max_total_extracted_characters' => (int) env('ONBOARDING_CRAWL_MAX_TOTAL_CHARS', 150000),
+        'user_agent' => env('ONBOARDING_CRAWL_USER_AGENT', 'YouGoOnboardingBot/1.0 (+https://yougo.ro/onboarding)'),
+        'max_concurrent_requests' => (int) env('ONBOARDING_CRAWL_CONCURRENCY', 2),
+        // Testing-only escape hatch for the loopback smoke test (GuzzleOnboardingHttpTransportLoopbackTest):
+        // lets OnboardingUrlValidator accept 127.0.0.1 so the real transport can be exercised against a
+        // local PHP built-in server with zero public internet access. Must never be true outside `testing`.
+        'allow_private_networks_for_testing' => (bool) env('ONBOARDING_ALLOW_PRIVATE_NETWORKS_FOR_TESTING', false),
     ],
 
     /*

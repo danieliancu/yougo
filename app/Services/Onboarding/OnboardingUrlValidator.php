@@ -22,7 +22,28 @@ class OnboardingUrlValidator
 
     private const EXPLICIT_METADATA_IPS = ['169.254.169.254', 'fd00:ec2::254'];
 
+    private readonly OnboardingHostResolver $hostResolver;
+
+    public function __construct(?OnboardingHostResolver $hostResolver = null)
+    {
+        $this->hostResolver = $hostResolver ?? new DnsOnboardingHostResolver;
+    }
+
     public function validate(string $normalizedUrl): void
+    {
+        $this->resolveValidatedIps($normalizedUrl);
+    }
+
+    /**
+     * Same checks as validate(), but also returns the resolved, already-validated IP
+     * list — lets a caller that needs an IP right after validating (the fetcher, to
+     * pin the connection) reuse this single resolution instead of resolving the host
+     * a second time, which would both double DNS traffic and reopen a small
+     * validate-then-resolve-again TOCTOU gap of its own.
+     *
+     * @return list<string>
+     */
+    public function resolveValidatedIps(string $normalizedUrl): array
     {
         $maxLength = (int) config('onboarding.url.max_length', 2048);
 
@@ -62,7 +83,7 @@ class OnboardingUrlValidator
             }
         }
 
-        $ips = $this->resolveIps($host);
+        $ips = $this->hostResolver->resolve($host);
 
         if ($ips === []) {
             throw new InvalidOnboardingUrlException('The host could not be resolved.', 'dns_resolution_failed');
@@ -73,47 +94,20 @@ class OnboardingUrlValidator
                 throw new InvalidOnboardingUrlException('This host resolves to a disallowed network address.', 'disallowed_ip');
             }
         }
-    }
 
-    /**
-     * @return list<string>
-     */
-    private function resolveIps(string $host): array
-    {
-        // PHP's parse_url keeps the enclosing brackets on an IPv6 literal host ("[::1]").
-        $host = (str_starts_with($host, '[') && str_ends_with($host, ']')) ? substr($host, 1, -1) : $host;
-
-        if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
-            return [$host];
-        }
-
-        $ips = [];
-
-        $records = @dns_get_record($host, DNS_A + DNS_AAAA);
-
-        if (is_array($records)) {
-            foreach ($records as $record) {
-                if (isset($record['ip'])) {
-                    $ips[] = $record['ip'];
-                } elseif (isset($record['ipv6'])) {
-                    $ips[] = $record['ipv6'];
-                }
-            }
-        }
-
-        if ($ips === []) {
-            $fallback = @gethostbyname($host);
-
-            if (is_string($fallback) && $fallback !== $host) {
-                $ips[] = $fallback;
-            }
-        }
-
-        return array_values(array_unique($ips));
+        return $ips;
     }
 
     private function isDisallowedIp(string $ip): bool
     {
+        // Testing-only escape hatch (config/onboarding.php: crawl.allow_private_networks_for_testing,
+        // hardcoded false outside the `testing` environment) so a loopback smoke test can exercise the
+        // real fetch/transport stack against a local server without touching public internet. Never
+        // read by any request-facing code path.
+        if (app()->environment('testing') && config('onboarding.crawl.allow_private_networks_for_testing') === true) {
+            return false;
+        }
+
         if (in_array($ip, self::EXPLICIT_METADATA_IPS, true)) {
             return true;
         }

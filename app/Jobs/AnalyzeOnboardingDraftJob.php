@@ -11,6 +11,7 @@ use App\Models\Salon;
 use App\Services\Onboarding\Analyzer\AnalyzerFailedException;
 use App\Services\Onboarding\Analyzer\AnalyzerNotConfiguredException;
 use App\Services\Onboarding\Analyzer\OnboardingSourceAnalyzer;
+use App\Services\Onboarding\Analyzer\SourceUnsupportedException;
 use App\Services\Onboarding\OnboardingDraftStateMachine;
 use App\Services\Onboarding\OnboardingEntityDeduplicator;
 use App\Services\Onboarding\OnboardingStateMachine;
@@ -220,8 +221,13 @@ class AnalyzeOnboardingDraftJob implements ShouldBeUnique, ShouldQueue
                 $exception->getMessage(),
                 ...$exception->errors(),
             ])));
-        } catch (AnalyzerNotConfiguredException $exception) {
-            Log::warning('onboarding draft analysis skipped: analyzer not configured', ['draft_id' => $draft->id]);
+        } catch (AnalyzerNotConfiguredException|SourceUnsupportedException $exception) {
+            // Permanent failures: retrying can never change the outcome (the analyzer
+            // isn't wired up, or the source type/host is one we don't support at all).
+            Log::warning('onboarding draft analysis skipped: permanent failure', [
+                'draft_id' => $draft->id,
+                'code' => $exception->failureCode(),
+            ]);
 
             return $this->failedOutcome($exception->failureCode(), permanent: true);
         } catch (AnalyzerFailedException $exception) {
@@ -390,6 +396,12 @@ class AnalyzeOnboardingDraftJob implements ShouldBeUnique, ShouldQueue
             'analyzer_busy' => 'The import service is temporarily busy. Please try again shortly.',
             'analyzer_not_configured' => 'Import from this source is not yet available.',
             'invalid_extraction_result' => 'The analysis result did not match the expected format.',
+            'source_unsupported' => 'This type of source is not supported yet.',
+            'source_unreachable' => 'The website could not be reached. Please check the URL and try again.',
+            'source_blocked' => 'The website blocked this request. Please try again later.',
+            'source_requires_authentication' => 'This website requires a login and cannot be imported automatically.',
+            'insufficient_public_content' => 'Not enough public content was found on this website to import.',
+            'analyzer_invalid_response' => 'The analysis could not be completed. Please try again.',
             default => 'The import could not be completed. Please try again.',
         };
     }
