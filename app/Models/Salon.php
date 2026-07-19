@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\OnboardingState;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -50,7 +51,10 @@ class Salon extends Model
         'phone_prefix',
         'website',
         'business_phone',
+        'service_at_customer_location',
+        'opening_hours',
         'notification_email',
+        'onboarding_state',
         'email_notifications',
         'missed_call_alerts',
         'booking_confirmations',
@@ -96,6 +100,9 @@ class Salon extends Model
             'onboarding_skipped' => 'boolean',
             'onboarding_completed_at' => 'datetime',
             'onboarding_skipped_at' => 'datetime',
+            'onboarding_state' => OnboardingState::class,
+            'service_at_customer_location' => 'boolean',
+            'opening_hours' => 'array',
             'service_categories' => 'array',
             'service_staff' => 'array',
             'ai_industry_categories' => 'array',
@@ -118,6 +125,10 @@ class Salon extends Model
 
             if ($salon->widget_enabled === null) {
                 $salon->widget_enabled = true;
+            }
+
+            if (! $salon->onboarding_state) {
+                $salon->onboarding_state = OnboardingState::SourcePending;
             }
 
             if (! $salon->plan) {
@@ -216,5 +227,15 @@ class Salon extends Model
     public function whatsappIntegration(): HasOne
     {
         return $this->hasOne(WhatsappIntegration::class);
+    }
+
+    public function onboardingDrafts(): HasMany
+    {
+        return $this->hasMany(OnboardingDraft::class);
+    }
+
+    public function activeOnboardingDraft(): ?OnboardingDraft
+    {
+        return $this->onboardingDrafts()->active()->first();
     }
 }

@@ -12,6 +12,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\IndustryController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\OnboardingController;
+use App\Http\Controllers\OnboardingImportController;
 use App\Http\Controllers\PlatformAdminAuthController;
 use App\Http\Controllers\PlatformAdminController;
 use App\Http\Controllers\PublicYouGoAssistantController;
@@ -62,6 +63,13 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/onboarding/skip', [OnboardingController::class, 'skip'])->name('onboarding.skip');
     Route::post('/onboarding/complete', [OnboardingController::class, 'complete'])->name('onboarding.complete');
+
+    Route::post('/onboarding/import', [OnboardingImportController::class, 'start'])->name('onboarding.import.start');
+    Route::get('/onboarding/import/active', [OnboardingImportController::class, 'active'])->name('onboarding.import.active');
+    Route::get('/onboarding/import/{onboardingDraft}', [OnboardingImportController::class, 'status'])->name('onboarding.import.status');
+    Route::post('/onboarding/import/{onboardingDraft}/retry', [OnboardingImportController::class, 'retry'])->name('onboarding.import.retry');
+    Route::patch('/onboarding/import/{onboardingDraft}', [OnboardingImportController::class, 'update'])->name('onboarding.import.update');
+    Route::post('/onboarding/import/{onboardingDraft}/confirm', [OnboardingImportController::class, 'confirm'])->name('onboarding.import.confirm');
 
     Route::post('/locations', [LocationController::class, 'store'])->name('locations.store');
     Route::put('/locations/{location}', [LocationController::class, 'update'])->name('locations.update');
