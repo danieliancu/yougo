@@ -22,6 +22,7 @@ class Staff extends Model
         'phone',
         'active',
         'working_hours',
+        'source_fingerprint',
     ];
 
     protected function casts(): array

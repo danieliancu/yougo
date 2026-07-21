@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Salon;
 use App\Services\Assistant\AssistantChatService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -214,6 +215,16 @@ JS;
         ]);
 
         return back()->with('success', __('Widget settings saved successfully.'));
+    }
+
+    public function markSetupComplete(Request $request): RedirectResponse
+    {
+        $salon = $request->user()->salon;
+        abort_unless($salon, 404);
+
+        $salon->update(['widget_setup_completed' => true]);
+
+        return back();
     }
 
     private function resolveSalon(string $widgetKey): Salon

@@ -504,7 +504,30 @@ function DashboardSidebarContent({ salon, section, user, t, onboarding, onNaviga
     };
   });
   const pendingBookingsCount = salon.bookings.filter((booking) => booking.status === 'pending').length;
-  const remainingSetupCount = onboarding.steps.filter((step) => !step.completed && !step.coming_soon).length;
+  const remainingSetupCount = onboarding.steps.filter((step) => !step.completed && !step.coming_soon && !step.optional).length;
+
+  // Navigating to a page (e.g. via a link elsewhere in the app, not the sidebar itself)
+  // whose group is currently collapsed left it hidden with no indication of where you
+  // were — the initializer above only auto-opens the active group on the very first
+  // render. Re-run on every section change so the active group is always visible.
+  useEffect(() => {
+    const group = navGroupForSection(section);
+
+    if (!group) {
+      return;
+    }
+
+    setOpenGroups((groups) => {
+      if (groups[group.id]) {
+        return groups;
+      }
+
+      const next = { ...groups, [group.id]: true };
+      storeSidebarOpenGroups(next);
+
+      return next;
+    });
+  }, [section]);
 
   return (
     <>
@@ -844,10 +867,25 @@ ${embedCode}
             <h2 className="text-xl font-bold app-text">{t('previewAssistantTitle')}</h2>
             <p className="mt-2 max-w-2xl text-sm app-text-muted">{t('previewAssistantHelp')}</p>
           </div>
-          <a href={previewHref} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-bold text-white transition hover:bg-indigo-700">
-            <ExternalLink className="h-4 w-4" />
-            {t('openPreview')}
-          </a>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <a href={previewHref} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-bold text-white transition hover:bg-indigo-700">
+              <ExternalLink className="h-4 w-4" />
+              {t('openPreview')}
+            </a>
+            {salon.widget_setup_completed ? (
+              <span className="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg bg-emerald-50 px-4 text-sm font-bold text-emerald-700">
+                <Check className="h-4 w-4" /> {t('complete')}
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => router.post('/widget-settings/mark-complete', {}, { preserveScroll: true })}
+                className="inline-flex h-11 items-center justify-center rounded-lg border px-4 text-sm font-bold app-text transition hover:bg-[var(--app-panel-soft)]"
+              >
+                {t('markStepComplete')}
+              </button>
+            )}
+          </div>
         </div>
       </Card>
 
@@ -2360,6 +2398,7 @@ function ActivityLegendItem({ color, label }: { color: string; label: string }) 
 function OnboardingSetup({ onboarding }: { onboarding: OnboardingChecklist }) {
   const t = useT();
   const nextStep = onboarding.next_step;
+  const missingRequiredSteps = onboarding.steps.filter((step) => step.required && !step.completed);
 
   function complete() {
     router.post('/onboarding/complete', {}, { preserveScroll: true });
@@ -2373,11 +2412,25 @@ function OnboardingSetup({ onboarding }: { onboarding: OnboardingChecklist }) {
             <h2 className="text-2xl font-bold app-text">{t('onboardingHeading')}</h2>
             <p className="mt-2 text-sm leading-6 app-text-muted xl:whitespace-nowrap">{t('onboardingPageHelper')}</p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col items-end gap-2">
             <Button onClick={complete} disabled={!onboarding.can_complete}>{t('markSetupComplete')}</Button>
+            {!onboarding.can_complete && missingRequiredSteps.length > 0 && (
+              <p className="max-w-xs text-right text-xs text-amber-700">
+                {t('markSetupCompleteBlocked')}: {missingRequiredSteps.map((step) => t(step.label_key)).join(', ')}
+              </p>
+            )}
           </div>
         </div>
         <OnboardingProgress onboarding={onboarding} />
+        <div className="mt-5 flex flex-col gap-3 rounded-lg border p-4 app-border app-panel-soft sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-bold app-text">{t('onboardingImportCardTitle')}</p>
+            <p className="mt-1 text-sm app-text-muted">{t('onboardingImportCardDescription')}</p>
+          </div>
+          <Link href="/onboarding/import" className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700">
+            {t('onboardingImportCardCta')}
+          </Link>
+        </div>
         {nextStep && (
           <div className="mt-5 flex flex-col gap-3 rounded-lg border p-4 app-border app-panel-soft sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -2401,10 +2454,16 @@ function OnboardingSetup({ onboarding }: { onboarding: OnboardingChecklist }) {
 }
 
 function OnboardingProgress({ onboarding }: { onboarding: OnboardingChecklist }) {
-  const countableSteps = onboarding.steps.filter((step) => !step.coming_soon);
-  const completedCount = countableSteps.filter((step) => step.completed).length;
-  const totalCount = countableSteps.length;
-  const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 100;
+  // Recomputing this from onboarding.steps used to count optional steps (e.g.
+  // "Instalează widgetul") in the denominator alongside required ones — so an
+  // unfinished optional step dragged the percentage below 100% and made it look
+  // like something mandatory was still outstanding, contradicting its own "Optional"
+  // badge on the row below. The backend already computes the required-only figures
+  // (OnboardingChecklistService::forSalon()); use those instead of re-deriving a
+  // different, inconsistent number here.
+  const completedCount = onboarding.completed_count;
+  const totalCount = onboarding.total_required;
+  const progress = onboarding.progress;
 
   return (
     <div className="mt-6">
@@ -3160,10 +3219,23 @@ function AiSettings({ salon }: { salon: Salon }) {
               <p className="mt-1 text-sm app-text-muted">{t('aiIdentityBehaviorHelp')}</p>
             </div>
           </div>
-          <div className="flex shrink-0">
-            <a href={assistantPreviewHref(salon.id)} target="_blank" rel="noreferrer" className="inline-flex h-10 w-full items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700 lg:w-auto">
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <a href={assistantPreviewHref(salon.id)} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700">
               {t('testAssistant')}
             </a>
+            {salon.ai_assistant_setup_completed ? (
+              <span className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-emerald-50 px-4 text-sm font-medium text-emerald-700">
+                <Check className="h-4 w-4" /> {t('complete')}
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => router.post('/ai-settings/mark-complete', {}, { preserveScroll: true })}
+                className="inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-medium app-text hover:bg-black/5"
+              >
+                {t('markStepComplete')}
+              </button>
+            )}
           </div>
         </div>
         <div className="grid gap-4 lg:grid-cols-4">
@@ -3499,12 +3571,18 @@ function Locations({ salon }: { salon: Salon }) {
 
   function startEdit(location: SalonLocation) {
     setEditingId(location.id);
+    // Days missing from location.hours (e.g. a location created via website import
+    // that never had a schedule extracted) must stay genuinely blank here, not get
+    // silently backfilled with defaultHours — that placeholder is indistinguishable
+    // from real saved data once it's in the input, and saving the form would persist
+    // it as if it were the location's actual schedule.
+    const blankHours = Object.fromEntries(hourDays.map(([key]) => [key, '']));
     editForm.setData({
       name: location.name,
       address: location.address,
       email: location.email ?? '',
       phone: location.phone ?? '',
-      hours: { ...defaultHours, ...(location.hours ?? {}) },
+      hours: { ...blankHours, ...(location.hours ?? {}) },
       max_concurrent_bookings: location.max_concurrent_bookings ? String(location.max_concurrent_bookings) : '',
     });
   }
@@ -3628,7 +3706,7 @@ function Locations({ salon }: { salon: Salon }) {
                   <ContactMetaLine label={t('defaultLabel')} value={capacityValue(location.max_concurrent_bookings, t)} />
                   <div className="rounded-lg mt-8 app-panel-soft p-4">
                     <p className="mb-2 flex items-center gap-2 font-bold app-text"><Clock className="h-4 w-4 text-indigo-600" /> {t('operatingHours')}</p>
-                    <HoursList hours={{ ...defaultHours, ...(location.hours ?? {}) }} />
+                    <HoursList hours={location.hours ?? {}} />
                   </div>
                 </div>
               </>

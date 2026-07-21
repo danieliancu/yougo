@@ -33,6 +33,14 @@ class GeminiPayloadBuilder
                 'role' => $message['role'] === 'assistant' ? 'model' : 'user',
                 'parts' => [['text' => $message['content']]],
             ])->values()->all(),
+            'generationConfig' => [
+                'maxOutputTokens' => 1024,
+                // Chat replies don't need internal reasoning — without this, gemini-2.5-flash
+                // spends output-token budget "thinking" on every single message (measured:
+                // more thinking tokens than the actual visible reply on a trivial question),
+                // which is pure recurring cost and latency with no user-facing benefit here.
+                'thinkingConfig' => ['thinkingBudget' => 0],
+            ],
         ];
 
         $tools = $this->appointmentToolDefinitions->forSalon($salon);
@@ -290,7 +298,9 @@ class GeminiPayloadBuilder
             ? "Mesaj de handoff configurat: {$salon->ai_handoff_message}."
             : null;
 
-        return collect([$languageRule, $toneRule, $styleRule, $unknownRule, $handoff])->filter()->implode(' ');
+        $progressiveDisclosureRule = 'Raspunsurile trebuie sa fie cat mai scurte posibil. Daca ai de oferit mai multe informatii decat incap intr-un raspuns scurt (de exemplu o lista lunga de servicii, preturi sau optiuni), nu le insira pe toate deodata. Da un raspuns scurt cu doar 2-3 exemple relevante pentru intrebare, apoi intreaba clientul daca vrea sa afle si restul (de exemplu "Vrei sa iti spun si celelalte servicii?" sau "Mai am cateva optiuni, vrei sa le vezi?"). Continua cu detaliile ramase doar daca clientul confirma explicit ca vrea mai mult.';
+
+        return collect([$languageRule, $toneRule, $styleRule, $unknownRule, $handoff, $progressiveDisclosureRule])->filter()->implode(' ');
     }
 
     private function modeInstructions(Salon $salon, bool $hasBookingContext = false): string

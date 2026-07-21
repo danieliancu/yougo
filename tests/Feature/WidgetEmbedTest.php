@@ -282,6 +282,25 @@ class WidgetEmbedTest extends TestCase
         $this->assertSame('#2563eb', $otherSalon->refresh()->widget_primary_color);
     }
 
+    public function test_authenticated_user_can_mark_widget_setup_complete(): void
+    {
+        $user = User::factory()->create();
+        $salon = $user->salon()->create(['name' => 'YouGo Studio']);
+
+        $this->assertFalse($salon->refresh()->widget_setup_completed);
+
+        $this->actingAs($user)->post('/widget-settings/mark-complete')->assertRedirect();
+
+        $this->assertTrue($salon->refresh()->widget_setup_completed);
+    }
+
+    public function test_unauthenticated_users_cannot_mark_widget_setup_complete(): void
+    {
+        $response = $this->post('/widget-settings/mark-complete');
+
+        $response->assertRedirect('/login');
+    }
+
     public function test_widget_chat_can_create_booking_and_send_notification(): void
     {
         config(['services.gemini.key' => 'test-key']);

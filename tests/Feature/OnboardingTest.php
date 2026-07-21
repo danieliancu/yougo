@@ -38,6 +38,7 @@ class OnboardingTest extends TestCase
         $this->assertFalse($this->step($checklist, 'business_profile')['completed']);
         $this->assertFalse($this->step($checklist, 'location')['completed']);
         $this->assertFalse($this->step($checklist, 'notification_email')['completed']);
+        $this->assertFalse($this->step($checklist, 'opening_hours')['completed']);
         $this->assertFalse($this->step($checklist, 'service')['completed']);
         $this->assertFalse($this->step($checklist, 'ai_assistant')['completed']);
     }
@@ -45,7 +46,11 @@ class OnboardingTest extends TestCase
     public function test_location_service_and_ai_steps_become_complete_from_real_data(): void
     {
         $salon = $this->createSalon();
-        $location = $salon->locations()->create(['name' => 'Central', 'address' => 'Main Street']);
+        $location = $salon->locations()->create([
+            'name' => 'Central',
+            'address' => 'Main Street',
+            'hours' => ['mon' => '09:00 - 18:00'],
+        ]);
         $salon->services()->create([
             'name' => 'Consultatie',
             'price' => '100',
@@ -54,6 +59,8 @@ class OnboardingTest extends TestCase
         ]);
         $salon->update([
             'ai_business_summary' => 'Salon premium cu servicii rapide.',
+            'ai_assistant_setup_completed' => true,
+            'widget_setup_completed' => true,
             'website' => 'https://example.com',
             'business_phone' => '+40700000000',
             'notification_email' => 'owner@example.com',
@@ -64,36 +71,35 @@ class OnboardingTest extends TestCase
         $this->assertTrue($this->step($checklist, 'location')['completed']);
         $this->assertTrue($this->step($checklist, 'service')['completed']);
         $this->assertTrue($this->step($checklist, 'ai_assistant')['completed']);
+        $this->assertTrue($this->step($checklist, 'opening_hours')['completed']);
         $this->assertTrue($checklist['can_complete']);
     }
 
-    public function test_ai_step_requires_real_business_context_or_knowledge(): void
+    public function test_ai_assistant_step_is_driven_by_the_manual_completion_flag(): void
     {
+        // Deriving completion from whether any AI content field was filled meant the
+        // step could flip to "complete" from data auto-filled during import (e.g.
+        // business.description -> ai_about_business), without the owner ever actually
+        // reviewing the AI settings page. Completion is now an explicit, owner-driven
+        // flag set only via the "mark as complete" action on that page.
         $salon = $this->createSalon();
         $salon->update([
-            'ai_assistant_name' => 'Bella',
-            'ai_tone' => 'friendly',
-            'ai_response_style' => 'balanced',
-            'ai_language_mode' => 'auto',
-            'ai_industry_categories' => ['haircut'],
-            'ai_main_focus' => 'haircut',
-            'ai_business_summary' => null,
-            'ai_custom_instructions' => null,
-            'ai_custom_context' => [],
+            'ai_business_summary' => 'Salon premium cu servicii rapide.',
+            'ai_custom_context' => ['Clientii pot cere programari rapide.'],
         ]);
 
         $checklist = app(OnboardingChecklistService::class)->forSalon($salon->refresh());
 
         $this->assertFalse($this->step($checklist, 'ai_assistant')['completed']);
 
-        $salon->update(['ai_custom_context' => ['Clientii pot cere programari rapide.']]);
+        $salon->update(['ai_assistant_setup_completed' => true]);
 
         $checklist = app(OnboardingChecklistService::class)->forSalon($salon->refresh());
 
         $this->assertTrue($this->step($checklist, 'ai_assistant')['completed']);
     }
 
-    public function test_staff_and_widget_do_not_block_completion(): void
+    public function test_staff_and_capacity_rules_do_not_block_completion(): void
     {
         $salon = $this->createCompleteRequiredSalon();
 
@@ -101,26 +107,36 @@ class OnboardingTest extends TestCase
 
         $this->assertFalse($this->step($checklist, 'staff')['required']);
         $this->assertTrue($this->step($checklist, 'staff')['optional']);
-        $this->assertFalse($this->step($checklist, 'install_widget')['required']);
         $this->assertFalse($this->step($checklist, 'capacity_rules')['required']);
         $this->assertTrue($this->step($checklist, 'capacity_rules')['optional']);
-        $this->assertTrue($this->step($checklist, 'install_widget')['optional']);
-        $this->assertFalse($this->step($checklist, 'install_widget')['coming_soon']);
-        $this->assertTrue($this->step($checklist, 'install_widget')['completed']);
         $this->assertTrue($checklist['can_complete']);
     }
 
-    public function test_install_widget_step_follows_widget_enabled_setting(): void
+    public function test_install_widget_is_required_and_driven_by_the_manual_completion_flag(): void
     {
+        // Completion used to follow widget_enabled, a feature toggle that defaults to
+        // true for every salon — meaning this step was effectively always "complete" out
+        // of the box, regardless of whether the owner ever opened the widget page.
+        // Completion is now an explicit, owner-driven flag, independent of the toggle —
+        // and, per explicit product decision, this step is required: it blocks
+        // can_complete until the owner marks it done themselves.
         $salon = $this->createCompleteRequiredSalon();
+        $salon->update(['widget_setup_completed' => false]);
 
-        $salon->update(['widget_enabled' => false]);
         $checklist = app(OnboardingChecklistService::class)->forSalon($salon->refresh());
+        $this->assertTrue($this->step($checklist, 'install_widget')['required']);
+        $this->assertFalse($this->step($checklist, 'install_widget')['optional']);
         $this->assertFalse($this->step($checklist, 'install_widget')['completed']);
+        $this->assertFalse($checklist['can_complete']);
 
         $salon->update(['widget_enabled' => true]);
         $checklist = app(OnboardingChecklistService::class)->forSalon($salon->refresh());
+        $this->assertFalse($this->step($checklist, 'install_widget')['completed']);
+
+        $salon->update(['widget_setup_completed' => true]);
+        $checklist = app(OnboardingChecklistService::class)->forSalon($salon->refresh());
         $this->assertTrue($this->step($checklist, 'install_widget')['completed']);
+        $this->assertTrue($checklist['can_complete']);
     }
 
     public function test_user_can_skip_onboarding_without_blocking_dashboard(): void
@@ -173,7 +189,7 @@ class OnboardingTest extends TestCase
                 ->component('Dashboard/Index')
                 ->where('onboarding.completed', false)
                 ->where('onboarding.next_step.key', 'business_profile')
-                ->has('onboarding.steps', 9)
+                ->has('onboarding.steps', 10)
             );
     }
 
@@ -185,14 +201,21 @@ class OnboardingTest extends TestCase
             'business_phone' => '+40700000000',
             'notification_email' => 'owner@example.com',
         ]);
-        $location = $salon->locations()->create(['name' => 'Central', 'address' => 'Main Street']);
+        $location = $salon->locations()->create([
+            'name' => 'Central',
+            'address' => 'Main Street',
+            'hours' => ['mon' => '09:00 - 18:00'],
+        ]);
         $salon->services()->create([
             'name' => 'Consultatie',
             'price' => '100',
             'duration' => 30,
             'location_ids' => [$location->id],
         ]);
-        $salon->update(['ai_custom_context' => ['Programari rapide']]);
+        $salon->update([
+            'ai_assistant_setup_completed' => true,
+            'widget_setup_completed' => true,
+        ]);
 
         return $salon->refresh();
     }

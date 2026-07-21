@@ -6,6 +6,10 @@ use App\Models\Salon;
 
 class OnboardingChecklistService
 {
+    public function __construct(
+        private readonly OnboardingHoursValidator $hoursValidator = new OnboardingHoursValidator,
+    ) {}
+
     public function forSalon(Salon $salon): array
     {
         $salon->loadCount([
@@ -14,6 +18,7 @@ class OnboardingChecklistService
             'staff',
             'conversations',
         ]);
+        $salon->loadMissing('locations:id,salon_id,hours');
 
         $steps = [
             $this->step(
@@ -41,6 +46,14 @@ class OnboardingChecklistService
                 true
             ),
             $this->step(
+                'opening_hours',
+                'onboardingOpeningHours',
+                'onboardingOpeningHoursDescription',
+                '/dashboard/locations',
+                $this->hasOpeningHours($salon),
+                true
+            ),
+            $this->step(
                 'service',
                 'onboardingService',
                 'onboardingServiceDescription',
@@ -62,7 +75,7 @@ class OnboardingChecklistService
                 'onboardingAiAssistant',
                 'onboardingAiAssistantDescription',
                 '/dashboard/ai-settings',
-                $this->hasAiConfiguration($salon),
+                (bool) $salon->ai_assistant_setup_completed,
                 true
             ),
             $this->step(
@@ -89,8 +102,7 @@ class OnboardingChecklistService
                 'onboardingInstallWidget',
                 'onboardingInstallWidgetDescription',
                 '/dashboard/widget',
-                (bool) $salon->widget_enabled,
-                false,
+                (bool) $salon->widget_setup_completed,
                 true
             ),
         ];
@@ -134,18 +146,39 @@ class OnboardingChecklistService
         ];
     }
 
-    private function hasAiConfiguration(Salon $salon): bool
+    /**
+     * The real "can this salon actually take bookings" gate for opening hours — moved
+     * here from the import-confirm step, which no longer blocks on it (a business can
+     * finish import without hours and add them later from /dashboard/locations; only
+     * going live requires them).
+     */
+    private function hasOpeningHours(Salon $salon): bool
     {
-        return filled($salon->ai_business_summary)
-            || filled($salon->ai_custom_instructions)
-            || count($salon->ai_custom_context ?? []) > 0;
+        foreach ($salon->locations as $location) {
+            if (is_array($location->hours) && $this->hoursValidator->hasAnyScheduledDay($location->hours)) {
+                return true;
+            }
+        }
+
+        if ($salon->service_at_customer_location
+            && is_array($salon->opening_hours)
+            && $this->hoursValidator->hasAnyScheduledDay($salon->opening_hours)) {
+            return true;
+        }
+
+        return false;
     }
 
+    /**
+     * `website` is deliberately not required here — onboarding has a dedicated "no
+     * website" manual path (OnboardingImportService::start() with source_type=manual),
+     * so requiring it would make this step permanently unfinishable for any business
+     * without a website.
+     */
     private function hasBusinessProfile(Salon $salon): bool
     {
         return filled($salon->name)
             && filled($salon->business_type)
-            && filled($salon->website)
             && filled($salon->business_phone)
             && filled($salon->notification_email);
     }
