@@ -37,7 +37,7 @@ class OnboardingHoursValidator
                 continue;
             }
 
-            if (preg_match('/^(inchis|closed)$/i', $value)) {
+            if (preg_match('/^(inchis|închis|closed)$/iu', $value)) {
                 $normalized[$day] = 'Inchis';
 
                 continue;
@@ -45,15 +45,20 @@ class OnboardingHoursValidator
 
             $value = str_replace(['–', '—'], '-', $value);
 
-            if (! preg_match('/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/', $value, $matches)) {
+            // Minutes are optional on either side ("10-21:00", "10-21", "10:00-21") —
+            // sites routinely write a bare hour when it's on the hour (real extraction:
+            // "Luni - Vineri: 10-21:00"), and the AI copies that shorthand verbatim
+            // rather than normalizing it. Always re-emitted zero-padded/normalized below
+            // regardless of which shorthand was used on input.
+            if (! preg_match('/^(\d{1,2})(?::(\d{2}))?\s*-\s*(\d{1,2})(?::(\d{2}))?$/', $value, $matches)) {
                 throw new InvalidExtractionResultException("Invalid opening_hours value for [{$day}].");
             }
 
             [$openHour, $openMinute, $closeHour, $closeMinute] = [
                 (int) $matches[1],
-                (int) $matches[2],
+                (int) ($matches[2] ?? 0),
                 (int) $matches[3],
-                (int) $matches[4],
+                (int) ($matches[4] ?? 0),
             ];
 
             if (! $this->validTime($openHour, $openMinute) || ! $this->validTime($closeHour, $closeMinute)) {

@@ -19,6 +19,7 @@ final readonly class ExtractedPage
         public string $url,
         public ?string $title,
         public ?string $metaDescription,
+        public bool $hasArticleSchema,
         public array $headings,
         public string $mainText,
         public array $lists,

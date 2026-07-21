@@ -23,6 +23,9 @@ final readonly class ConfirmedSelections
      * @param  array<string, array{decision: string, value?: mixed}>  $facts  keyed by stable fact path, e.g. "business.name", "locations.<fingerprint>.opening_hours"
      * @param  list<string>  $excludedLocations
      * @param  list<string>  $excludedServices
+     * @param  list<string>  $excludedStaff
+     * @param  list<string>  $excludedFaq
+     * @param  list<string>  $excludedPolicies
      * @param  array<string, bool>  $overwrite
      */
     public function __construct(
@@ -30,6 +33,9 @@ final readonly class ConfirmedSelections
         public array $facts = [],
         public array $excludedLocations = [],
         public array $excludedServices = [],
+        public array $excludedStaff = [],
+        public array $excludedFaq = [],
+        public array $excludedPolicies = [],
         public array $overwrite = [],
     ) {}
 
@@ -62,6 +68,9 @@ final readonly class ConfirmedSelections
             facts: $facts,
             excludedLocations: array_values(array_map('strval', $raw['excluded_locations'] ?? [])),
             excludedServices: array_values(array_map('strval', $raw['excluded_services'] ?? [])),
+            excludedStaff: array_values(array_map('strval', $raw['excluded_staff'] ?? [])),
+            excludedFaq: array_values(array_map('strval', $raw['excluded_faq'] ?? [])),
+            excludedPolicies: array_values(array_map('strval', $raw['excluded_policies'] ?? [])),
             overwrite: array_map('boolval', $raw['overwrite'] ?? []),
         );
     }
@@ -82,6 +91,21 @@ final readonly class ConfirmedSelections
     public function isServiceExcluded(string $key): bool
     {
         return in_array($key, $this->excludedServices, true);
+    }
+
+    public function isStaffExcluded(string $key): bool
+    {
+        return in_array($key, $this->excludedStaff, true);
+    }
+
+    public function isFaqExcluded(string $key): bool
+    {
+        return in_array($key, $this->excludedFaq, true);
+    }
+
+    public function isPolicyExcluded(string $key): bool
+    {
+        return in_array($key, $this->excludedPolicies, true);
     }
 
     public function shouldOverwrite(string $field): bool

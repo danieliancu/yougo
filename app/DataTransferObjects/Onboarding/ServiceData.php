@@ -57,6 +57,22 @@ final readonly class ServiceData
     }
 
     /**
+     * @return array<string, string>
+     */
+    public static function fieldKinds(): array
+    {
+        return [
+            'name' => 'text',
+            'category' => 'text',
+            'description' => 'multiline',
+            'price' => 'price',
+            'currency' => 'text',
+            'duration' => 'number',
+            'location_associations' => 'location_checklist',
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function toArray(): array
@@ -122,6 +138,35 @@ final readonly class ServiceData
         }
 
         return hash('sha256', implode('|', [$name, $category, $location, $duration]));
+    }
+
+    /**
+     * The name half of the identity, exposed for OnboardingEntityDeduplicator's
+     * name-based consolidation pass — see that method for why.
+     */
+    public function normalizedNameKey(): string
+    {
+        return self::normalize($this->name?->value);
+    }
+
+    /**
+     * The category/location/duration thirds of the identity, exposed for
+     * OnboardingEntityDeduplicator's complementary-details consolidation pass — see that
+     * method for why.
+     */
+    public function normalizedCategoryKey(): string
+    {
+        return self::normalize($this->category?->value);
+    }
+
+    public function normalizedLocationKey(): string
+    {
+        return self::normalizedLocationReference();
+    }
+
+    public function normalizedDurationKey(): string
+    {
+        return $this->duration?->value !== null ? (string) $this->duration->value : '';
     }
 
     private function normalizedLocationReference(): string

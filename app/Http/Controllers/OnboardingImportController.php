@@ -15,6 +15,7 @@ use App\Http\Requests\Onboarding\StartOnboardingImportRequest;
 use App\Http\Requests\Onboarding\UpdateOnboardingDraftRequest;
 use App\Models\OnboardingDraft;
 use App\Services\Onboarding\OnboardingDraftConfirmationService;
+use App\Services\Onboarding\OnboardingDraftPresenter;
 use App\Services\Onboarding\OnboardingImportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -165,45 +166,6 @@ class OnboardingImportController extends Controller
      */
     private function serialize(OnboardingDraft $draft): array
     {
-        return [
-            'id' => $draft->id,
-            'status' => $draft->status->value,
-            'source_type' => $draft->source_type,
-            'source_url' => $draft->source_url,
-            'revision' => $draft->revision,
-            'attempt_count' => $draft->attempt_count,
-            'normalized_extraction_result' => $draft->normalized_extraction_result,
-            'validation_errors' => $draft->validation_errors,
-            'failure_code' => $draft->failure_code,
-            'failure_message' => $draft->failure_message,
-            'started_at' => $draft->started_at?->toISOString(),
-            'finished_at' => $draft->finished_at?->toISOString(),
-            'confirmed_at' => $draft->confirmed_at?->toISOString(),
-            'superseded_at' => $draft->superseded_at?->toISOString(),
-            'analysis_progress' => $this->analysisProgress($draft),
-        ];
-    }
-
-    /**
-     * A safe subset of metadata.last_analysis (set by AnalyzeOnboardingDraftJob's
-     * Phase C) for a future UI to show crawl progress — never the raw field, never
-     * prompts, never storage paths.
-     *
-     * @return array<string, mixed>|null
-     */
-    private function analysisProgress(OnboardingDraft $draft): ?array
-    {
-        $providerMetadata = $draft->metadata['last_analysis']['provider_metadata'] ?? null;
-
-        if ($providerMetadata === null) {
-            return null;
-        }
-
-        return [
-            'pages_discovered' => $providerMetadata['pages_discovered'] ?? null,
-            'pages_processed' => $providerMetadata['pages_processed'] ?? null,
-            'warnings' => $draft->metadata['last_analysis']['warnings'] ?? [],
-            'stop_reason' => $providerMetadata['stop_reason'] ?? null,
-        ];
+        return OnboardingDraftPresenter::present($draft);
     }
 }

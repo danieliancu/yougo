@@ -13,6 +13,7 @@ use App\Http\Controllers\IndustryController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\OnboardingImportController;
+use App\Http\Controllers\OnboardingImportPageController;
 use App\Http\Controllers\PlatformAdminAuthController;
 use App\Http\Controllers\PlatformAdminController;
 use App\Http\Controllers\PublicYouGoAssistantController;
@@ -64,6 +65,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/onboarding/skip', [OnboardingController::class, 'skip'])->name('onboarding.skip');
     Route::post('/onboarding/complete', [OnboardingController::class, 'complete'])->name('onboarding.complete');
 
+    Route::get('/onboarding/import', OnboardingImportPageController::class)->name('onboarding.import.page');
     Route::post('/onboarding/import', [OnboardingImportController::class, 'start'])->name('onboarding.import.start');
     Route::get('/onboarding/import/active', [OnboardingImportController::class, 'active'])->name('onboarding.import.active');
     Route::get('/onboarding/import/{onboardingDraft}', [OnboardingImportController::class, 'status'])->name('onboarding.import.status');
@@ -101,9 +103,11 @@ Route::middleware('auth')->group(function () {
         ->name('conversations.booking-change-requests.resolve');
 
     Route::put('/ai-settings', [AiSettingsController::class, 'update'])->name('ai-settings.update');
+    Route::post('/ai-settings/mark-complete', [AiSettingsController::class, 'markSetupComplete'])->name('ai-settings.mark-complete');
     Route::post('/settings/language', [SettingsController::class, 'updateLanguage'])->name('settings.language.update');
     Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
     Route::put('/widget-settings', [WidgetController::class, 'updateSettings'])->name('widget-settings.update');
+    Route::post('/widget-settings/mark-complete', [WidgetController::class, 'markSetupComplete'])->name('widget-settings.mark-complete');
     Route::post('/dashboard/whatsapp/request-activation', [WhatsappSettingsController::class, 'requestActivation'])
         ->name('dashboard.whatsapp.request-activation');
     Route::post('/dashboard/whatsapp/setup-request', [WhatsappSettingsController::class, 'setupRequest'])

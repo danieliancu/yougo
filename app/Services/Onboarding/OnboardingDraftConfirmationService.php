@@ -3,28 +3,34 @@
 namespace App\Services\Onboarding;
 
 use App\DataTransferObjects\Onboarding\ConfirmedSelections;
+use App\DataTransferObjects\Onboarding\FaqEntryData;
 use App\DataTransferObjects\Onboarding\ImportedFact;
 use App\DataTransferObjects\Onboarding\LocationData;
 use App\DataTransferObjects\Onboarding\NormalizedExtractionResult;
+use App\DataTransferObjects\Onboarding\PolicyEntryData;
 use App\DataTransferObjects\Onboarding\ServiceData;
+use App\DataTransferObjects\Onboarding\StaffData;
 use App\Enums\OnboardingDraftStatus;
 use App\Enums\OnboardingState;
 use App\Exceptions\Onboarding\IncompleteOnboardingDraftException;
 use App\Exceptions\Onboarding\MissingFactDecisionsException;
 use App\Exceptions\Onboarding\OnboardingRevisionConflictException;
+use App\Models\Faq;
 use App\Models\Location;
 use App\Models\OnboardingDraft;
+use App\Models\Policy;
 use App\Models\Salon;
 use App\Models\Service;
+use App\Models\Staff;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
- * Confirms a draft: transactional, idempotent, revision-checked. Only writes business
- * profile fields, locations, and services in Task 1 — staff/FAQ/policies are parsed
- * and retained in normalized_extraction_result but not written to live tables (Task 2).
+ * Confirms a draft: transactional, idempotent, revision-checked. Writes business
+ * profile fields, locations, services, staff, FAQ, and policies. Staff/FAQ/policies are
+ * always optional/best-effort and never participate in checkCompleteness().
  *
  * A confirmation that fails validation (missing fact decisions, incomplete data)
  * persists NOTHING: no live data change, no metadata.confirmation write, no status/
@@ -32,6 +38,8 @@ use RuntimeException;
  */
 class OnboardingDraftConfirmationService
 {
+    private const DEFAULT_SERVICE_DURATION_MINUTES = 30;
+
     private const BUSINESS_FIELD_TO_COLUMN = [
         'business.name' => 'name',
         'business.website' => 'website',
@@ -105,6 +113,18 @@ class OnboardingDraftConfirmationService
                 $result->services,
                 fn (ServiceData $service) => ! ($service->fingerprint && $selections->isServiceExcluded($service->fingerprint))
             ));
+            $activeStaff = array_values(array_filter(
+                $result->staff,
+                fn (StaffData $member) => ! ($member->fingerprint && $selections->isStaffExcluded($member->fingerprint))
+            ));
+            $activeFaq = array_values(array_filter(
+                $result->faq,
+                fn (FaqEntryData $entry) => ! ($entry->fingerprint && $selections->isFaqExcluded($entry->fingerprint))
+            ));
+            $activePolicies = array_values(array_filter(
+                $result->policies,
+                fn (PolicyEntryData $entry) => ! ($entry->fingerprint && $selections->isPolicyExcluded($entry->fingerprint))
+            ));
 
             $resolvedLocations = array_map(
                 fn (LocationData $location) => $this->resolveFields($location->factMap(), "locations.{$location->fingerprint}", $selections),
@@ -113,6 +133,18 @@ class OnboardingDraftConfirmationService
             $resolvedServices = array_map(
                 fn (ServiceData $service) => $this->resolveFields($service->factMap(), "services.{$service->fingerprint}", $selections),
                 $activeServices
+            );
+            $resolvedStaff = array_map(
+                fn (StaffData $member) => $this->resolveFields($member->factMap(), "staff.{$member->fingerprint}", $selections),
+                $activeStaff
+            );
+            $resolvedFaq = array_map(
+                fn (FaqEntryData $entry) => $this->resolveFields($entry->factMap(), "faq.{$entry->fingerprint}", $selections),
+                $activeFaq
+            );
+            $resolvedPolicies = array_map(
+                fn (PolicyEntryData $entry) => $this->resolveFields($entry->factMap(), "policies.{$entry->fingerprint}", $selections),
+                $activePolicies
             );
 
             $failedConditions = $this->checkCompleteness($salon, $resolvedBusinessFields, $resolvedLocations, $resolvedServices);
@@ -126,6 +158,9 @@ class OnboardingDraftConfirmationService
             $metadata = $lockedDraft->metadata ?? [];
             $locationMap = $metadata['confirmation']['location_map'] ?? [];
             $serviceMap = $metadata['confirmation']['service_map'] ?? [];
+            $staffMap = $metadata['confirmation']['staff_map'] ?? [];
+            $faqMap = $metadata['confirmation']['faq_map'] ?? [];
+            $policyMap = $metadata['confirmation']['policy_map'] ?? [];
             $conflicts = [];
 
             foreach ($activeLocations as $index => $location) {
@@ -139,10 +174,31 @@ class OnboardingDraftConfirmationService
                 $serviceMap[$service->fingerprint] = $resolution['id'];
             }
 
+            $this->mergeServiceCategories($salon, $resolvedServices);
+
+            foreach ($activeStaff as $index => $member) {
+                $defaultLocationId = count($locationMap) === 1 ? array_values($locationMap)[0] : null;
+                $resolution = $this->resolveStaff($member, $resolvedStaff[$index], $salon, $staffMap, $conflicts, $defaultLocationId);
+                $staffMap[$member->fingerprint] = $resolution['id'];
+            }
+
+            foreach ($activeFaq as $index => $entry) {
+                $resolution = $this->resolveFaq($entry, $resolvedFaq[$index], $salon, $faqMap, $conflicts);
+                $faqMap[$entry->fingerprint] = $resolution['id'];
+            }
+
+            foreach ($activePolicies as $index => $entry) {
+                $resolution = $this->resolvePolicy($entry, $resolvedPolicies[$index], $salon, $policyMap, $conflicts);
+                $policyMap[$entry->fingerprint] = $resolution['id'];
+            }
+
             $metadata['confirmation'] = [
                 'facts' => $auditFields,
                 'location_map' => $locationMap,
                 'service_map' => $serviceMap,
+                'staff_map' => $staffMap,
+                'faq_map' => $faqMap,
+                'policy_map' => $policyMap,
                 'conflicts' => $conflicts,
                 'revision' => $lockedDraft->revision,
                 'confirmed_by_user_id' => $user->id,
@@ -194,6 +250,36 @@ class OnboardingDraftConfirmationService
 
             foreach ($service->factMap() as $field => $fact) {
                 $this->checkRequired($fact, "services.{$service->fingerprint}.{$field}", $selections, $missing);
+            }
+        }
+
+        foreach ($result->staff as $member) {
+            if ($member->fingerprint && $selections->isStaffExcluded($member->fingerprint)) {
+                continue;
+            }
+
+            foreach ($member->factMap() as $field => $fact) {
+                $this->checkRequired($fact, "staff.{$member->fingerprint}.{$field}", $selections, $missing);
+            }
+        }
+
+        foreach ($result->faq as $entry) {
+            if ($entry->fingerprint && $selections->isFaqExcluded($entry->fingerprint)) {
+                continue;
+            }
+
+            foreach ($entry->factMap() as $field => $fact) {
+                $this->checkRequired($fact, "faq.{$entry->fingerprint}.{$field}", $selections, $missing);
+            }
+        }
+
+        foreach ($result->policies as $entry) {
+            if ($entry->fingerprint && $selections->isPolicyExcluded($entry->fingerprint)) {
+                continue;
+            }
+
+            foreach ($entry->factMap() as $field => $fact) {
+                $this->checkRequired($fact, "policies.{$entry->fingerprint}.{$field}", $selections, $missing);
             }
         }
 
@@ -270,23 +356,10 @@ class OnboardingDraftConfirmationService
             $failed[] = 'no_location_and_no_customer_service_area';
         }
 
-        $locationHasHours = false;
-
-        foreach ($resolvedLocations as $resolvedLocation) {
-            $hours = $resolvedLocation['opening_hours'] ?? null;
-
-            if (is_array($hours) && $this->hoursValidator->hasAnyScheduledDay($hours)) {
-                $locationHasHours = true;
-                break;
-            }
-        }
-
-        $businessHours = $resolvedBusinessFields['opening_hours'] ?? null;
-        $businessHasHours = $serviceAtCustomerLocation && is_array($businessHours) && $this->hoursValidator->hasAnyScheduledDay($businessHours);
-
-        if (! $locationHasHours && ! $businessHasHours) {
-            $failed[] = 'opening_hours_missing';
-        }
+        // Opening hours are deliberately NOT required to finish the import — a business
+        // can be onboarded without them and add them later from /dashboard/locations.
+        // The real gate is OnboardingChecklistService's "opening_hours" step, checked
+        // when the salon actually goes live (booking needs hours; import doesn't).
 
         if (count($resolvedServices) === 0) {
             $failed[] = 'no_services';
@@ -505,12 +578,40 @@ class OnboardingDraftConfirmationService
             'type' => $resolved['category'] ?? '',
             'price' => $this->priceFormatter->toDisplayString($resolved['price'] ?? null),
             'currency' => $resolved['currency'] ?? null,
-            'duration' => $resolved['duration'] ?? 30,
+            'duration' => $this->sanitizeDuration($resolved['duration'] ?? null),
             'notes' => $resolved['description'] ?? null,
             'location_ids' => $defaultLocationId ? [$defaultLocationId] : [],
         ]);
 
         return ['id' => $created->id];
+    }
+
+    /**
+     * `services.duration` is an unsigned integer of minutes; the AI-extracted fact is
+     * free text and occasionally describes something else entirely (e.g. a maintenance
+     * interval like "3-5 luni (întreținere)" rather than an appointment length), which
+     * MySQL truncation-errors on rather than silently coercing. Only a value that reads
+     * as an actual duration is trusted; anything else falls back to the same default the
+     * `services` table column itself uses.
+     */
+    private function sanitizeDuration(mixed $value): int
+    {
+        if (is_int($value)) {
+            return max(0, $value);
+        }
+
+        if (is_float($value)) {
+            return max(0, (int) round($value));
+        }
+
+        if (is_string($value) && preg_match('/(\d+)\s*(minut|min|or[aă]|h)/iu', $value, $matches)) {
+            $amount = (int) $matches[1];
+            $unit = mb_strtolower($matches[2]);
+
+            return str_starts_with($unit, 'or') || $unit === 'h' ? $amount * 60 : $amount;
+        }
+
+        return self::DEFAULT_SERVICE_DURATION_MINUTES;
     }
 
     private function matchService(array $resolved, Salon $salon, array &$conflicts, ?string $fingerprint): ?Service
@@ -547,6 +648,180 @@ class OnboardingDraftConfirmationService
         }
 
         return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $resolved
+     * @param  array<string, int>  $staffMap
+     * @return array{id: int}
+     */
+    private function resolveStaff(StaffData $member, array $resolved, Salon $salon, array &$staffMap, array &$conflicts, ?int $defaultLocationId): array
+    {
+        $fingerprint = $member->fingerprint;
+
+        if ($fingerprint && isset($staffMap[$fingerprint])) {
+            $existing = Staff::query()->where('salon_id', $salon->id)->find($staffMap[$fingerprint]);
+
+            if ($existing) {
+                $this->fillIfEmptyStaff($existing, $resolved);
+
+                return ['id' => $existing->id];
+            }
+        }
+
+        if (! $member->isTemporaryFingerprint) {
+            $match = $this->matchStaff($resolved, $salon, $conflicts, $fingerprint);
+
+            if ($match) {
+                $this->fillIfEmptyStaff($match, $resolved);
+
+                return ['id' => $match->id];
+            }
+        }
+
+        $created = $salon->staff()->create([
+            'location_id' => $defaultLocationId,
+            'name' => $resolved['name'] ?? '',
+            'role' => $resolved['role'] ?? null,
+        ]);
+
+        return ['id' => $created->id];
+    }
+
+    private function matchStaff(array $resolved, Salon $salon, array &$conflicts, ?string $fingerprint): ?Staff
+    {
+        $resolvedName = $this->normalizeText($resolved['name'] ?? null);
+        $resolvedRole = $this->normalizeText($resolved['role'] ?? null);
+
+        $candidates = $salon->staff()->get();
+
+        if ($resolvedName !== '' && $resolvedRole !== '') {
+            foreach ($candidates as $candidate) {
+                if ($this->normalizeText($candidate->name) === $resolvedName
+                    && $this->normalizeText($candidate->role) === $resolvedRole) {
+                    return $candidate;
+                }
+            }
+        }
+
+        if ($resolvedName !== '') {
+            $nameMatches = $candidates->filter(fn (Staff $candidate) => $this->normalizeText($candidate->name) === $resolvedName);
+
+            if ($nameMatches->count() === 1) {
+                $candidate = $nameMatches->first();
+                $candidateRole = $this->normalizeText($candidate->role);
+
+                $roleConflicts = $resolvedRole !== '' && $candidateRole !== '' && $candidateRole !== $resolvedRole;
+
+                if (! $roleConflicts) {
+                    return $candidate;
+                }
+
+                $conflicts[] = ['type' => 'staff', 'fingerprint' => $fingerprint, 'reason' => 'name_matched_but_fields_conflict'];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $resolved
+     * @param  array<string, int>  $faqMap
+     * @return array{id: int}
+     */
+    private function resolveFaq(FaqEntryData $entry, array $resolved, Salon $salon, array &$faqMap, array &$conflicts): array
+    {
+        $fingerprint = $entry->fingerprint;
+
+        if ($fingerprint && isset($faqMap[$fingerprint])) {
+            $existing = Faq::query()->where('salon_id', $salon->id)->find($faqMap[$fingerprint]);
+
+            if ($existing) {
+                $this->fillIfEmptyFaq($existing, $resolved);
+
+                return ['id' => $existing->id];
+            }
+        }
+
+        if (! $entry->isTemporaryFingerprint) {
+            $match = $this->matchFaq($resolved, $salon);
+
+            if ($match) {
+                $this->fillIfEmptyFaq($match, $resolved);
+
+                return ['id' => $match->id];
+            }
+        }
+
+        $created = $salon->faqs()->create([
+            'question' => $resolved['question'] ?? '',
+            'answer' => $resolved['answer'] ?? null,
+        ]);
+
+        return ['id' => $created->id];
+    }
+
+    private function matchFaq(array $resolved, Salon $salon): ?Faq
+    {
+        $resolvedQuestion = $this->normalizeText($resolved['question'] ?? null);
+
+        if ($resolvedQuestion === '') {
+            return null;
+        }
+
+        return $salon->faqs()->get()->first(
+            fn (Faq $candidate) => $this->normalizeText($candidate->question) === $resolvedQuestion
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $resolved
+     * @param  array<string, int>  $policyMap
+     * @return array{id: int}
+     */
+    private function resolvePolicy(PolicyEntryData $entry, array $resolved, Salon $salon, array &$policyMap, array &$conflicts): array
+    {
+        $fingerprint = $entry->fingerprint;
+
+        if ($fingerprint && isset($policyMap[$fingerprint])) {
+            $existing = Policy::query()->where('salon_id', $salon->id)->find($policyMap[$fingerprint]);
+
+            if ($existing) {
+                $this->fillIfEmptyPolicy($existing, $resolved);
+
+                return ['id' => $existing->id];
+            }
+        }
+
+        if (! $entry->isTemporaryFingerprint) {
+            $match = $this->matchPolicy($resolved, $salon);
+
+            if ($match) {
+                $this->fillIfEmptyPolicy($match, $resolved);
+
+                return ['id' => $match->id];
+            }
+        }
+
+        $created = $salon->policies()->create([
+            'title' => $resolved['title'] ?? '',
+            'content' => $resolved['content'] ?? null,
+        ]);
+
+        return ['id' => $created->id];
+    }
+
+    private function matchPolicy(array $resolved, Salon $salon): ?Policy
+    {
+        $resolvedTitle = $this->normalizeText($resolved['title'] ?? null);
+
+        if ($resolvedTitle === '') {
+            return null;
+        }
+
+        return $salon->policies()->get()->first(
+            fn (Policy $candidate) => $this->normalizeText($candidate->title) === $resolvedTitle
+        );
     }
 
     /**
@@ -594,6 +869,113 @@ class OnboardingDraftConfirmationService
 
         if ($dirty) {
             $service->save();
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $resolved
+     */
+    private function fillIfEmptyStaff(Staff $staff, array $resolved): void
+    {
+        $map = ['name' => 'name', 'role' => 'role'];
+        $dirty = false;
+
+        foreach ($map as $column => $sourceField) {
+            if (! array_key_exists($sourceField, $resolved)) {
+                continue;
+            }
+
+            if (blank($staff->{$column})) {
+                $staff->{$column} = $resolved[$sourceField];
+                $dirty = true;
+            }
+        }
+
+        if ($dirty) {
+            $staff->save();
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $resolved
+     */
+    private function fillIfEmptyFaq(Faq $faq, array $resolved): void
+    {
+        $map = ['question' => 'question', 'answer' => 'answer'];
+        $dirty = false;
+
+        foreach ($map as $column => $sourceField) {
+            if (! array_key_exists($sourceField, $resolved)) {
+                continue;
+            }
+
+            if (blank($faq->{$column})) {
+                $faq->{$column} = $resolved[$sourceField];
+                $dirty = true;
+            }
+        }
+
+        if ($dirty) {
+            $faq->save();
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $resolved
+     */
+    private function fillIfEmptyPolicy(Policy $policy, array $resolved): void
+    {
+        $map = ['title' => 'title', 'content' => 'content'];
+        $dirty = false;
+
+        foreach ($map as $column => $sourceField) {
+            if (! array_key_exists($sourceField, $resolved)) {
+                continue;
+            }
+
+            if (blank($policy->{$column})) {
+                $policy->{$column} = $resolved[$sourceField];
+                $dirty = true;
+            }
+        }
+
+        if ($dirty) {
+            $policy->save();
+        }
+    }
+
+    /**
+     * Onboarding-created services set Service::type directly (resolveService() below)
+     * but that never touched Salon::service_categories — the separate, curated list
+     * the "manage categories" screen (ServiceController::updateCategories) reads and
+     * writes. Without this, that screen shows an empty/stale list even though every
+     * imported service already has a category — and worse, saving that empty list from
+     * the manager wipes every service's type back to null, since updateCategories()
+     * clears any type not present in what was submitted. Mirrors
+     * ServiceImageImportController::mergeServiceCategories().
+     *
+     * @param  list<array<string, mixed>>  $resolvedServices
+     */
+    private function mergeServiceCategories(Salon $salon, array $resolvedServices): void
+    {
+        $categories = collect($resolvedServices)
+            ->pluck('category')
+            ->filter(fn ($category) => is_string($category) && trim($category) !== '');
+
+        if ($categories->isEmpty()) {
+            return;
+        }
+
+        $merged = collect($salon->service_categories ?? [])
+            ->merge($categories)
+            ->map(fn ($category) => trim((string) $category))
+            ->filter()
+            ->unique(fn (string $category) => $this->normalizeText($category))
+            ->values()
+            ->all();
+
+        if ($merged !== ($salon->service_categories ?? [])) {
+            $salon->update(['service_categories' => $merged]);
         }
     }
 

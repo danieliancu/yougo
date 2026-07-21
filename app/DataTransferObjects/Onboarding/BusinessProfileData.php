@@ -54,6 +54,26 @@ final readonly class BusinessProfileData
     }
 
     /**
+     * The review UI's field list, straight from this factMap()'s key set — the single
+     * source of truth for "what fields exist here", so the frontend can never drift out
+     * of sync with it (see OnboardingFieldSchema).
+     *
+     * @return array<string, string>
+     */
+    public static function fieldKinds(): array
+    {
+        return [
+            'name' => 'text',
+            'business_type' => 'text',
+            'description' => 'multiline',
+            'website' => 'text',
+            'languages' => 'list',
+            'service_at_customer_location' => 'boolean',
+            'opening_hours' => 'hours',
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function toArray(): array

@@ -32,5 +32,8 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- Keeps tests that simulate a persistently-busy Gemini response fast — the
+             real retry-with-delay behavior only needs to run at production timing. -->
+        <env name="ONBOARDING_GEMINI_BUSY_RETRY_DELAY" value="0"/>
     </php>
 </phpunit>

@@ -32,6 +32,18 @@ final readonly class ContactData
     }
 
     /**
+     * @return array<string, string>
+     */
+    public static function fieldKinds(): array
+    {
+        return [
+            'business_phone' => 'text',
+            'notification_email' => 'text',
+            'social_links' => 'social_links',
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function toArray(): array

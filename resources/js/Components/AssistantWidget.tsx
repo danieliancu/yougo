@@ -58,6 +58,20 @@ function messagesSessionKey(storageKey: string) {
   return `yougo-assistant:${storageKey}:messages`;
 }
 
+// Server-side validation caps each message at 3000 chars (see messages.*.content in
+// WidgetController/AssistantController). The full conversation history is resent with
+// every turn, so a single long assistant reply (e.g. a long service list) would
+// otherwise fail that check on every subsequent message forever — the conversation
+// would be permanently stuck. Only the outgoing wire payload is truncated; the full
+// text stays in local state/storage so the user still sees it in the chat.
+const MAX_MESSAGE_CHARS_FOR_API = 2900;
+
+function truncateForApi(content: string): string {
+  if (content.length <= MAX_MESSAGE_CHARS_FOR_API) return content;
+
+  return `${content.slice(0, MAX_MESSAGE_CHARS_FOR_API - 1)}…`;
+}
+
 function lastContactKey(storageKey: string) {
   return `yougo-assistant:${storageKey}:last-contact`;
 }
@@ -211,14 +225,18 @@ export function AssistantWidget({
         },
         body: JSON.stringify({
           conversation_id: conversationIdRef.current,
-          messages: nextMessages,
+          messages: nextMessages.map((message) => ({ ...message, content: truncateForApi(message.content) })),
           ...(knownContact ? { known_contact: knownContact } : {}),
         }),
       });
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || t('aiUnavailable'));
+        // A 422 here is Laravel's raw request-validation failure (e.g. a malformed
+        // payload) — its `message` is an internal, untranslated field-path string
+        // never meant for end users. Every other non-2xx status carries an
+        // already-localized, user-facing `message` from AssistantChatService.
+        throw new Error(response.status === 422 ? t('aiUnavailable') : (data.message || t('aiUnavailable')));
       }
 
       if (data.conversation_id) {

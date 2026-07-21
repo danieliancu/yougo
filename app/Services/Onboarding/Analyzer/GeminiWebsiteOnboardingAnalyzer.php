@@ -9,6 +9,7 @@ use App\Exceptions\Onboarding\InvalidOnboardingUrlException;
 use App\Models\OnboardingDraft;
 use App\Services\Onboarding\Crawler\CrawledPage;
 use App\Services\Onboarding\Crawler\OnboardingWebsiteCrawler;
+use App\Services\Onboarding\Extraction\ExtractedPage;
 use App\Services\Onboarding\ImportedFactMerger;
 use App\Services\Onboarding\OnboardingUrlValidator;
 use Illuminate\Support\Facades\Http;
@@ -255,6 +256,8 @@ class GeminiWebsiteOnboardingAnalyzer implements OnboardingSourceAnalyzer
         $maxCalls = (int) config('onboarding.analyzer.gemini.max_ai_calls', 6);
         $maxCharsPerCall = (int) config('onboarding.analyzer.gemini.max_input_characters_per_call', 12000);
         $totalTimeout = (int) config('onboarding.analyzer.gemini.total_analyzer_timeout_seconds', 90);
+        $maxBusyRetries = (int) config('onboarding.analyzer.gemini.max_busy_retries', 2);
+        $busyRetryDelaySeconds = (int) config('onboarding.analyzer.gemini.busy_retry_delay_seconds', 3);
 
         $batches = $this->batchPages($pages, $maxCharsPerCall);
 
@@ -277,14 +280,35 @@ class GeminiWebsiteOnboardingAnalyzer implements OnboardingSourceAnalyzer
             }
 
             $callCount++;
+            $fragment = null;
+            $busyAttempt = 0;
 
-            try {
-                $fragment = $this->analyzeBatch($batch);
-            } catch (Throwable $exception) {
-                $warnings[] = 'ai_batch_failed';
-                Log::warning('onboarding website analysis: AI batch failed', ['exception' => $exception::class]);
+            while (true) {
+                try {
+                    $fragment = $this->analyzeBatch($batch);
 
-                continue;
+                    break;
+                } catch (AnalyzerBusyException $exception) {
+                    $busyAttempt++;
+
+                    // A busy/rate-limited response is transient — worth a couple of
+                    // short-delay retries before giving up on the batch's data entirely,
+                    // as long as it still fits inside the overall analysis time budget.
+                    if ($busyAttempt > $maxBusyRetries || (microtime(true) - $startedAt) > $totalTimeout) {
+                        $warnings[] = 'ai_batch_failed';
+                        Log::warning('onboarding website analysis: AI batch failed', ['exception' => $exception::class, 'busy_attempts' => $busyAttempt]);
+
+                        continue 2;
+                    }
+
+                    Log::info('onboarding website analysis: AI batch busy, retrying', ['attempt' => $busyAttempt]);
+                    sleep($busyRetryDelaySeconds);
+                } catch (Throwable $exception) {
+                    $warnings[] = 'ai_batch_failed';
+                    Log::warning('onboarding website analysis: AI batch failed', ['exception' => $exception::class]);
+
+                    continue 2;
+                }
             }
 
             foreach (['business', 'contact'] as $section) {
@@ -313,18 +337,43 @@ class GeminiWebsiteOnboardingAnalyzer implements OnboardingSourceAnalyzer
 
     /**
      * Greedily packs pages into batches under the per-call character budget — several
-     * small pages share one call; a large page may be alone in its own.
+     * small pages share one call; a large page may be alone in its own. Pages are
+     * pre-split (see splitDensePage()) so no single AI call ever has to hold an entire
+     * dense page (e.g. a full price list) by itself.
      *
      * @param  list<CrawledPage>  $pages
      * @return list<list<CrawledPage>>
      */
     private function batchPages(array $pages, int $maxCharsPerCall): array
     {
+        $splitCharsPerChunk = (int) config('onboarding.analyzer.gemini.max_input_characters_per_dense_chunk', 3000);
+
         $batches = [];
         $current = [];
         $currentChars = 0;
 
         foreach ($pages as $page) {
+            $pieces = $this->splitDensePage($page, $splitCharsPerChunk);
+
+            if (count($pieces) > 1) {
+                // An oversized page's chunks would otherwise just get greedily
+                // recombined below (their combined size is still under
+                // $maxCharsPerCall) — undoing the split entirely. Each chunk gets its
+                // own dedicated batch instead, never merged with anything else.
+                if ($current !== []) {
+                    $batches[] = $current;
+                    $current = [];
+                    $currentChars = 0;
+                }
+
+                foreach ($pieces as $piece) {
+                    $batches[] = [$piece];
+                }
+
+                continue;
+            }
+
+            $page = $pieces[0];
             $pageChars = mb_strlen($page->extracted->mainText);
 
             if ($current !== [] && $currentChars + $pageChars > $maxCharsPerCall) {
@@ -342,6 +391,56 @@ class GeminiWebsiteOnboardingAnalyzer implements OnboardingSourceAnalyzer
         }
 
         return $batches;
+    }
+
+    /**
+     * A page's *input* character count is a poor proxy for how much *output* extracting
+     * it needs: a dense price list (short lines, but dozens of distinct services, each
+     * expanding into a full structured JSON entry) can demand far more output tokens
+     * than a same-sized prose page. That mismatch is what silently lost every price on
+     * /preturi/ in production — the page fit well within the input character budget as
+     * one chunk, but the resulting JSON kept hitting MAX_TOKENS mid-generation (even
+     * after raising the output budget, and even after raising the HTTP timeout — it
+     * simply had too much to say). Splitting a page into several same-source-url text
+     * chunks, each analyzed as its own batch/call, keeps every individual call's
+     * expected output bounded regardless of how dense the source content is.
+     *
+     * @return list<CrawledPage>
+     */
+    private function splitDensePage(CrawledPage $page, int $charsPerChunk): array
+    {
+        $text = $page->extracted->mainText;
+
+        if (mb_strlen($text) <= $charsPerChunk) {
+            return [$page];
+        }
+
+        $extracted = $page->extracted;
+
+        return array_map(
+            fn (string $chunk) => new CrawledPage(
+                url: $page->url,
+                depth: $page->depth,
+                discoveredVia: $page->discoveredVia,
+                extracted: new ExtractedPage(
+                    url: $extracted->url,
+                    title: $extracted->title,
+                    metaDescription: $extracted->metaDescription,
+                    hasArticleSchema: $extracted->hasArticleSchema,
+                    headings: $extracted->headings,
+                    mainText: $chunk,
+                    lists: $extracted->lists,
+                    tables: $extracted->tables,
+                    phones: $extracted->phones,
+                    emails: $extracted->emails,
+                    socialLinks: $extracted->socialLinks,
+                    jsonLd: $extracted->jsonLd,
+                    breadcrumbs: $extracted->breadcrumbs,
+                    links: $extracted->links,
+                ),
+            ),
+            mb_str_split($text, $charsPerChunk),
+        );
     }
 
     /**
@@ -395,6 +494,10 @@ class GeminiWebsiteOnboardingAnalyzer implements OnboardingSourceAnalyzer
                 'temperature' => 0.1,
                 'maxOutputTokens' => (int) config('onboarding.analyzer.gemini.max_output_tokens', 4096),
                 'responseMimeType' => 'application/json',
+                // gemini-2.5-flash spends output-token budget on internal reasoning before
+                // writing the visible answer; for plain structured extraction that reasoning
+                // buys nothing but reliably starves the JSON output into MAX_TOKENS truncation.
+                'thinkingConfig' => ['thinkingBudget' => 0],
             ],
         ];
     }

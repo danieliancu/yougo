@@ -90,4 +90,14 @@ class AiSettingsController extends Controller
 
         return back()->with('success', 'Setarile AI au fost salvate.');
     }
+
+    public function markSetupComplete(Request $request): RedirectResponse
+    {
+        $salon = $request->user()->salon;
+        abort_unless($salon, 404);
+
+        $salon->update(['ai_assistant_setup_completed' => true]);
+
+        return back();
+    }
 }

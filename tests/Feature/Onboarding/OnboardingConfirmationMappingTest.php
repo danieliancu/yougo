@@ -48,16 +48,80 @@ class OnboardingConfirmationMappingTest extends TestCase
         $this->assertSame('clinica-veterinara', $salon->business_type);
     }
 
-    public function test_staff_faq_and_policies_are_not_written_to_live_tables(): void
+    public function test_confirming_syncs_the_service_category_into_salon_service_categories(): void
+    {
+        // Service.type is set directly from the AI-extracted category, but the "manage
+        // categories" screen (ServiceController::updateCategories) reads/writes the
+        // separate Salon.service_categories list — without syncing the two, that screen
+        // would show an empty list for a salon whose services already have categories,
+        // and saving it would wipe every service's type back to null.
+        [$salon, $user, $draft] = $this->createDraft();
+
+        $this->service()->confirm($draft, $user, ConfirmedSelections::fromArray(['expected_revision' => $draft->revision]));
+
+        $this->assertContains('unghii', $salon->fresh()->service_categories);
+    }
+
+    public function test_staff_faq_and_policies_are_written_to_live_tables(): void
     {
         [$salon, $user, $draft] = $this->createDraft();
 
         $this->service()->confirm($draft, $user, ConfirmedSelections::fromArray(['expected_revision' => $draft->revision]));
 
+        $this->assertSame(1, $salon->staff()->count());
+        $this->assertSame('Ana Pop', $salon->staff()->first()->name);
+        $this->assertSame(1, $salon->faqs()->count());
+        $this->assertSame('Program?', $salon->faqs()->first()->question);
+        $this->assertSame(1, $salon->policies()->count());
+        $this->assertSame('Anulare', $salon->policies()->first()->title);
+    }
+
+    public function test_reconfirming_the_same_draft_does_not_duplicate_staff_faq_or_policies(): void
+    {
+        [$salon, $user, $draft] = $this->createDraft();
+
+        $selections = ConfirmedSelections::fromArray(['expected_revision' => $draft->revision]);
+        $this->service()->confirm($draft, $user, $selections);
+        // Idempotent replay: same draft, already confirmed, must be a no-op — not a second write.
+        $this->service()->confirm($draft->refresh(), $user, $selections);
+
+        $this->assertSame(1, $salon->staff()->count());
+        $this->assertSame(1, $salon->faqs()->count());
+        $this->assertSame(1, $salon->policies()->count());
+    }
+
+    public function test_excluding_a_staff_member_skips_it_and_does_not_block_confirmation(): void
+    {
+        [$salon, $user, $draft] = $this->createDraft(staffFingerprint: 'staff-fp-1', requiresConfirmation: true);
+
+        $this->service()->confirm($draft, $user, ConfirmedSelections::fromArray([
+            'expected_revision' => $draft->revision,
+            'excluded_staff' => ['staff-fp-1'],
+        ]));
+
         $this->assertSame(0, $salon->staff()->count());
-        $this->assertNotEmpty($draft->refresh()->normalized_extraction_result['staff'] ?? []);
-        $this->assertNotEmpty($draft->normalized_extraction_result['faq'] ?? []);
-        $this->assertNotEmpty($draft->normalized_extraction_result['policies'] ?? []);
+    }
+
+    public function test_a_non_numeric_duration_falls_back_to_the_default_instead_of_crashing(): void
+    {
+        // Reproduces a real extraction: the AI put a maintenance interval ("come back in
+        // 3-5 months") in the duration field instead of an appointment length. That must
+        // never reach the `services.duration` unsigned-integer column as-is — MySQL
+        // truncation-errors on it under strict mode, taking the whole confirm down.
+        [$salon, $user, $draft] = $this->createDraft(serviceDuration: '3-5 luni (întreținere)');
+
+        $this->service()->confirm($draft, $user, ConfirmedSelections::fromArray(['expected_revision' => $draft->revision]));
+
+        $this->assertSame(30, $salon->services()->first()->duration);
+    }
+
+    public function test_a_duration_with_an_explicit_unit_is_read_correctly(): void
+    {
+        [$salon, $user, $draft] = $this->createDraft(serviceDuration: '45 minute');
+
+        $this->service()->confirm($draft, $user, ConfirmedSelections::fromArray(['expected_revision' => $draft->revision]));
+
+        $this->assertSame(45, $salon->services()->first()->duration);
     }
 
     private function service(): OnboardingDraftConfirmationService
@@ -68,7 +132,7 @@ class OnboardingConfirmationMappingTest extends TestCase
     /**
      * @return array{0: Salon, 1: User, 2: OnboardingDraft}
      */
-    private function createDraft(mixed $languages = 'romana'): array
+    private function createDraft(mixed $languages = 'romana', ?string $staffFingerprint = null, bool $requiresConfirmation = false, ?string $serviceDuration = null): array
     {
         $user = User::factory()->create();
         /** @var Salon $salon */
@@ -93,16 +157,22 @@ class OnboardingConfirmationMappingTest extends TestCase
                 ],
             ],
             'services' => [
-                [
+                array_filter([
                     'name' => $this->fact('Manichiura'),
                     'category' => $this->fact('unghii'),
                     'price' => $this->fact('100'),
+                    'duration' => $serviceDuration !== null ? $this->fact($serviceDuration) : null,
                     'fingerprint' => hash('sha256', 'manichiura'),
                     'is_temporary_fingerprint' => false,
-                ],
+                ], static fn ($value) => $value !== null),
             ],
             'staff' => [
-                ['name' => $this->fact('Ana Pop'), 'role' => $this->fact('Stilist')],
+                [
+                    'name' => $this->fact('Ana Pop', $requiresConfirmation),
+                    'role' => $this->fact('Stilist'),
+                    'fingerprint' => $staffFingerprint,
+                    'is_temporary_fingerprint' => $staffFingerprint !== null,
+                ],
             ],
             'faq' => [
                 ['question' => $this->fact('Program?'), 'answer' => $this->fact('Luni-Vineri')],
@@ -131,8 +201,8 @@ class OnboardingConfirmationMappingTest extends TestCase
     /**
      * @return array<string, mixed>
      */
-    private function fact(mixed $value): array
+    private function fact(mixed $value, bool $requiresConfirmation = false): array
     {
-        return ['value' => $value, 'confidence_score' => 0.9, 'requires_confirmation' => false];
+        return ['value' => $value, 'confidence_score' => 0.9, 'requires_confirmation' => $requiresConfirmation];
     }
 }

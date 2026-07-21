@@ -22,6 +22,9 @@ class ConfirmOnboardingDraftRequest extends FormRequest
             'facts.*.decision' => ['required_with:facts', 'string', 'in:confirmed,corrected,excluded'],
             'excluded_locations' => ['sometimes', 'array'],
             'excluded_services' => ['sometimes', 'array'],
+            'excluded_staff' => ['sometimes', 'array'],
+            'excluded_faq' => ['sometimes', 'array'],
+            'excluded_policies' => ['sometimes', 'array'],
             'overwrite' => ['sometimes', 'array'],
         ];
     }

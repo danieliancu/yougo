@@ -112,6 +112,29 @@ class AiSettingsTest extends TestCase
         $response->assertRedirect('/login');
     }
 
+    public function test_authenticated_owner_can_mark_ai_assistant_setup_complete(): void
+    {
+        $user = User::factory()->create();
+        $salon = Salon::query()->create([
+            'user_id' => $user->id,
+            'name' => 'YouGo Studio',
+            'business_type' => 'auto-service',
+        ]);
+
+        $this->assertFalse($salon->refresh()->ai_assistant_setup_completed);
+
+        $this->actingAs($user)->post('/ai-settings/mark-complete')->assertRedirect();
+
+        $this->assertTrue($salon->refresh()->ai_assistant_setup_completed);
+    }
+
+    public function test_unauthenticated_users_cannot_mark_ai_assistant_setup_complete(): void
+    {
+        $response = $this->post('/ai-settings/mark-complete');
+
+        $response->assertRedirect('/login');
+    }
+
     private function validAiSettings(array $overrides = []): array
     {
         return array_merge([

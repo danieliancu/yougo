@@ -21,14 +21,26 @@ return [
         'gemini' => [
             // Reuses services.gemini.key/ca_bundle (config/services.php) — no separate API key.
             'model' => env('ONBOARDING_GEMINI_MODEL', env('GEMINI_MODEL', 'gemini-3-flash-preview')),
-            'timeout_seconds' => (int) env('ONBOARDING_GEMINI_TIMEOUT', 30),
+            // A large-but-legitimate completion (e.g. a dense price list) can take
+            // 30-60s to generate; 30s was cutting off calls that were about to succeed.
+            'timeout_seconds' => (int) env('ONBOARDING_GEMINI_TIMEOUT', 60),
             'max_repair_attempts' => 1,
             // Global AI cost/latency ceilings, independent of the crawl limits below —
             // 12 pages x a 30s Gemini call each would make onboarding slow and costly.
             'max_ai_calls' => (int) env('ONBOARDING_GEMINI_MAX_CALLS', 6),
             'max_input_characters_per_call' => (int) env('ONBOARDING_GEMINI_MAX_CHARS_PER_CALL', 12000),
-            'max_output_tokens' => (int) env('ONBOARDING_GEMINI_MAX_OUTPUT_TOKENS', 4096),
+            // A single page whose own text alone exceeds this is split into several
+            // same-source-url chunks before batching — bounds a dense page's (e.g. a
+            // full price list) expected output per call, independent of
+            // max_input_characters_per_call, which governs combining separate pages.
+            'max_input_characters_per_dense_chunk' => (int) env('ONBOARDING_GEMINI_MAX_CHARS_PER_DENSE_CHUNK', 1500),
+            'max_output_tokens' => (int) env('ONBOARDING_GEMINI_MAX_OUTPUT_TOKENS', 8192),
             'total_analyzer_timeout_seconds' => (int) env('ONBOARDING_GEMINI_TOTAL_TIMEOUT', 90),
+            // A busy/rate-limited batch (429/5xx, or a connection failure) is retried
+            // this many times, with this delay between attempts, before its data is
+            // given up on — bounded by total_analyzer_timeout_seconds either way.
+            'max_busy_retries' => (int) env('ONBOARDING_GEMINI_MAX_BUSY_RETRIES', 2),
+            'busy_retry_delay_seconds' => (int) env('ONBOARDING_GEMINI_BUSY_RETRY_DELAY', 3),
         ],
     ],
 
@@ -53,6 +65,11 @@ return [
         'total_timeout_seconds' => (int) env('ONBOARDING_CRAWL_TOTAL_TIMEOUT', 45),
         'max_html_bytes_per_page' => (int) env('ONBOARDING_CRAWL_MAX_HTML_BYTES', 2 * 1024 * 1024),
         'max_sitemap_bytes' => (int) env('ONBOARDING_CRAWL_MAX_SITEMAP_BYTES', 512 * 1024),
+        // A sitemap index lists other sitemap XML files rather than pages directly —
+        // these bound how many child sitemaps get fetched and how many page URLs a
+        // sitemap (index or plain) may contribute to the crawl frontier.
+        'max_sitemap_files' => (int) env('ONBOARDING_CRAWL_MAX_SITEMAP_FILES', 5),
+        'max_sitemap_urls' => (int) env('ONBOARDING_CRAWL_MAX_SITEMAP_URLS', 200),
         'max_total_download_bytes' => (int) env('ONBOARDING_CRAWL_MAX_TOTAL_BYTES', 8 * 1024 * 1024),
         'max_extracted_characters_per_page' => (int) env('ONBOARDING_CRAWL_MAX_CHARS_PER_PAGE', 30000),
         'max_total_extracted_characters' => (int) env('ONBOARDING_CRAWL_MAX_TOTAL_CHARS', 150000),

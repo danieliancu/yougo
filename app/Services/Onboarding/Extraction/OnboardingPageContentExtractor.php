@@ -26,6 +26,12 @@ class OnboardingPageContentExtractor
 
     private const NOISE_SELECTORS_CLASS_HINTS = ['cookie', 'consent', 'gdpr', 'newsletter-popup'];
 
+    // Deliberately just BlogPosting, not the more generic "Article"/"NewsArticle":
+    // measured against a real site, Yoast's shared @graph attaches a generic "Article"
+    // node on every page (not just posts) as part of its WebPage/mainEntity linking —
+    // BlogPosting was, on the same site, present only on the actual blog post.
+    private const ARTICLE_JSON_LD_TYPES = ['BlogPosting'];
+
     public function extract(string $url, string $html): ExtractedPage
     {
         $dom = $this->loadHtml($html);
@@ -35,6 +41,7 @@ class OnboardingPageContentExtractor
         // <script type="application/ld+json">, which noise-stripping would otherwise
         // delete before it's ever read.
         $jsonLd = $this->jsonLd($xpath);
+        $hasArticleSchema = $this->hasArticleSchema($xpath) || $this->isWordPressBlogPost($xpath);
 
         $this->stripNoise($dom, $xpath);
 
@@ -42,6 +49,7 @@ class OnboardingPageContentExtractor
             url: $url,
             title: $this->title($xpath),
             metaDescription: $this->metaDescription($xpath),
+            hasArticleSchema: $hasArticleSchema,
             headings: $this->headings($xpath),
             mainText: $this->mainText($dom),
             lists: $this->lists($xpath),
@@ -98,6 +106,60 @@ class OnboardingPageContentExtractor
         $text = $node ? $this->collapse($node->nodeValue) : null;
 
         return $text !== '' ? $text : null;
+    }
+
+    /**
+     * Whether the page declares itself as a blog post via JSON-LD BlogPosting (see
+     * ARTICLE_JSON_LD_TYPES for why not the more generic "Article" too) — used by the
+     * crawler to skip blog articles, whose casual mentions of a technique/service (with
+     * no price) otherwise get mistaken for real service data. Deliberately not using
+     * the og:type meta tag for this: measured against a real site, its theme set
+     * og:type="article" on every single page (including /preturi/ and location pages),
+     * which would have excluded the whole business.
+     */
+    private function hasArticleSchema(DOMXPath $xpath): bool
+    {
+        foreach ($xpath->query('//script[@type="application/ld+json"]') as $node) {
+            $decoded = json_decode($node->textContent, true);
+
+            if (! is_array($decoded)) {
+                continue;
+            }
+
+            foreach ($this->flattenJsonLd($decoded) as $entry) {
+                $type = $entry['@type'] ?? null;
+                $types = is_array($type) ? $type : [$type];
+
+                if (array_intersect($types, self::ARTICLE_JSON_LD_TYPES) !== []) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * WordPress core's body_class() adds "single-post" only on a singular view of the
+     * built-in "post" type (i.e. an actual blog article) — never on pages, custom post
+     * types, or archive/listing views. Unlike og:type or JSON-LD @type (both of which,
+     * on real sites, get stamped "article" by the theme/SEO-plugin on every single page,
+     * see hasArticleSchema()), this class is emitted by WordPress core itself, not by a
+     * theme or plugin, so it generalizes across WordPress sites regardless of theme —
+     * caught a real blog article on a site whose theme/plugin emitted neither JSON-LD
+     * BlogPosting nor a breadcrumb trail.
+     */
+    private function isWordPressBlogPost(DOMXPath $xpath): bool
+    {
+        $body = $xpath->query('//body')->item(0);
+
+        if ($body === null) {
+            return false;
+        }
+
+        $classes = preg_split('/\s+/', trim($body->getAttribute('class')));
+
+        return in_array('single-post', $classes, true);
     }
 
     /**

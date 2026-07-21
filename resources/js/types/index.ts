@@ -157,6 +157,7 @@ export type Salon = {
   widget_primary_color?: string | null;
   widget_cta_text?: string | null;
   widget_position?: 'bottom-right' | 'bottom-left' | string | null;
+  widget_setup_completed?: boolean;
   onboarding_completed?: boolean;
   onboarding_skipped?: boolean;
   onboarding_completed_at?: string | null;
@@ -194,6 +195,7 @@ export type Salon = {
   ai_collect_phone?: boolean;
   ai_handoff_message?: string | null;
   ai_unknown_answer_policy?: 'say_unknown' | 'handoff' | string | null;
+  ai_assistant_setup_completed?: boolean;
   locations: Location[];
   staff: Staff[];
   services: Service[];

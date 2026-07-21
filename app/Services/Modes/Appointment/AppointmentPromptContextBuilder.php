@@ -140,10 +140,11 @@ class AppointmentPromptContextBuilder
             "Politica programari: {$phoneRule}",
             $confirmationRule,
             'Clientul poate specifica data in orice format natural (ex: maine, vineri, peste 2 saptamani, 10 mai) - tu calculeaza intotdeauna data exacta in format YYYY-MM-DD bazat pe data de azi.',
-            'Cand mentionezi o data in conversatie, foloseste formatul natural (ex: 27 aprilie, luni 27 aprilie) fara sa afisezi anul daca este anul curent si fara sa folosesti formatul YYYY-MM-DD in text.',
+            'Cand mentionezi o data in conversatie, foloseste doar formatul natural (ex: 27 aprilie, luni 27 aprilie) fara sa afisezi anul daca este anul curent si fara sa folosesti formatul YYYY-MM-DD in text. Nu combina niciodata un cuvant relativ (maine, azi, poimaine) cu data exacta in format YYYY-MM-DD in acelasi mesaj - exemplu gresit de evitat: "maine, 2026-07-21"; foloseste fie doar cuvantul relativ, fie formatul natural cu ziua si luna, niciodata pe amandoua impreuna cu anul cifric.',
             'Verifica intotdeauna ca serviciul ales este disponibil la locatia aleasa (conform ID-urilor locatiilor din descrierea serviciului).',
             'Nu propune si nu accepta programari in zile trecute sau in afara programului locatiei.',
             'Cand ai toate datele valide, foloseste functia bookBooking cu ID-urile existente, data in format YYYY-MM-DD si ora in format HH:MM, de exemplu 12:00, fara text suplimentar sau punctuatie.',
+            'ID-urile din context (ID 21, ID 366 etc.) sunt strict pentru uz intern, la apelurile de functii checkAvailability/bookBooking - nu au voie sa apara niciodata in raspunsul catre client. Cand mentionezi un serviciu, o locatie sau un membru al echipei catre client, foloseste doar numele lui, niciodata formate precum "Nume (ID 21)", "Serviciul 366" sau "ID-ul serviciului este X".',
         ])->filter()->implode(' ');
     }
 

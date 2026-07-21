@@ -69,8 +69,11 @@ final readonly class NormalizedExtractionResult
     /**
      * @param  list<LocationData>  $locations
      * @param  list<ServiceData>  $services
+     * @param  list<StaffData>  $staff
+     * @param  list<FaqEntryData>  $faq
+     * @param  list<PolicyEntryData>  $policies
      */
-    public function withEntities(array $locations, array $services): self
+    public function withEntities(array $locations, array $services, ?array $staff = null, ?array $faq = null, ?array $policies = null): self
     {
         return new self(
             $this->schemaVersion,
@@ -78,9 +81,9 @@ final readonly class NormalizedExtractionResult
             $this->contact,
             $locations,
             $services,
-            $this->staff,
-            $this->faq,
-            $this->policies,
+            $staff ?? $this->staff,
+            $faq ?? $this->faq,
+            $policies ?? $this->policies,
         );
     }
 

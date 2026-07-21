@@ -42,6 +42,7 @@ class Salon extends Model
         'widget_primary_color',
         'widget_cta_text',
         'widget_position',
+        'widget_setup_completed',
         'onboarding_completed',
         'onboarding_skipped',
         'onboarding_completed_at',
@@ -82,6 +83,7 @@ class Salon extends Model
         'ai_collect_phone',
         'ai_handoff_message',
         'ai_unknown_answer_policy',
+        'ai_assistant_setup_completed',
     ];
 
     protected function casts(): array
@@ -92,6 +94,7 @@ class Salon extends Model
             'booking_confirmations' => 'boolean',
             'booking_status_email_notifications' => 'boolean',
             'widget_enabled' => 'boolean',
+            'widget_setup_completed' => 'boolean',
             'widget_allowed_domains' => 'array',
             'plan_started_at' => 'datetime',
             'trial_ends_at' => 'datetime',
@@ -109,6 +112,7 @@ class Salon extends Model
             'ai_custom_context' => 'array',
             'ai_booking_enabled' => 'boolean',
             'ai_collect_phone' => 'boolean',
+            'ai_assistant_setup_completed' => 'boolean',
         ];
     }
 
@@ -197,6 +201,16 @@ class Salon extends Model
     public function services(): HasMany
     {
         return $this->hasMany(Service::class);
+    }
+
+    public function faqs(): HasMany
+    {
+        return $this->hasMany(Faq::class);
+    }
+
+    public function policies(): HasMany
+    {
+        return $this->hasMany(Policy::class);
     }
 
     public function staff(): HasMany

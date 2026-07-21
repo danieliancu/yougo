@@ -170,6 +170,59 @@ class GeminiWebsiteOnboardingAnalyzerTest extends TestCase
         $this->analyzer($fetcher)->analyze($draft);
     }
 
+    public function test_a_busy_batch_is_retried_and_recovers_its_data(): void
+    {
+        $fetcher = new FakeOnboardingSourceFetcher;
+        $fetcher->willReturnHtml('https://salon.ro', '<html><body>Manichiura 100 lei</body></html>');
+
+        // First attempt for the (single) batch is rate-limited; the retry succeeds —
+        // without the retry, this page's data would be silently lost.
+        Http::fake([
+            'generativelanguage.googleapis.com/*' => Http::sequence()
+                ->push('', 429)
+                ->push($this->geminiResponse(['services' => [[
+                    'name' => ['value' => 'Manichiura', 'source_url' => 'https://salon.ro'],
+                    'category' => ['value' => 'unghii', 'source_url' => 'https://salon.ro'],
+                ]]])),
+        ]);
+
+        $draft = $this->createDraft('https://salon.ro');
+        $result = $this->analyzer($fetcher)->analyze($draft);
+
+        $this->assertNotContains('ai_batch_failed', $result->warnings);
+        $this->assertSame('Manichiura', $result->normalized['services'][0]['name']['value']);
+    }
+
+    public function test_a_dense_single_page_is_split_into_several_calls_and_results_are_merged(): void
+    {
+        // A page whose own text alone exceeds the dense-chunk threshold (e.g. a full
+        // price list) must be split into multiple calls rather than sent as one giant
+        // request — sending it whole is what silently lost every price on a real dense
+        // pricing page (the request either timed out or hit MAX_TOKENS mid-JSON).
+        config(['onboarding.analyzer.gemini.max_input_characters_per_dense_chunk' => 50]);
+
+        $fetcher = new FakeOnboardingSourceFetcher;
+        $fetcher->willReturnHtml('https://salon.ro', '<html><body>'.str_repeat('Tuns pret 50 lei. ', 20).'</body></html>');
+
+        Http::fake([
+            'generativelanguage.googleapis.com/*' => Http::sequence()
+                ->push($this->geminiResponse(['services' => [[
+                    'name' => ['value' => 'Tuns', 'source_url' => 'https://salon.ro'],
+                    'price' => ['value' => ['type' => 'fixed', 'amount' => 50, 'currency' => 'lei'], 'source_url' => 'https://salon.ro'],
+                ]]]))
+                ->push($this->geminiResponse(['services' => [[
+                    'name' => ['value' => 'Tuns', 'source_url' => 'https://salon.ro'],
+                    'price' => ['value' => ['type' => 'fixed', 'amount' => 50, 'currency' => 'lei'], 'source_url' => 'https://salon.ro'],
+                ]]])),
+        ]);
+
+        $draft = $this->createDraft('https://salon.ro');
+        $result = $this->analyzer($fetcher)->analyze($draft);
+
+        $this->assertGreaterThanOrEqual(2, $result->providerMetadata['ai_calls']);
+        $this->assertSame('Tuns', $result->normalized['services'][0]['name']['value']);
+    }
+
     public function test_small_pages_are_grouped_into_fewer_ai_calls_than_pages(): void
     {
         config(['onboarding.crawl.max_pages' => 5, 'onboarding.crawl.max_depth' => 1, 'onboarding.analyzer.gemini.max_input_characters_per_call' => 1000]);

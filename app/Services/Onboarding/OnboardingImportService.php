@@ -29,6 +29,7 @@ class OnboardingImportService
         private readonly OnboardingUrlValidator $urlValidator,
         private readonly OnboardingStateMachine $salonMachine,
         private readonly OnboardingDraftStateMachine $draftMachine,
+        private readonly OnboardingEntityDeduplicator $deduplicator,
     ) {}
 
     public function start(Salon $salon, ?User $user, string $sourceType, ?string $sourceUrl): OnboardingDraft
@@ -70,7 +71,7 @@ class OnboardingImportService
                 ->first();
 
             if ($active) {
-                if ($active->normalized_source_url === $normalizedUrl) {
+                if ($sourceType === 'url' && $active->normalized_source_url === $normalizedUrl) {
                     return $active;
                 }
 
@@ -84,20 +85,46 @@ class OnboardingImportService
                 $this->supersedeActiveDraft($active, $lockedSalon);
             }
 
-            return $this->createDraft($lockedSalon, $user, $sourceType, $sourceUrl, $normalizedUrl, $idempotencyKey);
+            $created = $this->createDraft($lockedSalon, $user, $sourceType, $sourceUrl, $normalizedUrl, $idempotencyKey);
+
+            if ($sourceType === 'manual' && $created->wasRecentlyCreated) {
+                $this->initializeManualDraft($created, $lockedSalon);
+            }
+
+            return $created;
         });
 
         if ($draft->wasRecentlyCreated) {
-            AnalyzeOnboardingDraftJob::dispatch($draft->id);
+            if ($sourceType === 'url') {
+                AnalyzeOnboardingDraftJob::dispatch($draft->id);
+            }
 
             // On a synchronous queue connection (e.g. in tests), the job above may
             // have already run and mutated this row — refresh so callers always see
             // the current DB state rather than a stale in-memory copy from before
-            // dispatch. A no-op extra query on a real async queue.
+            // dispatch. A no-op extra query on a real async queue, and for the manual
+            // path (no job at all) this just picks up initializeManualDraft()'s writes.
             $draft->refresh();
         }
 
         return $draft;
+    }
+
+    /**
+     * A manual ("no website") draft has nothing to crawl, so it skips analysis
+     * entirely: starts with an empty but schema-valid extraction result and is driven
+     * straight to review_required using the same already-legal state transitions the
+     * job would otherwise perform, so it lands on the exact same review screen.
+     */
+    private function initializeManualDraft(OnboardingDraft $draft, Salon $salon): void
+    {
+        $empty = new NormalizedExtractionResult(NormalizedExtractionResult::CURRENT_SCHEMA_VERSION, null, null);
+        $draft->forceFill(['normalized_extraction_result' => $empty->toArray()])->save();
+
+        $this->draftMachine->transition($draft, OnboardingDraftStatus::Analysing);
+        $this->salonMachine->transition($salon, OnboardingState::Analysing);
+        $this->draftMachine->transition($draft, OnboardingDraftStatus::ReviewRequired);
+        $this->salonMachine->transition($salon, OnboardingState::ReviewRequired);
     }
 
     public function retry(OnboardingDraft $draft): OnboardingDraft
@@ -176,11 +203,15 @@ class OnboardingImportService
                 $this->applyCorrection($raw, (string) $path, $correction['value'] ?? null);
             }
 
-            // Re-validate after edits so a malformed correction can never be persisted.
-            NormalizedExtractionResult::fromArray($raw);
+            // Re-validate after edits so a malformed correction can never be persisted,
+            // then recompute stable fingerprints for anything that changed (including
+            // brand-new entities appended via a client-chosen scratch key above — that
+            // scratch key must never reach storage as a permanent fingerprint; this is
+            // the only place fingerprints are assigned or changed).
+            $result = $this->deduplicator->process($locked, NormalizedExtractionResult::fromArray($raw));
 
             $locked->forceFill([
-                'normalized_extraction_result' => $raw,
+                'normalized_extraction_result' => $result->toArray(),
                 'revision' => $locked->revision + 1,
             ])->save();
 
@@ -189,6 +220,19 @@ class OnboardingImportService
     }
 
     /**
+     * A user-typed correction is inherently certain, so business/contact scalar
+     * corrections always construct a fresh, confirmed fact rather than requiring one to
+     * already exist at that path — this is what lets a field the crawl missed (or a
+     * manual/"no website" draft, which starts with nothing) accept direct input.
+     *
+     * For repeatable entities (locations/services/staff/faq/policies), an existing
+     * entity at that fingerprint gets the field set on it; otherwise a new entity is
+     * appended, staged under the client's path key as a temporary fingerprint — never
+     * written as if it were a real stable one. Fingerprints are recomputed for the
+     * whole result by OnboardingEntityDeduplicator right after all corrections in this
+     * request are applied (see updateDraft()), which is what actually gives a new,
+     * now-complete entity a real stable identity.
+     *
      * @param  array<string, mixed>  $raw
      */
     private function applyCorrection(array &$raw, string $path, mixed $value): void
@@ -198,28 +242,44 @@ class OnboardingImportService
         if (count($segments) === 2 && in_array($segments[0], ['business', 'contact'], true)) {
             [$section, $field] = $segments;
 
-            if (! isset($raw[$section][$field]) || ! is_array($raw[$section][$field])) {
-                return;
-            }
-
-            $raw[$section][$field]['value'] = $value;
-            $raw[$section][$field]['requires_confirmation'] = false;
+            $raw[$section] ??= [];
+            $raw[$section][$field] = $this->freshFact($value);
 
             return;
         }
 
-        if (count($segments) === 3 && in_array($segments[0], ['locations', 'services'], true)) {
-            [$collection, $fingerprint, $field] = $segments;
+        $repeatableCollections = ['locations', 'services', 'staff', 'faq', 'policies'];
 
-            foreach ($raw[$collection] ?? [] as $index => $entity) {
-                if (($entity['fingerprint'] ?? null) === $fingerprint && isset($entity[$field]) && is_array($entity[$field])) {
-                    $raw[$collection][$index][$field]['value'] = $value;
-                    $raw[$collection][$index][$field]['requires_confirmation'] = false;
+        if (count($segments) === 3 && in_array($segments[0], $repeatableCollections, true)) {
+            [$collection, $key, $field] = $segments;
+            $raw[$collection] ??= [];
+
+            foreach ($raw[$collection] as $index => $entity) {
+                if (($entity['fingerprint'] ?? null) === $key) {
+                    $raw[$collection][$index][$field] = $this->freshFact($value);
 
                     return;
                 }
             }
+
+            $raw[$collection][] = [
+                $field => $this->freshFact($value),
+                'fingerprint' => $key,
+                'is_temporary_fingerprint' => true,
+            ];
         }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function freshFact(mixed $value): array
+    {
+        return [
+            'value' => $value,
+            'confidence_score' => 1.0,
+            'requires_confirmation' => false,
+        ];
     }
 
     private function supersedeActiveDraft(OnboardingDraft $draft, Salon $salon): void
