@@ -21,9 +21,14 @@ return new class extends Migration
             $table->string('schema_version', 20)->default('1.0');
 
             $table->string('status', 30);
-            $table->unsignedBigInteger('active_slot')
-                ->storedAs("CASE WHEN status IN ('pending','analysing','review_required','analysis_failed') THEN salon_id ELSE NULL END")
-                ->nullable();
+            // Deliberately NOT a database-generated column: MySQL/InnoDB refuses to let a
+            // generated column derive from a base column (salon_id) that also carries an
+            // ON DELETE CASCADE foreign key — "Cannot add foreign key constraint" (error
+            // 1215) — because a cascading delete can't correctly recompute the generated
+            // value. MariaDB doesn't enforce this, which is why this worked in local dev
+            // (MariaDB 10.4) and only failed against production MySQL (8.4). Kept in sync
+            // from PHP instead — see OnboardingDraft::booted().
+            $table->unsignedBigInteger('active_slot')->nullable();
             $table->unsignedInteger('revision')->default(0);
             $table->unsignedTinyInteger('attempt_count')->default(0);
 

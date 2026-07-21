@@ -62,6 +62,23 @@ class OnboardingDraft extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::saving(function (self $draft): void {
+            $status = $draft->status instanceof OnboardingDraftStatus
+                ? $draft->status
+                : OnboardingDraftStatus::from((string) $draft->status);
+
+            // Mirrors OnboardingDraftStatus::activeValues() — kept in PHP rather than as a
+            // MySQL generated column because MySQL/InnoDB rejects a generated column
+            // derived from a base column (salon_id) that also carries an ON DELETE CASCADE
+            // foreign key (error 1215); see the onboarding_drafts migration for the full
+            // explanation. The DB unique index on this column is what actually enforces
+            // "only one active draft per salon" — this just keeps the value correct.
+            $draft->active_slot = $status->isActive() ? $draft->salon_id : null;
+        });
+    }
+
     public function salon(): BelongsTo
     {
         return $this->belongsTo(Salon::class);
