@@ -68,7 +68,7 @@ export default function Landing() {
             <div>
               <p className="mb-4 inline-flex rounded-md bg-indigo-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-indigo-700">{t('landingTitle')}</p>
               <h1 className="hero-title">{t('landingHeadline')}</h1>
-              <p className="mt-6 max-w-2xl text-lg leading-8 app-text-soft">
+              <p className="mt-6 max-w-2xl text-lg leading-8 app-text-soft lg:pl-5">
                 {t('landingCopy')}
               </p>
               <div className="mt-8 flex flex-wrap gap-3">

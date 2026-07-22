@@ -22,7 +22,7 @@ export default function Register() {
       <p className="mt-2 text-sm app-text-muted">{t('registerSubtitle')}</p>
 
       <form className="mt-8 space-y-5" onSubmit={(event) => { event.preventDefault(); form.post('/register'); }}>
-        <Field label={t('name')} error={form.errors.name}>
+        <Field label={t('ownerName')} error={form.errors.name}>
           <Input value={form.data.name} onChange={(event) => form.setData('name', event.target.value)} autoComplete="name" />
         </Field>
         <Field label="Email" error={form.errors.email}>

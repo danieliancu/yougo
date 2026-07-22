@@ -24,7 +24,7 @@ class OnboardingTest extends TestCase
             'business_type' => 'salon-beauty',
         ]);
 
-        $response->assertRedirect('/dashboard/onboarding');
+        $response->assertRedirect('/onboarding/import');
     }
 
     public function test_onboarding_checklist_returns_incomplete_steps_for_new_user(): void

@@ -107,29 +107,16 @@ export default function Import({ active_draft, field_schema }: PageProps) {
     }
   }, [t]);
 
-  const handleStartManual = useCallback(async () => {
+  const handleSkipWebsite = useCallback(async () => {
     setStarting(true);
-    setUrlError(null);
 
     try {
-      const { ok, data } = await apiFetch('/onboarding/import', {
-        method: 'POST',
-        body: JSON.stringify({ source_type: 'manual' }),
-      });
-
-      if (!ok) {
-        setUrlError(typeof data.message === 'string' ? data.message : t('importErrorGeneric'));
-
-        return;
-      }
-
-      setFactDecisions({});
-      setExclusions(emptyExclusions());
-      setDraft(data as Draft);
+      await apiFetch('/onboarding/skip', { method: 'POST' });
+      router.visit('/dashboard/overview');
     } finally {
       setStarting(false);
     }
-  }, [t]);
+  }, []);
 
   const handleRetry = useCallback(async () => {
     if (!draft) return;
@@ -311,7 +298,7 @@ export default function Import({ active_draft, field_schema }: PageProps) {
   return (
     <div className="min-h-screen p-6 app-bg">
       {step === 'url' && (
-        <ImportUrlStep onSubmitUrl={handleStartUrl} onSubmitManual={handleStartManual} submitting={starting} errorMessage={urlError} />
+        <ImportUrlStep onSubmitUrl={handleStartUrl} onSubmitManual={handleSkipWebsite} submitting={starting} errorMessage={urlError} />
       )}
       {step === 'progress' && draft && (
         <ImportProgressStep draft={draft} onRetry={handleRetry} onChangeAddress={handleChangeAddress} retrying={retrying} />

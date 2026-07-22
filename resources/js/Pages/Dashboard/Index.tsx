@@ -2422,15 +2422,6 @@ function OnboardingSetup({ onboarding }: { onboarding: OnboardingChecklist }) {
           </div>
         </div>
         <OnboardingProgress onboarding={onboarding} />
-        <div className="mt-5 flex flex-col gap-3 rounded-lg border p-4 app-border app-panel-soft sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="font-bold app-text">{t('onboardingImportCardTitle')}</p>
-            <p className="mt-1 text-sm app-text-muted">{t('onboardingImportCardDescription')}</p>
-          </div>
-          <Link href="/onboarding/import" className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700">
-            {t('onboardingImportCardCta')}
-          </Link>
-        </div>
         {nextStep && (
           <div className="mt-5 flex flex-col gap-3 rounded-lg border p-4 app-border app-panel-soft sm:flex-row sm:items-center sm:justify-between">
             <div>
