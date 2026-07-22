@@ -297,7 +297,7 @@ export function ImportReviewStep({
       />
 
       <div className="fixed inset-x-0 bottom-0 border-t app-panel p-4">
-        <div className="mx-auto flex max-w-3xl justify-end">
+        <div className="mx-auto flex max-w-3xl justify-center sm:justify-end">
           <Button onClick={onConfirm} disabled={submitting}>{t('importConfirmAndFinish')}</Button>
         </div>
       </div>
@@ -323,8 +323,8 @@ function Section({
 
   return (
     <Card className="p-6">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
+      <div className="mb-4 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+        <div className="flex min-w-0 flex-col items-center gap-2 sm:flex-row">
           <h2 className="text-lg font-bold app-text">{title}</h2>
           <SectionStatusPill status={status} />
         </div>
@@ -438,8 +438,8 @@ function EntitySection({
 
   return (
     <Card className="p-6">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
+      <div className="mb-4 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
+        <div className="flex min-w-0 flex-col items-center gap-2 sm:flex-row">
           <h2 className="text-lg font-bold app-text">{title}</h2>
           <SectionStatusPill status={status} />
         </div>

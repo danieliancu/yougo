@@ -21,7 +21,7 @@ class HandleInertiaRequests extends Middleware
         $cookieLocale = $request->cookie('yougo-lang');
         $locale = in_array($cookieLocale, ['ro', 'en'], true)
             ? $cookieLocale
-            : ($request->user()?->salon?->display_language ?? config('app.locale', 'ro'));
+            : ($request->user()?->salon?->display_language ?? 'ro');
 
         return [
             ...parent::share($request),

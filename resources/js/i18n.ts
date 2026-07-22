@@ -598,7 +598,7 @@ const dictionaries: Record<string, Dictionary> = {
     resetSearch: 'Reset cautare',
     addEditCategory: 'Adauga/editeaza categorie',
     importServicesAi: 'Import servicii cu AI',
-    importWithAi: 'Importa servicii cu AI',
+    importWithAi: 'Importa servicii printate',
     importServicesFromImage: 'Importa servicii dintr-o imagine',
     importServicesFromImageSubtitle: 'Incarca o poza cu lista de servicii, iar AI-ul va incerca sa extraga numele, durata, pretul si descrierea.',
     uploadServiceImage: 'Incarca imagine',
