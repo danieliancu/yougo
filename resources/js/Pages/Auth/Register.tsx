@@ -1,12 +1,13 @@
-import { Link, useForm } from '@inertiajs/react';
+import { Link, useForm, usePage } from '@inertiajs/react';
 import AuthLayout from '@/Layouts/AuthLayout';
 import { Button, Field, Input } from '@/Components/Ui';
 import { UserPlus } from 'lucide-react';
 import { useT } from '@/i18n';
-import { businessTaxonomy } from '@/data/businessTaxonomy';
+import { PageProps } from '@/types';
 
 export default function Register() {
   const t = useT();
+  const { businessTaxonomy } = usePage<PageProps>().props;
   const form = useForm({
     name: '',
     email: '',

@@ -20,6 +20,18 @@ class Salon extends Model
 
     public const MODE_LEAD = 'lead';
 
+    public const CAPABILITY_APPOINTMENT = 'appointment';
+
+    public const CAPABILITY_REQUEST = 'request';
+
+    public const CAPABILITY_RESERVATION = 'reservation';
+
+    public const CAPABILITIES_SOURCE_DEFAULT = 'default';
+
+    public const CAPABILITIES_SOURCE_CONFIRMED = 'confirmed';
+
+    public const CAPABILITIES_SOURCE_CUSTOM = 'custom';
+
     protected $fillable = [
         'user_id',
         'name',
@@ -36,6 +48,13 @@ class Salon extends Model
         'industry',
         'mode',
         'business_type',
+        'recommended_primary_capability',
+        'recommended_secondary_capabilities',
+        'recommended_source_draft_id',
+        'recommended_source_revision',
+        'primary_capability',
+        'enabled_capabilities',
+        'capabilities_source',
         'widget_key',
         'widget_enabled',
         'widget_allowed_domains',
@@ -110,6 +129,8 @@ class Salon extends Model
             'service_staff' => 'array',
             'ai_industry_categories' => 'array',
             'ai_custom_context' => 'array',
+            'recommended_secondary_capabilities' => 'array',
+            'enabled_capabilities' => 'array',
             'ai_booking_enabled' => 'boolean',
             'ai_collect_phone' => 'boolean',
             'ai_assistant_setup_completed' => 'boolean',
@@ -137,6 +158,22 @@ class Salon extends Model
 
             if (! $salon->plan) {
                 $salon->plan = 'free';
+            }
+
+            if (! $salon->capabilities_source) {
+                // Mirrors the add_business_capabilities_to_salons_table backfill: an
+                // appointment (or unset) mode keeps today's already-active behavior; any
+                // other explicit legacy mode (reservation/lead) starts with nothing
+                // auto-enabled rather than silently activating a new capability.
+                if (! $salon->mode || $salon->mode === self::MODE_APPOINTMENT) {
+                    $salon->primary_capability = self::CAPABILITY_APPOINTMENT;
+                    $salon->enabled_capabilities = [self::CAPABILITY_APPOINTMENT];
+                    $salon->capabilities_source = self::CAPABILITIES_SOURCE_CONFIRMED;
+                } else {
+                    $salon->primary_capability = null;
+                    $salon->enabled_capabilities = [];
+                    $salon->capabilities_source = self::CAPABILITIES_SOURCE_DEFAULT;
+                }
             }
         });
     }
@@ -177,6 +214,72 @@ class Salon extends Model
     public function isLeadBased(): bool
     {
         return $this->mode === self::MODE_LEAD;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function enabledCapabilities(): array
+    {
+        // `[]` is a deliberate, meaningful value (e.g. an unconfirmed legacy account with
+        // nothing active yet) and must NOT fall back to legacy `mode` matching — only a
+        // genuinely unset (NULL) column does. `empty()` would treat both the same, which
+        // silently reactivates appointment for accounts intentionally left capability-less.
+        if ($this->enabled_capabilities !== null) {
+            return $this->enabled_capabilities;
+        }
+
+        // Legacy fallback for rows that predate the capabilities columns entirely.
+        return match ($this->mode) {
+            self::MODE_RESERVATION, self::MODE_LEAD => [],
+            default => [self::CAPABILITY_APPOINTMENT],
+        };
+    }
+
+    public function hasCapability(string $capability): bool
+    {
+        return in_array($capability, $this->enabledCapabilities(), true);
+    }
+
+    public function primaryCapability(): ?string
+    {
+        if ($this->primary_capability) {
+            return $this->primary_capability;
+        }
+
+        $enabled = $this->enabledCapabilities();
+
+        return $enabled[0] ?? null;
+    }
+
+    public function isCapabilitiesLocked(): bool
+    {
+        return $this->capabilities_source !== self::CAPABILITIES_SOURCE_DEFAULT;
+    }
+
+    /**
+     * The single point that writes the active capability configuration. Never set
+     * primary_capability/enabled_capabilities independently anywhere else — this is the
+     * only place the "primary is always enabled" and "reservation can't be active"
+     * invariants are enforced.
+     *
+     * @param  list<string>  $enabled
+     */
+    public function setCapabilities(string $primary, array $enabled, string $source): void
+    {
+        if (in_array(self::CAPABILITY_RESERVATION, $enabled, true)) {
+            throw new \InvalidArgumentException('Reservation capability cannot be enabled yet.');
+        }
+
+        if (! in_array($primary, $enabled, true)) {
+            throw new \InvalidArgumentException('Primary capability must be one of the enabled capabilities.');
+        }
+
+        $this->forceFill([
+            'primary_capability' => $primary,
+            'enabled_capabilities' => array_values($enabled),
+            'capabilities_source' => $source,
+        ])->save();
     }
 
     /**
@@ -223,6 +326,11 @@ class Salon extends Model
         return $this->hasMany(Booking::class);
     }
 
+    public function customerRequests(): HasMany
+    {
+        return $this->hasMany(CustomerRequest::class);
+    }
+
     public function customers(): HasMany
     {
         return $this->hasMany(Customer::class);
@@ -251,5 +359,10 @@ class Salon extends Model
     public function activeOnboardingDraft(): ?OnboardingDraft
     {
         return $this->onboardingDrafts()->active()->first();
+    }
+
+    public function recommendedSourceDraft(): BelongsTo
+    {
+        return $this->belongsTo(OnboardingDraft::class, 'recommended_source_draft_id');
     }
 }

@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Salon;
+use App\Services\Business\RequestDashboardService;
 use App\Services\CRM\CustomerDashboardService;
 use App\Services\Dashboard\DashboardDataService;
 use App\Services\Onboarding\OnboardingChecklistService;
 use App\Services\Usage\UsageLimitService;
 use App\Support\BusinessLocalization;
+use App\Support\DashboardModuleRegistry;
 use App\Support\StripePlans;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -16,9 +18,9 @@ use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function __invoke(Request $request, DashboardDataService $dashboardData, OnboardingChecklistService $onboardingChecklist, UsageLimitService $usageLimitService, CustomerDashboardService $customers, string $section = 'overview'): Response
+    public function __invoke(Request $request, DashboardDataService $dashboardData, OnboardingChecklistService $onboardingChecklist, UsageLimitService $usageLimitService, CustomerDashboardService $customers, RequestDashboardService $requestsDashboard, string $section = 'overview'): Response
     {
-        $allowed = ['overview', 'onboarding', 'ai-settings', 'conversations', 'voice-calls', 'whatsapp', 'locations', 'staff', 'services', 'bookings', 'customers', 'widget', 'billing', 'settings'];
+        $allowed = ['overview', 'onboarding', 'ai-settings', 'conversations', 'voice-calls', 'whatsapp', 'locations', 'staff', 'services', 'bookings', 'customers', 'requests', 'widget', 'billing', 'settings'];
         abort_unless(in_array($section, $allowed, true), 404);
 
         $salon = $request->user()->salon()->firstOrCreate([], [
@@ -104,6 +106,15 @@ class DashboardController extends Controller
             ],
             'crm' => $section === 'customers'
                 ? $customers->index($salon, $request->string('search')->toString())
+                : null,
+            'modules' => DashboardModuleRegistry::forSalon($salon),
+            'requests' => $section === 'requests'
+                ? $requestsDashboard->index($salon, [
+                    'status' => $request->string('status')->toString(),
+                    'priority' => $request->string('priority')->toString(),
+                    'type' => $request->string('type')->toString(),
+                    'search' => $request->string('search')->toString(),
+                ])
                 : null,
             'localization' => [
                 'countries' => BusinessLocalization::countryOptions($request->user()?->salon?->display_language ?? config('app.locale', 'ro')),

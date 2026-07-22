@@ -318,5 +318,5 @@ export type PageProps<T = Record<string, unknown>> = T & {
   auth: { user: User | null };
   locale: string;
   flash: { success?: string | null; error?: string | null };
-  businessTaxonomy?: unknown[];
+  businessTaxonomy: import('@/lib/businessTaxonomy').BusinessType[];
 };

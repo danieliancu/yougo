@@ -3,7 +3,7 @@ import { Bot, CalendarCheck, ClipboardList, HelpCircle, Sparkles } from 'lucide-
 import { useState } from 'react';
 import { PublicFooter, PublicHeader, PublicLocale } from '@/Components/PublicChrome';
 import { PublicYouGoChat } from '@/Components/PublicYouGoChat';
-import { BusinessType } from '@/data/businessTaxonomy';
+import { BusinessType } from '@/lib/businessTaxonomy';
 import { translate } from '@/i18n';
 import { preferredLocale, rememberLocale, syncLocalePreference } from '@/lib/localePreference';
 import { PageProps } from '@/types';

@@ -1,8 +1,9 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { ChevronDown, Lock, Menu, User, X } from 'lucide-react';
 import { type MouseEvent, useState } from 'react';
 import { ThemeToggle } from '@/Components/Ui';
-import { businessTaxonomy } from '@/data/businessTaxonomy';
+import { BusinessType } from '@/lib/businessTaxonomy';
+import { PageProps } from '@/types';
 
 export type PublicLocale = 'ro' | 'en';
 
@@ -125,15 +126,16 @@ function LandingLanguageToggle({ locale, onChange }: { locale: PublicLocale; onC
   );
 }
 
-function industryMenuLabel(slug: string, locale: PublicLocale): string {
+function industryMenuLabel(taxonomy: BusinessType[], slug: string, locale: PublicLocale): string {
   if (locale !== 'ro') {
-    return businessTaxonomy.find((group) => group.slug === slug)?.label ?? slug;
+    return taxonomy.find((group) => group.slug === slug)?.label ?? slug;
   }
 
   return {
     'salon-beauty': 'Salon / Beauty',
     'clinic-healthcare': 'Clinica / Sanatate',
     'auto-service': 'Service auto',
+    'home-services': 'Meseriasi',
     'professional-services': 'Servicii profesionale',
     restaurant: 'Restaurant',
     'hotel-accommodation': 'Hotel / Cazare',
@@ -145,6 +147,7 @@ function industryMenuLabel(slug: string, locale: PublicLocale): string {
 
 function IndustriesMenu({ label, locale }: { label: string; locale: PublicLocale }) {
   const [open, setOpen] = useState(false);
+  const { businessTaxonomy } = usePage<PageProps>().props;
 
   return (
     <div className="relative" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
@@ -164,7 +167,7 @@ function IndustriesMenu({ label, locale }: { label: string; locale: PublicLocale
                 href={`/industries/${group.slug}`}
                 className="cursor-pointer rounded-lg px-3 py-2 text-sm font-bold app-text-soft hover:bg-indigo-600 hover:!text-white"
               >
-                {industryMenuLabel(group.slug, locale)}
+                {industryMenuLabel(businessTaxonomy, group.slug, locale)}
               </Link>
             ))}
           </div>
@@ -188,6 +191,7 @@ function MobileLandingMenu({
   const [open, setOpen] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
   const [industriesOpen, setIndustriesOpen] = useState(false);
+  const { businessTaxonomy } = usePage<PageProps>().props;
   const active = languages.find((item) => item.id === locale) ?? languages[0];
   const aboutLabel = locale === 'ro' ? 'Despre' : 'About';
   const scrollToLandingSection = (event: MouseEvent<Element>, sectionId: string) => {
@@ -261,7 +265,7 @@ function MobileLandingMenu({
                   href={`/industries/${group.slug}`}
                   className="cursor-pointer rounded-lg px-3 py-2 text-sm font-bold app-text-soft hover:bg-indigo-600 hover:!text-white"
                 >
-                  {industryMenuLabel(group.slug, locale)}
+                  {industryMenuLabel(businessTaxonomy, group.slug, locale)}
                 </Link>
               ))}
             </div>
@@ -273,6 +277,7 @@ function MobileLandingMenu({
 }
 
 export function PublicFooter({ t }: { t: (key: string) => string }) {
+  const { businessTaxonomy } = usePage<PageProps>().props;
   const serviceLinks = businessTaxonomy.slice(0, 6);
 
   return (

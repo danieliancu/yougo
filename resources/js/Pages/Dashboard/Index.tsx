@@ -3,12 +3,13 @@ import { AlertModal, Badge, Button, Card, ConfirmationModal, DangerButton, Field
 import type { ActivityChartRow } from '@/Components/ActivityChart';
 import { PricingPlansGrid, VoicePlanKey } from '@/Components/PricingPlansGrid';
 import { YouGoCopilot } from '@/Components/YouGoCopilot';
+import Requests from './Requests';
 import { Booking, Conversation, Location as SalonLocation, OfferedService, OnboardingChecklist, OnboardingStep, OverviewData, PageProps, Plan, Salon, Service, Staff, UsageSummary, User as AuthUser, WhatsappIntegration } from '@/types';
 import { AlertTriangle, Bell, Bot, Building2, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, CreditCard, Download, ExternalLink, FileText, Globe2, LayoutDashboard, List, Lock, LogOut, MapPin, Menu, MessageCircle, MessageSquare, MoreHorizontal, Pencil, Phone, Plus, Save, Scissors, Search, Settings, Smartphone, Sparkles, Trash2, User, Users, X, XCircle } from 'lucide-react';
 import { SiBigcommerce, SiShopify, SiWhatsapp, SiWordpress } from 'react-icons/si';
 import { FormEvent, lazy, ReactNode, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '@/i18n';
-import { businessTaxonomy, findBusinessType, normalizeBusinessTypeSlug } from '@/data/businessTaxonomy';
+import { findBusinessType, normalizeBusinessTypeSlug } from '@/lib/businessTaxonomy';
 import { planHasService, serviceEntitlementLabel, serviceIsLive, serviceStatusLabel, serviceByKey } from '@/lib/yougoServices';
 import { preferredLocale, rememberLocale } from '@/lib/localePreference';
 
@@ -44,9 +45,53 @@ type LocalizationProps = {
   };
 };
 
+type RequestListItem = {
+  id: number;
+  type: string;
+  status: string;
+  priority: string;
+  title?: string | null;
+  description?: string | null;
+  channel: string;
+  client_name?: string | null;
+  client_phone?: string | null;
+  preferred_date?: string | null;
+  preferred_window?: string | null;
+  location?: { id: number; name: string } | null;
+  service?: { id: number; name: string } | null;
+  assignee?: { id: number; name: string } | null;
+  conversation_id?: number | null;
+  created_at?: string | null;
+};
+type RequestListPayload = {
+  items: RequestListItem[];
+  pagination: {
+    current_page: number;
+    last_page: number;
+    total: number;
+    next_page_url?: string | null;
+    prev_page_url?: string | null;
+  };
+  filters: { status: string; priority: string; type: string; search: string };
+  counters: { new: number; urgent: number; in_progress: number; resolved: number };
+};
+type DashboardModules = {
+  conversations: boolean;
+  customers: boolean;
+  appointments: boolean;
+  requests: boolean;
+  calendar: boolean;
+  staff: boolean;
+  services: boolean;
+  reservations: boolean;
+  resources: boolean;
+};
+
 type Props = PageProps<{
-  section: 'overview' | 'onboarding' | 'ai-settings' | 'conversations' | 'voice-calls' | 'whatsapp' | 'locations' | 'staff' | 'services' | 'bookings' | 'customers' | 'customer-detail' | 'widget' | 'billing' | 'settings';
+  section: 'overview' | 'onboarding' | 'ai-settings' | 'conversations' | 'voice-calls' | 'whatsapp' | 'locations' | 'staff' | 'services' | 'bookings' | 'customers' | 'customer-detail' | 'requests' | 'widget' | 'billing' | 'settings';
   salon: Salon;
+  modules: DashboardModules;
+  requests?: RequestListPayload | null;
   overview: OverviewData;
   onboarding: OnboardingChecklist;
   billing: {
@@ -207,6 +252,7 @@ const navGroups: NavGroup[] = [
       { id: 'overview', label: 'overview', href: '/dashboard', icon: LayoutDashboard },
       { id: 'onboarding', label: 'setup', href: '/dashboard/onboarding', icon: List },
       { id: 'bookings', label: 'bookings', href: '/dashboard/bookings', icon: Calendar },
+      { id: 'requests', label: 'requestsNavLabel', href: '/dashboard/requests', icon: List },
       { id: 'conversations', label: 'conversations', href: '/dashboard/conversations', icon: MessageSquare },
     ],
   },
@@ -250,7 +296,7 @@ const defaultOpenGroups = navGroupIds.reduce((groups, id) => ({
 
 export default function DashboardIndex() {
   const t = useT();
-  const { auth, salon, section, locale, overview, onboarding, billing, localization, crm } = usePage<Props>().props;
+  const { auth, salon, section, locale, overview, onboarding, billing, localization, crm, businessTaxonomy, modules } = usePage<Props>().props;
   const titleKey = section === 'locations'
     ? 'salonLocations'
     : section === 'customer-detail'
@@ -268,6 +314,7 @@ export default function DashboardIndex() {
     staff: t('staffSubtitle'),
     services: t('servicesSubtitle'),
     bookings: t('bookingsSubtitle'),
+    requests: t('requestsSubtitle'),
     customers: t('customersSubtitle'),
     'customer-detail': t('customerDetailSubtitle'),
     widget: t('websiteChatSubtitle'),
@@ -323,7 +370,7 @@ export default function DashboardIndex() {
       name: auth.user.name,
       business_name: salon.name,
       timezone: salon.timezone ?? localization.defaults.timezone,
-      business_type: normalizeBusinessTypeSlug(salon.business_type) || 'salon-beauty',
+      business_type: normalizeBusinessTypeSlug(businessTaxonomy, salon.business_type) || 'salon-beauty',
       country: salon.country ?? localization.defaults.country,
       website: salon.website ?? '',
       business_phone: salon.business_phone ?? '',
@@ -341,7 +388,7 @@ export default function DashboardIndex() {
   return (
     <div className="flex min-h-screen overflow-x-hidden app-bg lg:h-screen lg:overflow-hidden">
       <Head title={title} />
-      <DashboardSidebar salon={salon} section={section} user={auth.user} t={t} onboarding={onboarding} />
+      <DashboardSidebar salon={salon} section={section} user={auth.user} t={t} onboarding={onboarding} modules={modules} />
 
       {mobileNavOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
@@ -363,7 +410,7 @@ export default function DashboardIndex() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <DashboardSidebarContent salon={salon} section={section} user={auth.user} t={t} onboarding={onboarding} onNavigate={() => setMobileNavOpen(false)} />
+            <DashboardSidebarContent salon={salon} section={section} user={auth.user} t={t} onboarding={onboarding} modules={modules} onNavigate={() => setMobileNavOpen(false)} />
           </div>
         </div>
       )}
@@ -403,6 +450,7 @@ export default function DashboardIndex() {
           {section === 'staff' && <StaffManagement salon={salon} query={query} />}
           {section === 'services' && <Services salon={salon} query={query} onResetSearch={() => setQuery('')} />}
           {section === 'bookings' && <Bookings salon={salon} query={query} />}
+          {section === 'requests' && <Requests />}
           {section === 'customers' && <Customers crm={crm as CustomerCrmPayload | null | undefined} query={query} />}
           {section === 'customer-detail' && <CustomerDetail crm={crm as CustomerDetailPayload | null | undefined} salon={salon} />}
           {section === 'widget' && <WidgetSettings salon={salon} query={query} />}
@@ -424,13 +472,13 @@ export default function DashboardIndex() {
   );
 }
 
-function DashboardSidebar({ salon, section, user, t, onboarding }: { salon: Salon; section: Props['section']; user: AuthUser | null; t: TranslateFn; onboarding: OnboardingChecklist }) {
+function DashboardSidebar({ salon, section, user, t, onboarding, modules }: { salon: Salon; section: Props['section']; user: AuthUser | null; t: TranslateFn; onboarding: OnboardingChecklist; modules: DashboardModules }) {
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden h-screen w-72 shrink-0 flex-col overflow-hidden app-sidebar lg:flex">
       <div className="flex h-20 shrink-0 items-center border-b border-white/10 px-6">
         <Brand salon={salon} />
       </div>
-      <DashboardSidebarContent salon={salon} section={section} user={user} t={t} onboarding={onboarding} />
+      <DashboardSidebarContent salon={salon} section={section} user={user} t={t} onboarding={onboarding} modules={modules} />
     </aside>
   );
 }
@@ -491,7 +539,7 @@ function NavCountBadge({ count }: { count: number }) {
   );
 }
 
-function DashboardSidebarContent({ salon, section, user, t, onboarding, onNavigate }: { salon: Salon; section: Props['section']; user: AuthUser | null; t: TranslateFn; onboarding: OnboardingChecklist; onNavigate?: () => void }) {
+function DashboardSidebarContent({ salon, section, user, t, onboarding, modules, onNavigate }: { salon: Salon; section: Props['section']; user: AuthUser | null; t: TranslateFn; onboarding: OnboardingChecklist; modules: DashboardModules; onNavigate?: () => void }) {
   const activeGroup = navGroupForSection(section);
   const [openGroups, setOpenGroups] = useState<Record<NavGroup['id'], boolean>>(() => {
     const stored = storedSidebarOpenGroups();
@@ -576,7 +624,7 @@ function DashboardSidebarContent({ salon, section, user, t, onboarding, onNaviga
               <div className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
                 <div className="min-h-0 overflow-hidden">
                   <div className="space-y-1 pb-1 pt-1">
-                    {group.items.map((item) => {
+                    {group.items.filter((item) => item.id !== 'requests' || modules.requests).map((item) => {
                       const Icon = item.icon;
                       const active = item.id === section || (section === 'customer-detail' && item.id === 'customers');
                       const showsAccountEmail = item.id === 'settings';
@@ -1173,10 +1221,10 @@ function serviceCurrencyOptions(localization: LocalizationProps, salon: Pick<Sal
 
 function SettingsPage({ salon }: { salon: Salon }) {
   const t = useT();
-  const { auth, billing, localization } = usePage<Props>().props;
+  const { auth, billing, localization, businessTaxonomy } = usePage<Props>().props;
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
-  const initialBusinessType = normalizeBusinessTypeSlug(salon.business_type) || 'salon-beauty';
+  const initialBusinessType = normalizeBusinessTypeSlug(businessTaxonomy, salon.business_type) || 'salon-beauty';
   const initialCountry = normalizeLocalizationCountry(salon.country, localization);
   const initialCountryOption = localization.countries.find((country) => country.code === initialCountry) ?? localization.countries[0];
   const currentPlanKey = canonicalPlanKey(salon.plan);
@@ -3144,7 +3192,8 @@ function Stat({ label, value, icon: Icon, tone = 'indigo' }: { label: string; va
 
 function AiSettings({ salon }: { salon: Salon }) {
   const t = useT();
-  const selectedBusinessType = findBusinessType(normalizeBusinessTypeSlug(salon.business_type) || 'salon-beauty');
+  const { businessTaxonomy } = usePage<Props>().props;
+  const selectedBusinessType = findBusinessType(businessTaxonomy, normalizeBusinessTypeSlug(businessTaxonomy, salon.business_type) || 'salon-beauty');
   const [customContextInput, setCustomContextInput] = useState('');
   const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(false);
   const [specialRulesOpen, setSpecialRulesOpen] = useState(false);

@@ -14,6 +14,8 @@ use App\Http\Requests\Onboarding\RetryOnboardingImportRequest;
 use App\Http\Requests\Onboarding\StartOnboardingImportRequest;
 use App\Http\Requests\Onboarding\UpdateOnboardingDraftRequest;
 use App\Models\OnboardingDraft;
+use App\Services\Business\IndustryDefaultsService;
+use App\Services\Business\IndustryMatcher;
 use App\Services\Onboarding\OnboardingDraftConfirmationService;
 use App\Services\Onboarding\OnboardingDraftPresenter;
 use App\Services\Onboarding\OnboardingImportService;
@@ -35,6 +37,8 @@ class OnboardingImportController extends Controller
     public function __construct(
         private readonly OnboardingImportService $importService,
         private readonly OnboardingDraftConfirmationService $confirmationService,
+        private readonly IndustryMatcher $industryMatcher,
+        private readonly IndustryDefaultsService $industryDefaults,
     ) {}
 
     public function start(StartOnboardingImportRequest $request): JsonResponse
@@ -114,6 +118,9 @@ class OnboardingImportController extends Controller
     {
         $this->authorizeOwner($request, $onboardingDraft);
 
+        // Captured before confirm() writes the AI-extracted business_type text onto the
+        // salon — this is the "industry the user selected" side of the conflict check.
+        $selectedBusinessType = $onboardingDraft->salon->business_type;
         $selections = ConfirmedSelections::fromArray($request->validated());
 
         try {
@@ -132,13 +139,54 @@ class OnboardingImportController extends Controller
             ], 422);
         }
 
+        $industryReview = $this->applyIndustryDefaultsAfterConfirmation($salon, $onboardingDraft, $selectedBusinessType);
+
         return response()->json([
             'draft' => $this->serialize($onboardingDraft->refresh()),
             'salon' => [
                 'id' => $salon->id,
                 'onboarding_state' => $salon->onboarding_state->value,
             ],
+            'industry_review' => $industryReview,
         ]);
+    }
+
+    /**
+     * Purely additive, non-transactional follow-up to a successful confirm() — never
+     * touches the confirmation service's own transaction, so it carries none of that
+     * critical path's regression risk. Detects a conflict between the industry the user
+     * selected (business_type before this confirm) and the one the analyzer detected from
+     * the raw extracted text (via curated aliases, not the possibly free-form text now
+     * written to salon.business_type), then always populates the capability recommendation
+     * — the frontend shows the confirmation screen in every case (Task 4 §10).
+     *
+     * @return array{conflict: bool, detected_business_type: ?string, selected_business_type: ?string, recommended_primary_capability: ?string, recommended_secondary_capabilities: list<string>}
+     */
+    private function applyIndustryDefaultsAfterConfirmation($salon, OnboardingDraft $onboardingDraft, ?string $selectedBusinessType): array
+    {
+        $rawBusinessTypeText = $onboardingDraft->normalized_extraction_result['business']['business_type']['value'] ?? null;
+        $matched = $this->industryMatcher->match(is_string($rawBusinessTypeText) ? $rawBusinessTypeText : null);
+
+        $detectedBusinessType = $matched['matched'] ? $matched['business_type'] : null;
+        $conflict = $detectedBusinessType !== null && $selectedBusinessType !== null && $detectedBusinessType !== $selectedBusinessType;
+
+        // Prefer the confidently-detected slug for the recommendation; an uncertain/
+        // conflicting detection still lets the user's own selection drive the
+        // recommendation, since that's the only side we're sure is a real taxonomy slug.
+        $recommendationSourceSlug = $detectedBusinessType ?? $selectedBusinessType ?? $salon->business_type;
+
+        if ($recommendationSourceSlug) {
+            $this->industryDefaults->applyRecommendation($salon, $recommendationSourceSlug, $matched['industry'] ?? null, $onboardingDraft);
+            $salon->refresh();
+        }
+
+        return [
+            'conflict' => $conflict,
+            'detected_business_type' => $detectedBusinessType,
+            'selected_business_type' => $selectedBusinessType,
+            'recommended_primary_capability' => $salon->recommended_primary_capability,
+            'recommended_secondary_capabilities' => $salon->recommended_secondary_capabilities ?? [],
+        ];
     }
 
     private function authorizeOwner(Request $request, OnboardingDraft $draft): void

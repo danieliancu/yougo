@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Salon;
 use App\Models\User;
 use App\Support\BusinessLocalization;
+use App\Support\BusinessTaxonomy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
@@ -375,5 +376,56 @@ class BusinessTaxonomyTest extends TestCase
             'display_language' => 'en',
             'date_format' => 'dd/mm/yyyy',
         ], $overrides);
+    }
+
+    public function test_every_business_type_exposes_the_full_capability_schema(): void
+    {
+        foreach (BusinessTaxonomy::all() as $businessType) {
+            $slug = $businessType['slug'];
+
+            $this->assertArrayHasKey('category', $businessType, "{$slug} missing category");
+            $this->assertArrayHasKey('primary_capability', $businessType, "{$slug} missing primary_capability");
+            $this->assertArrayHasKey('secondary_capabilities', $businessType, "{$slug} missing secondary_capabilities");
+            $this->assertIsArray($businessType['secondary_capabilities']);
+            $this->assertArrayHasKey('collected_fields', $businessType);
+            $this->assertArrayHasKey('required_fields', $businessType);
+            $this->assertArrayHasKey('conditional_fields', $businessType);
+            $this->assertArrayHasKey('urgency_rules', $businessType);
+            $this->assertArrayHasKey('safety_instructions', $businessType);
+            $this->assertArrayHasKey('dashboard_labels', $businessType);
+            $this->assertArrayHasKey('recommended_modules', $businessType);
+            $this->assertArrayHasKey('capability_availability', $businessType);
+            $this->assertArrayHasKey('aliases', $businessType);
+
+            $this->assertContains($businessType['primary_capability'], ['appointment', 'request'], "{$slug} primary_capability must be an already-implemented capability");
+            $this->assertNotContains('reservation', $businessType['secondary_capabilities'], "{$slug} cannot recommend reservation as secondary yet");
+            $this->assertFalse($businessType['capability_availability']['reservation'], "{$slug} reservation must never be marked available");
+        }
+    }
+
+    public function test_home_services_business_type_recommends_request_primary(): void
+    {
+        $homeServices = BusinessTaxonomy::findBusinessType('home-services');
+
+        $this->assertNotNull($homeServices);
+        $this->assertSame('request', $homeServices['primary_capability']);
+        $this->assertContains('appointment', $homeServices['secondary_capabilities']);
+        $this->assertNotNull($homeServices['safety_instructions']);
+    }
+
+    public function test_auto_service_business_type_recommends_request_primary_with_appointment_secondary(): void
+    {
+        $autoService = BusinessTaxonomy::findBusinessType('auto-service');
+
+        $this->assertSame('request', $autoService['primary_capability']);
+        $this->assertSame(['appointment'], $autoService['secondary_capabilities']);
+    }
+
+    public function test_salon_beauty_business_type_recommends_appointment_primary(): void
+    {
+        $salonBeauty = BusinessTaxonomy::findBusinessType('salon-beauty');
+
+        $this->assertSame('appointment', $salonBeauty['primary_capability']);
+        $this->assertContains('request', $salonBeauty['secondary_capabilities']);
     }
 }

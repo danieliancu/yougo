@@ -402,6 +402,35 @@ class OnboardingEntityDeduplicatorTest extends TestCase
         $this->assertTrue($processed->locations[0]->isTemporaryFingerprint);
     }
 
+    public function test_entirely_bare_city_only_mentions_merge_by_city_alone(): void
+    {
+        // A city and absolutely nothing else — no name, no address, no phone, no hours.
+        // Real-world case: a site-wide city picker / service-area list ("Bucuresti",
+        // "Cluj-Napoca", "Oradea", ...) repeated across many pages, which the analyzer
+        // has no way to distinguish from real branch mentions. Unlike the city+hours
+        // case above, there's no stronger signal being ignored here — merge by city.
+        $draft = $this->createDraft();
+        $deduplicator = new OnboardingEntityDeduplicator;
+
+        $bucharest = [
+            'city' => ['value' => 'Bucuresti', 'confidence_score' => 0.4, 'requires_confirmation' => true],
+            'source_urls' => ['https://example.ro/'],
+        ];
+        $cluj = [
+            'city' => ['value' => 'Cluj-Napoca', 'confidence_score' => 0.4, 'requires_confirmation' => true],
+            'source_urls' => ['https://example.ro/'],
+        ];
+
+        $result = NormalizedExtractionResult::fromArray([
+            'schema_version' => '1.0',
+            'locations' => [$bucharest, $bucharest, $bucharest, $cluj, $cluj],
+        ]);
+
+        $processed = $deduplicator->process($draft, $result);
+
+        $this->assertCount(2, $processed->locations);
+    }
+
     public function test_nameless_addressless_mentions_merge_by_city_even_when_hours_only_come_from_business_backfill(): void
     {
         // Regression: the city+hours fallback above only works when hours are already

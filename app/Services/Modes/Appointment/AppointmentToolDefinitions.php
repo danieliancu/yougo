@@ -8,12 +8,11 @@ class AppointmentToolDefinitions
 {
     public function __construct(
         private readonly AppointmentRequiredFieldsResolver $requiredFieldsResolver,
-    ) {
-    }
+    ) {}
 
     public function forSalon(Salon $salon): ?array
     {
-        if (! $salon->isAppointmentBased() || ! ($salon->ai_booking_enabled ?? true)) {
+        if (! $salon->hasCapability(Salon::CAPABILITY_APPOINTMENT) || ! ($salon->ai_booking_enabled ?? true)) {
             return null;
         }
 

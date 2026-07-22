@@ -5,6 +5,7 @@ import { useT } from '@/i18n';
 import { ImportUrlStep } from './components/ImportUrlStep';
 import { ImportProgressStep } from './components/ImportProgressStep';
 import { ImportReviewStep } from './components/ImportReviewStep';
+import { CapabilitiesConfirmStep, IndustryReview } from './components/CapabilitiesConfirmStep';
 import { csrfHeaders, Draft, ExclusionState, FactDecision, OnboardingFieldSchema } from './types';
 
 type PageProps = {
@@ -44,6 +45,8 @@ export default function Import({ active_draft, field_schema }: PageProps) {
   const [missingRequiredPaths, setMissingRequiredPaths] = useState<string[]>([]);
   const [failedConditions, setFailedConditions] = useState<string[] | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [industryReview, setIndustryReview] = useState<IndustryReview | null>(null);
+  const [confirmingCapabilities, setConfirmingCapabilities] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const step = !draft
@@ -258,8 +261,12 @@ export default function Import({ active_draft, field_schema }: PageProps) {
       });
 
       if (ok) {
-        toast.success(t('importSuccessToast'));
-        router.visit('/dashboard/overview');
+        if (data.industry_review) {
+          setIndustryReview(data.industry_review as IndustryReview);
+        } else {
+          toast.success(t('importSuccessToast'));
+          router.visit('/dashboard/overview');
+        }
 
         return;
       }
@@ -295,30 +302,52 @@ export default function Import({ active_draft, field_schema }: PageProps) {
     }
   }, [draft, exclusions, factDecisions, t]);
 
+  const handleConfirmCapabilities = useCallback(async (primary: string, secondary: string[]) => {
+    setConfirmingCapabilities(true);
+
+    try {
+      await apiFetch('/onboarding/capabilities/confirm', {
+        method: 'POST',
+        body: JSON.stringify({ primary_capability: primary, secondary_capabilities: secondary }),
+      });
+
+      toast.success(t('importSuccessToast'));
+      router.visit('/dashboard/overview');
+    } finally {
+      setConfirmingCapabilities(false);
+    }
+  }, [t]);
+
   return (
     <div className="min-h-screen p-6 app-bg">
-      {step === 'url' && (
-        <ImportUrlStep onSubmitUrl={handleStartUrl} onSubmitManual={handleSkipWebsite} submitting={starting} errorMessage={urlError} />
-      )}
-      {step === 'progress' && draft && (
-        <ImportProgressStep draft={draft} onRetry={handleRetry} onChangeAddress={handleChangeAddress} retrying={retrying} />
-      )}
-      {step === 'review' && draft && draft.normalized_extraction_result && (
-        <ImportReviewStep
-          result={draft.normalized_extraction_result}
-          fieldSchema={field_schema}
-          factDecisions={factDecisions}
-          onConfirmFact={handleConfirmFact}
-          onConfirmAllFacts={handleConfirmAllFacts}
-          onCorrectField={handleCorrectField}
-          exclusions={exclusions}
-          onToggleExclude={handleToggleExclude}
-          onAddEntity={handleAddEntity}
-          failedConditions={failedConditions}
-          missingRequiredPaths={missingRequiredPaths}
-          submitting={confirming}
-          onConfirm={handleConfirm}
-        />
+      {industryReview ? (
+        <CapabilitiesConfirmStep review={industryReview} submitting={confirmingCapabilities} onConfirm={handleConfirmCapabilities} />
+      ) : (
+        <>
+          {step === 'url' && (
+            <ImportUrlStep onSubmitUrl={handleStartUrl} onSubmitManual={handleSkipWebsite} submitting={starting} errorMessage={urlError} />
+          )}
+          {step === 'progress' && draft && (
+            <ImportProgressStep draft={draft} onRetry={handleRetry} onChangeAddress={handleChangeAddress} retrying={retrying} />
+          )}
+          {step === 'review' && draft && draft.normalized_extraction_result && (
+            <ImportReviewStep
+              result={draft.normalized_extraction_result}
+              fieldSchema={field_schema}
+              factDecisions={factDecisions}
+              onConfirmFact={handleConfirmFact}
+              onConfirmAllFacts={handleConfirmAllFacts}
+              onCorrectField={handleCorrectField}
+              exclusions={exclusions}
+              onToggleExclude={handleToggleExclude}
+              onAddEntity={handleAddEntity}
+              failedConditions={failedConditions}
+              missingRequiredPaths={missingRequiredPaths}
+              submitting={confirming}
+              onConfirm={handleConfirm}
+            />
+          )}
+        </>
       )}
     </div>
   );

@@ -8,6 +8,7 @@ use App\Http\Controllers\BillingController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\CustomerRequestController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\IndustryController;
 use App\Http\Controllers\LocationController;
@@ -59,11 +60,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard/customers/{customer}', [CustomerController::class, 'show'])->name('dashboard.customers.show');
     Route::patch('/dashboard/customers/{customer}/notes', [CustomerController::class, 'updateNotes'])->name('dashboard.customers.notes.update');
     Route::get('/dashboard/{section}', DashboardController::class)
-        ->whereIn('section', ['overview', 'onboarding', 'ai-settings', 'conversations', 'voice-calls', 'whatsapp', 'locations', 'staff', 'services', 'bookings', 'customers', 'widget', 'billing', 'settings'])
+        ->whereIn('section', ['overview', 'onboarding', 'ai-settings', 'conversations', 'voice-calls', 'whatsapp', 'locations', 'staff', 'services', 'bookings', 'customers', 'requests', 'widget', 'billing', 'settings'])
         ->name('dashboard.section');
 
     Route::post('/onboarding/skip', [OnboardingController::class, 'skip'])->name('onboarding.skip');
     Route::post('/onboarding/complete', [OnboardingController::class, 'complete'])->name('onboarding.complete');
+    Route::post('/onboarding/capabilities/confirm', [OnboardingController::class, 'confirmCapabilities'])->name('onboarding.capabilities.confirm');
 
     Route::get('/onboarding/import', OnboardingImportPageController::class)->name('onboarding.import.page');
     Route::post('/onboarding/import', [OnboardingImportController::class, 'start'])->name('onboarding.import.start');
@@ -97,6 +99,8 @@ Route::middleware('auth')->group(function () {
     Route::put('/bookings/{booking}', [BookingController::class, 'update'])->name('bookings.update');
     Route::post('/bookings', [BookingController::class, 'store'])->name('bookings.store');
     Route::delete('/bookings/{booking}', [BookingController::class, 'destroy'])->name('bookings.destroy');
+
+    Route::patch('/customer-requests/{customerRequest}', [CustomerRequestController::class, 'update'])->name('customer-requests.update');
 
     Route::delete('/conversations/{conversation}', [ConversationController::class, 'destroy'])->name('conversations.destroy');
     Route::patch('/dashboard/conversations/{conversation}/booking-change-requests/{requestId}/resolve', [ConversationController::class, 'resolveBookingChangeRequest'])

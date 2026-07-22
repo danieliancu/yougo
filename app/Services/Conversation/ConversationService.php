@@ -90,12 +90,16 @@ class ConversationService
         }
     }
 
+    /**
+     * Enriches the conversation with booking-derived metadata (contact info, status,
+     * intent). The result linkage itself (booking_id/result_type/result_id) is already
+     * written atomically by ConversationResultService::createAndAttach() before this runs.
+     */
     public function attachBooking(Conversation $conversation, Booking $booking): void
     {
         $customer = $this->customers->identifyFromBooking($booking);
 
         $conversation->update([
-            'booking_id' => $booking->id,
             'customer_id' => $customer?->id,
             'contact_name' => $booking->client_name,
             'contact_phone' => $booking->client_phone,

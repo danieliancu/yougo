@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\Salon;
 use App\Models\User;
+use App\Services\Business\IndustryDefaultsService;
 use App\Support\BusinessTaxonomy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,7 +22,7 @@ class RegisteredUserController extends Controller
         return Inertia::render('Auth/Register');
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, IndustryDefaultsService $industryDefaults): RedirectResponse
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -37,12 +38,18 @@ class RegisteredUserController extends Controller
             'password' => $data['password'],
         ]);
 
-        Salon::create([
+        $salon = Salon::create([
             'user_id' => $user->id,
             'name' => $data['business_name'],
             'business_type' => $data['business_type'],
             'mode' => Salon::MODE_APPOINTMENT,
         ]);
+
+        // "Fara website" path (Task 4 §10): Industry Defaults must still work from the
+        // manually selected business_type alone — populates recommended_* only, the
+        // capabilities-confirmation screen (OnboardingController::confirmCapabilities)
+        // is what actually activates anything.
+        $industryDefaults->applyRecommendation($salon, $data['business_type']);
 
         Auth::login($user);
         $request->session()->regenerate();

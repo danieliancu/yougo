@@ -3,6 +3,7 @@
 namespace App\Services\Assistant;
 
 use App\Models\Booking;
+use App\Models\CustomerRequest;
 use App\Models\Salon;
 use App\Support\AssistantChannelBehavior;
 use Illuminate\Support\Carbon;
@@ -129,6 +130,20 @@ class AssistantMessageLocalizer
         return $this->localeFor($salon) === 'en'
             ? "I’ve registered your booking request for {$date} at {$booking->time}. The team will contact you to confirm it."
             : "Am înregistrat cererea de programare pentru {$date}, la ora {$booking->time}. Echipa te va contacta pentru confirmare.";
+    }
+
+    public function existingResultRequiresNewConversation(Salon $salon): string
+    {
+        return $this->localeFor($salon) === 'en'
+            ? 'This conversation already has a booking or request registered. To start a new one, please press + and start a new conversation.'
+            : 'Aceasta conversatie are deja o programare sau o solicitare inregistrata. Pentru una noua, apasa pe + si incepe o conversatie noua.';
+    }
+
+    public function requestConfirmation(Salon $salon, CustomerRequest $customerRequest): string
+    {
+        return $this->localeFor($salon) === 'en'
+            ? 'I\'ve registered your request. The team will get back to you as soon as possible.'
+            : 'Am inregistrat solicitarea ta. Echipa te va contacta cat mai curand posibil.';
     }
 
     public function availabilityNoSlots(Salon $salon, string $dateLabel, ?string $preferredTime, ?string $afterTime): string

@@ -396,14 +396,25 @@ class OnboardingEntityDeduplicator
             // weak a signal on its own (a chain has several branches in the same city),
             // so this only groups fragments that also share the identical schedule —
             // real branches essentially never share both by coincidence.
+            //
+            // Exception: a fragment with a city and *nothing else at all* (no address, no
+            // phone, no hours) carries zero information beyond "this city was mentioned
+            // somewhere" — the weak-signal concern above doesn't apply because there is no
+            // stronger signal being ignored. Real sites hit in production repeat a
+            // city-picker / service-area list across many pages (e.g. a bare "Cluj-Napoca"
+            // with nothing else, 5-6 times) which otherwise becomes one permanent
+            // never-mergeable "location" per repeated mention. Group those by city alone.
             $cityKey = $location->normalizedCityKey();
             $hoursKey = $this->hoursSignature($location->openingHours?->value);
+            $isEntirelyBare = $hoursKey === ''
+                && $location->normalizedAddressKey() === ''
+                && $location->normalizedPhoneKey() === '';
 
-            if ($cityKey === '' || $hoursKey === '') {
+            if ($cityKey === '' || ($hoursKey === '' && ! $isEntirelyBare)) {
                 continue;
             }
 
-            $cityAndHoursKey = "{$cityKey}|{$hoursKey}";
+            $cityAndHoursKey = $isEntirelyBare ? "{$cityKey}|__bare__" : "{$cityKey}|{$hoursKey}";
 
             if (isset($temporaryTargetByCityAndHours[$cityAndHoursKey])) {
                 $target = $temporaryTargetByCityAndHours[$cityAndHoursKey];

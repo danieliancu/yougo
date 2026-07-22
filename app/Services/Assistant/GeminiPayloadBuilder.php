@@ -6,6 +6,8 @@ use App\Models\Conversation;
 use App\Models\Salon;
 use App\Services\Modes\Appointment\AppointmentPromptContextBuilder;
 use App\Services\Modes\Appointment\AppointmentToolDefinitions;
+use App\Services\Modes\Request\RequestPromptContextBuilder;
+use App\Services\Modes\Request\RequestToolDefinitions;
 use App\Support\AssistantChannelBehavior;
 use App\Support\BusinessLocalization;
 use App\Support\BusinessTaxonomy;
@@ -15,6 +17,8 @@ class GeminiPayloadBuilder
     public function __construct(
         private readonly AppointmentPromptContextBuilder $appointmentPromptContextBuilder,
         private readonly AppointmentToolDefinitions $appointmentToolDefinitions,
+        private readonly RequestPromptContextBuilder $requestPromptContextBuilder,
+        private readonly RequestToolDefinitions $requestToolDefinitions,
         private readonly CustomerBookingContextService $customerBookingContext,
     ) {}
 
@@ -43,13 +47,34 @@ class GeminiPayloadBuilder
             ],
         ];
 
-        $tools = $this->appointmentToolDefinitions->forSalon($salon);
+        $tools = $this->toolsForEnabledCapabilities($salon);
         if ($tools) {
             $tools = $this->toolsForKnownWhatsappContact($tools, $conversation, $knownContact);
             $payload['tools'] = $tools;
         }
 
         return $payload;
+    }
+
+    /**
+     * Merges appointment/request function declarations into a single tool group, in that
+     * order, so existing code/tests indexing `tools[0]['functionDeclarations'][0|1]` for
+     * bookBooking/checkAvailability keep working unchanged — createRequest is appended
+     * after, never inserted before them. Nothing is included for a capability that isn't
+     * enabled, and reservation never contributes a tool at all (Services/Modes/Reservation
+     * doesn't exist yet — see Salon::CAPABILITY_RESERVATION).
+     */
+    private function toolsForEnabledCapabilities(Salon $salon): ?array
+    {
+        $appointmentTools = $this->appointmentToolDefinitions->forSalon($salon);
+        $requestTools = $this->requestToolDefinitions->forSalon($salon);
+
+        $declarations = [
+            ...($appointmentTools[0]['functionDeclarations'] ?? []),
+            ...($requestTools[0]['functionDeclarations'] ?? []),
+        ];
+
+        return $declarations === [] ? null : [['functionDeclarations' => $declarations]];
     }
 
     private function buildSystemInstruction(Salon $salon, ?Conversation $conversation = null, ?array $knownContact = null): string
@@ -303,13 +328,36 @@ class GeminiPayloadBuilder
         return collect([$languageRule, $toneRule, $styleRule, $unknownRule, $handoff, $progressiveDisclosureRule])->filter()->implode(' ');
     }
 
+    /**
+     * Orchestrates prompt context across every active capability (Task 4 §9) — appointment
+     * and/or request, in that fixed order so multi-capability salons get a stable prompt.
+     * Reservation never contributes anything here (Services/Modes/Reservation doesn't
+     * exist yet). A salon with no active capability at all falls back to the same
+     * information-only instruction the legacy non-appointment `mode` fork used to return,
+     * so unconfirmed legacy accounts keep behaving exactly as before.
+     */
     private function modeInstructions(Salon $salon, bool $hasBookingContext = false): string
     {
-        if (! $salon->isAppointmentBased()) {
+        $capabilities = $salon->enabledCapabilities();
+
+        if (empty($capabilities)) {
             return 'Modul curent nu este appointment. Nu crea programari si nu folosi functia bookBooking; raspunde doar informational folosind datele configurate.';
         }
 
-        return $this->appointmentPromptContextBuilder->build($salon, $hasBookingContext);
+        $parts = collect([
+            in_array(Salon::CAPABILITY_APPOINTMENT, $capabilities, true)
+                ? $this->appointmentPromptContextBuilder->build($salon, $hasBookingContext)
+                : null,
+            in_array(Salon::CAPABILITY_REQUEST, $capabilities, true)
+                ? $this->requestPromptContextBuilder->build($salon)
+                : null,
+        ])->filter();
+
+        if ($parts->count() > 1) {
+            $parts->push('Acest business are mai multe capabilitati active. Alege intre a crea o programare (bookBooking) sau o solicitare (createRequest) in functie de ce cere clar clientul; nu folosi ambele functii pentru aceeasi cerere.');
+        }
+
+        return $parts->implode(' ');
     }
 
     private function ownerInstructions(Salon $salon): ?string

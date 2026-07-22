@@ -14,13 +14,11 @@ class AppointmentToolHandler
         private readonly BookingCreator $bookingCreator,
         private readonly AvailabilitySlotFinder $availabilitySlotFinder,
         private readonly AssistantMessageLocalizer $messageLocalizer,
-    )
-    {
-    }
+    ) {}
 
     public function canHandle(Salon $salon, array $functionCall): bool
     {
-        return $salon->isAppointmentBased() && in_array(($functionCall['name'] ?? null), ['bookBooking', 'checkAvailability'], true);
+        return $salon->hasCapability(Salon::CAPABILITY_APPOINTMENT) && in_array(($functionCall['name'] ?? null), ['bookBooking', 'checkAvailability'], true);
     }
 
     public function isBookingCall(array $functionCall): bool

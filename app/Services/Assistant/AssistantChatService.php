@@ -2,10 +2,12 @@
 
 namespace App\Services\Assistant;
 
-use App\Models\Salon;
 use App\Models\Conversation;
+use App\Models\Salon;
+use App\Services\Conversation\ConversationResultService;
 use App\Services\Conversation\ConversationService;
 use App\Services\Modes\Appointment\AppointmentToolHandler;
+use App\Services\Modes\Request\RequestToolHandler;
 use App\Services\Notifications\BookingNotificationService;
 use App\Services\Usage\UsageLimitService;
 use App\Support\AssistantChannelBehavior;
@@ -19,12 +21,13 @@ class AssistantChatService
         private readonly GeminiPayloadBuilder $payloadBuilder,
         private readonly AssistantResponseParser $responseParser,
         private readonly ConversationService $conversationService,
+        private readonly ConversationResultService $conversationResultService,
         private readonly AppointmentToolHandler $appointmentToolHandler,
+        private readonly RequestToolHandler $requestToolHandler,
         private readonly BookingNotificationService $bookingNotificationService,
         private readonly UsageLimitService $usageLimitService,
         private readonly AssistantMessageLocalizer $messageLocalizer,
-    ) {
-    }
+    ) {}
 
     public function handle(Salon $salon, array $data, string $channel = 'chat'): array
     {
@@ -134,7 +137,35 @@ class AssistantChatService
         $text = $parsed['text'];
         $booking = null;
 
+        $customerRequest = null;
+
         foreach ($parsed['function_calls'] as $functionCall) {
+            if ($this->requestToolHandler->canHandle($salon, $functionCall)) {
+                if ($conversation->result_type !== null) {
+                    $text = $this->messageLocalizer->existingResultRequiresNewConversation($salon);
+
+                    continue;
+                }
+
+                try {
+                    $customerRequest = $this->requestToolHandler->handle(
+                        $salon,
+                        $conversation,
+                        $functionCall,
+                        (string) ($options['channel'] ?? $conversation->channel),
+                    );
+
+                    if ($customerRequest) {
+                        $text = $this->messageLocalizer->requestConfirmation($salon, $customerRequest);
+                    }
+                } catch (HttpException $e) {
+                    $text = $e->getMessage();
+                    $customerRequest = null;
+                }
+
+                continue;
+            }
+
             if (! $this->appointmentToolHandler->canHandle($salon, $functionCall)) {
                 continue;
             }
@@ -147,15 +178,18 @@ class AssistantChatService
 
                 if (! AssistantChannelBehavior::allowsNewConversationInstruction($channel)) {
                     $text = $this->messageLocalizer->bookingChangePhoneHandoff($salon);
+
                     continue;
                 }
 
                 $text = $this->messageLocalizer->existingBookingRequiresNewConversation($salon, $channel);
+
                 continue;
             }
 
             if ($this->appointmentToolHandler->isAvailabilityCall($functionCall)) {
                 $text = $this->appointmentToolHandler->availabilityMessage($salon, $functionCall);
+
                 continue;
             }
 
@@ -170,15 +204,20 @@ class AssistantChatService
                     (string) ($options['channel'] ?? $conversation->channel),
                 );
 
-                $booking = $this->appointmentToolHandler->handle(
-                    $salon,
-                    $functionCall,
-                    (string) ($options['booking_source'] ?? 'ai_assistant'),
-                    (bool) ($options['bill_booking_usage'] ?? true),
+                $bookingSource = (string) ($options['booking_source'] ?? 'ai_assistant');
+                $billUsage = (bool) ($options['bill_booking_usage'] ?? true);
+
+                $booking = $this->conversationResultService->createAndAttach(
+                    $conversation,
+                    Conversation::RESULT_TYPE_BOOKING,
+                    fn () => $this->appointmentToolHandler->handle($salon, $functionCall, $bookingSource, $billUsage),
                 );
-                $this->conversationService->attachBooking($conversation, $booking);
-                $this->bookingNotificationService->sendAiBookingNotification($booking, $conversation);
-                $text = $this->messageLocalizer->bookingConfirmation($salon, $booking);
+
+                if ($booking) {
+                    $this->conversationService->attachBooking($conversation, $booking);
+                    $this->bookingNotificationService->sendAiBookingNotification($booking, $conversation);
+                    $text = $this->messageLocalizer->bookingConfirmation($salon, $booking);
+                }
             } catch (HttpException $e) {
                 $text = $e->getMessage();
                 $booking = null;
@@ -198,6 +237,7 @@ class AssistantChatService
                 'message' => $message,
                 'conversation_id' => $conversation->id,
                 'booking' => $booking?->load(['location', 'service']),
+                'customer_request' => $customerRequest,
             ],
             'status' => 200,
         ];
@@ -426,9 +466,9 @@ class AssistantChatService
         $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent";
 
         return Http::withOptions([
-                'proxy' => '',
-                'verify' => config('services.gemini.ca_bundle'),
-            ])
+            'proxy' => '',
+            'verify' => config('services.gemini.ca_bundle'),
+        ])
             ->timeout(30)
             ->post($endpoint.'?key='.config('services.gemini.key'), $payload);
     }

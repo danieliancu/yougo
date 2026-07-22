@@ -167,12 +167,59 @@ export function ImportReviewStep({
     .filter(({ fact, path }) => Boolean(fact?.requires_confirmation) && factDecisions[path]?.decision !== 'confirmed')
     .map(({ path }) => path);
 
+  // Every field still needing a decision across every section (identity + all entity
+  // collections, minus excluded entities) — powers the single global "confirm all"
+  // action below, so the user isn't required to open and bulk-confirm all 6 sections
+  // individually to get past the review step.
+  function pendingPathsForCollection(
+    collection: keyof ExclusionState,
+    entities: EntityRecord[],
+    fields: FieldConfig[],
+  ): string[] {
+    const excluded = exclusions[collection];
+
+    return entities.flatMap((entity) => {
+      const fingerprint = entity.fingerprint ?? '';
+      if (fingerprint !== '' && excluded.has(fingerprint)) return [];
+
+      return fields.flatMap((field) => {
+        const fact = (entity[field.key] as ImportedFact) ?? null;
+        const path = `${collection}.${fingerprint}.${field.key}`;
+
+        return fact?.requires_confirmation && factDecisions[path]?.decision !== 'confirmed' ? [path] : [];
+      });
+    });
+  }
+
+  const allPendingConfirmAllPaths = [
+    ...identityPendingConfirmAllPaths,
+    ...pendingPathsForCollection('locations', result.locations, locationFields),
+    ...pendingPathsForCollection('services', result.services, serviceFieldsForReview),
+    ...pendingPathsForCollection('staff', result.staff, staffFields),
+    ...pendingPathsForCollection('faq', result.faq, faqFields),
+    ...pendingPathsForCollection('policies', result.policies, policyFields),
+  ];
+
   return (
     <div className="mx-auto max-w-3xl space-y-6 pb-24">
       <div>
         <h1 className="text-2xl font-bold app-text">{t('importReviewTitle')}</h1>
         <p className="mt-2 text-sm app-text-muted">{t('importReviewHelper')}</p>
       </div>
+
+      {allPendingConfirmAllPaths.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-bold text-amber-900">{t('importConfirmAllGlobalLabel')}</p>
+              <p className="mt-1 text-xs text-amber-800">{t('importConfirmAllGlobalWarning')}</p>
+            </div>
+            <SecondaryButton type="button" onClick={() => onConfirmAllFacts(allPendingConfirmAllPaths)}>
+              {t('importConfirmAllGlobalButton', { count: allPendingConfirmAllPaths.length })}
+            </SecondaryButton>
+          </div>
+        </Card>
+      )}
 
       {failedConditions && failedConditions.length > 0 && (
         <Card className="border-red-200 bg-red-50 p-4">
