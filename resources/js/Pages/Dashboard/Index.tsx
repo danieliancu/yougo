@@ -276,13 +276,19 @@ const navGroups: NavGroup[] = [
       { id: 'staff', label: 'staff', href: '/dashboard/staff', icon: Users },
       { id: 'locations', label: 'locations', href: '/dashboard/locations', icon: MapPin },
       { id: 'customers', label: 'customers', href: '/dashboard/customers', icon: Users },
-      { id: 'billing', label: 'billing', href: '/dashboard/billing', icon: CreditCard },
-      { id: 'settings', label: 'settings', href: '/dashboard/settings', icon: Settings },
     ],
   },
 ];
 
-const nav = [...topLevelNavItems, ...navGroups.flatMap((group) => group.items)];
+// Setari/Facturare are pinned at the bottom of the sidebar (with Deconectare) instead of
+// living inside the collapsible Administrare group, so they're always reachable without
+// scrolling or expanding a section.
+const pinnedNavItems: NavItem[] = [
+  { id: 'settings', label: 'settings', href: '/dashboard/settings', icon: Settings },
+  { id: 'billing', label: 'billing', href: '/dashboard/billing', icon: CreditCard },
+];
+
+const nav = [...topLevelNavItems, ...navGroups.flatMap((group) => group.items), ...pinnedNavItems];
 
 function navGroupForSection(section: DashboardSection) {
   return navGroups.find((group) => group.items.some((item) => item.id === section));
@@ -658,21 +664,6 @@ function DashboardSidebarContent({ salon, section, user, t, onboarding, modules,
                         </Link>
                       );
                     })}
-                    {group.id === 'administration' && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onNavigate?.();
-                            router.post('/logout');
-                          }}
-                          className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-bold text-red-300 transition hover:bg-red-500/10 hover:text-red-200"
-                        >
-                          <LogOut className="h-4 w-4 shrink-0" />
-                          <span className="min-w-0 flex-1 truncate text-left">{t('logout')}</span>
-                        </button>
-                      </>
-                    )}
                   </div>
                 </div>
               </div>
@@ -680,6 +671,46 @@ function DashboardSidebarContent({ salon, section, user, t, onboarding, modules,
           );
         })}
       </nav>
+      <div className="shrink-0 space-y-1 border-t p-4 border-white/10">
+        {pinnedNavItems.map((item) => {
+          const Icon = item.icon;
+          const active = item.id === section;
+          const showsAccountEmail = item.id === 'settings';
+
+          return (
+            <Link
+              key={item.id}
+              href={item.href}
+              onClick={onNavigate}
+              className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-bold transition ${active ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-white/10 hover:text-white'}`}
+            >
+              {showsAccountEmail && <Icon className="h-4 w-4 shrink-0" />}
+              {showsAccountEmail ? (
+                <span className="min-w-0 flex-1">
+                  <span className={`block truncate text-sm font-bold ${active ? 'text-white' : 'text-slate-400'}`}>{t(item.label)}</span>
+                  <span className={`block truncate text-xs font-medium ${active ? 'text-indigo-100' : 'text-slate-500'}`}>{user?.email}</span>
+                </span>
+              ) : (
+                <>
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">{t(item.label)}</span>
+                </>
+              )}
+            </Link>
+          );
+        })}
+        <button
+          type="button"
+          onClick={() => {
+            onNavigate?.();
+            router.post('/logout');
+          }}
+          className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-bold text-red-300 transition hover:bg-red-500/10 hover:text-red-200"
+        >
+          <LogOut className="h-4 w-4 shrink-0" />
+          <span className="min-w-0 flex-1 truncate text-left">{t('logout')}</span>
+        </button>
+      </div>
     </>
   );
 }

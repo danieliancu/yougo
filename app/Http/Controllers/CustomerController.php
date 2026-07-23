@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\RequestStatus;
 use App\Models\Customer;
 use App\Services\CRM\CustomerDashboardService;
 use App\Services\Dashboard\DashboardDataService;
 use App\Services\Onboarding\OnboardingChecklistService;
 use App\Services\Usage\UsageLimitService;
 use App\Support\BusinessLocalization;
+use App\Support\DashboardModuleRegistry;
 use App\Support\StripePlans;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -58,6 +60,8 @@ class CustomerController extends Controller
                 ],
             ],
             'crm' => $customers->detail($customer),
+            'modules' => DashboardModuleRegistry::forSalon($salon),
+            'newRequestsCount' => $salon->customerRequests()->where('status', RequestStatus::New->value)->count(),
             'localization' => [
                 'countries' => BusinessLocalization::countryOptions($request->user()?->salon?->display_language ?? config('app.locale', 'ro')),
                 'timezones' => BusinessLocalization::timezoneOptions(),

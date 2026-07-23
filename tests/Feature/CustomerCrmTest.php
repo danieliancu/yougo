@@ -220,7 +220,13 @@ class CustomerCrmTest extends TestCase
                 ->where('crm.highlights.next_upcoming_booking.service.name', 'Tuns')
                 ->where('crm.highlights.last_booking.service.name', 'Tuns')
                 ->has('crm.bookings', 2)
-                ->has('crm.conversations', 1));
+                ->has('crm.conversations', 1)
+                // Regression guard: the sidebar (shared across every Dashboard/Index render)
+                // dereferences `modules.requests` unconditionally — omitting `modules` here
+                // crashed the customer detail page client-side ("Vezi Client" appeared to go
+                // nowhere) even though this Inertia response itself was a 200.
+                ->has('modules')
+                ->has('newRequestsCount'));
 
         $this->actingAs($user)
             ->get("/dashboard/customers/{$otherCustomer->id}")
