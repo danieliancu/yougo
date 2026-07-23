@@ -156,6 +156,7 @@ class AssistantChatService
                     );
 
                     if ($customerRequest) {
+                        $this->conversationService->attachRequest($conversation, $customerRequest);
                         $text = $this->messageLocalizer->requestConfirmation($salon, $customerRequest);
                     }
                 } catch (HttpException $e) {

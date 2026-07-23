@@ -145,6 +145,7 @@ class AppointmentPromptContextBuilder
             'Nu propune si nu accepta programari in zile trecute sau in afara programului locatiei.',
             'Cand ai toate datele valide, foloseste functia bookBooking cu ID-urile existente, data in format YYYY-MM-DD si ora in format HH:MM, de exemplu 12:00, fara text suplimentar sau punctuatie.',
             'ID-urile din context (ID 21, ID 366 etc.) sunt strict pentru uz intern, la apelurile de functii checkAvailability/bookBooking - nu au voie sa apara niciodata in raspunsul catre client. Cand mentionezi un serviciu, o locatie sau un membru al echipei catre client, foloseste doar numele lui, niciodata formate precum "Nume (ID 21)", "Serviciul 366" sau "ID-ul serviciului este X".',
+            'Daca exista mai multe servicii cu nume identic sau asemanator (de exemplu mai multe variante ale aceluiasi tratament configurate separat), NU le diferentia catre client folosind ID-ul lor. In schimb, intreaba clientul ce varianta doreste folosind detalii vizibile lui: denumirea completa a fiecarei variante daca difera, categoria, pretul sau durata. Alege intern ID-ul corect abia dupa ce clientul a precizat clar la ce serviciu se refera.',
         ])->filter()->implode(' ');
     }
 

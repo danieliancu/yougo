@@ -315,9 +315,7 @@ class GeminiPayloadBuilder
             default => 'Raspunde scurt, clar si politicos.',
         };
 
-        $unknownRule = ($salon->ai_unknown_answer_policy ?? 'say_unknown') === 'handoff'
-            ? 'Daca nu stii raspunsul din informatiile configurate, spune ca vei transmite cererea catre echipa.'
-            : 'Daca nu stii raspunsul din informatiile configurate, spune clar ca nu ai acea informatie.';
+        $unknownRule = $this->unknownAnswerRule($salon);
 
         $handoff = filled($salon->ai_handoff_message)
             ? "Mesaj de handoff configurat: {$salon->ai_handoff_message}."
@@ -325,7 +323,40 @@ class GeminiPayloadBuilder
 
         $progressiveDisclosureRule = 'Raspunsurile trebuie sa fie cat mai scurte posibil. Daca ai de oferit mai multe informatii decat incap intr-un raspuns scurt (de exemplu o lista lunga de servicii, preturi sau optiuni), nu le insira pe toate deodata. Da un raspuns scurt cu doar 2-3 exemple relevante pentru intrebare, apoi intreaba clientul daca vrea sa afle si restul (de exemplu "Vrei sa iti spun si celelalte servicii?" sau "Mai am cateva optiuni, vrei sa le vezi?"). Continua cu detaliile ramase doar daca clientul confirma explicit ca vrea mai mult.';
 
-        return collect([$languageRule, $toneRule, $styleRule, $unknownRule, $handoff, $progressiveDisclosureRule])->filter()->implode(' ');
+        $noInternalIdsRule = 'Niciun ID intern (de serviciu, locatie, membru al echipei, programare sau solicitare) nu are voie sa apara vreodata in raspunsul catre client, sub nicio forma — nici scris ca atare, nici in paranteza, nici ca parte dintr-o propozitie. Aceasta regula se aplica si cand exista mai multe servicii cu nume identic sau asemanator (de exemplu mai multe tipuri de acelasi tratament): pentru a le diferentia sau a cere clientului sa aleaga intre ele, foloseste doar detalii descriptive vizibile clientului (denumire completa, categorie, pret, durata, locatie), niciodata ID-ul din baza de date. ID-urile exista doar pentru uz intern, la apelurile de functii.';
+
+        return collect([$languageRule, $toneRule, $styleRule, $unknownRule, $handoff, $progressiveDisclosureRule, $noInternalIdsRule])->filter()->implode(' ');
+    }
+
+    /**
+     * Generic (not per-industry) bridge between "I don't know the answer" and the `request`
+     * capability: when Request is active, an unanswerable question that still needs the
+     * business to act, verify or follow up (order/document/result/booking status, a
+     * callback, a check) should be offered as a Request instead of a flat phone/email
+     * fallback — but only when the question actually needs company follow-up, never for
+     * plain informational questions the AI simply doesn't have configured data for. Mirrors
+     * RequestPromptContextBuilder's own instructions so the two never contradict each other,
+     * and applies regardless of whether Appointment is also active (mixed mode keeps Request
+     * available even when the intent isn't a booking).
+     */
+    private function unknownAnswerRule(Salon $salon): string
+    {
+        $handoffPolicy = ($salon->ai_unknown_answer_policy ?? 'say_unknown') === 'handoff';
+
+        if (! $salon->hasCapability(Salon::CAPABILITY_REQUEST)) {
+            return $handoffPolicy
+                ? 'Daca nu stii raspunsul din informatiile configurate, spune ca vei transmite cererea catre echipa.'
+                : 'Daca nu stii raspunsul din informatiile configurate, spune clar ca nu ai acea informatie.';
+        }
+
+        return collect([
+            'Daca nu poti raspunde din informatiile configurate, stabileste intai daca intrebarea este pur informativa (despre servicii, preturi, program, locatii etc. pe care pur si simplu nu le ai configurate) sau daca clientul are nevoie de o verificare, o actiune sau un raspuns ulterior din partea echipei — de exemplu stadiul unui serviciu, al unei comenzi, al unui document, al unui dosar sau al unui rezultat pe care nu il poti verifica tu direct.',
+            'Pentru o intrebare pur informativa fara raspuns configurat, spune clar ca nu ai acea informatie'.($handoffPolicy ? ', apoi mentioneaza ca poti transmite cererea catre echipa daca clientul doreste.' : '.'),
+            'Pentru o intrebare care are nevoie de verificare, actiune sau raspuns ulterior din partea echipei, nu inventa raspunsul si nu trimite clientul direct la telefon sau email ca prim raspuns: explica pe scurt ca nu poti verifica direct informatia si ofera explicit sa trimiti o solicitare catre echipa folosind functia createRequest.',
+            'Daca clientul este de acord, colecteaza numai informatiile strict necesare pentru solicitare (conform instructiunilor Request Mode de mai jos), creeaza solicitarea cu createRequest si confirma clientului ca a fost trimisa catre echipa.',
+            'Daca clientul refuza trimiterea solicitarii, ofera-i in schimb datele de contact ale businessului ca alternativa.',
+            'Nu transforma automat orice intrebare fara raspuns intr-o solicitare — doar pe cele care au nevoie de o verificare, actiune sau raspuns ulterior din partea companiei.',
+        ])->implode(' ');
     }
 
     /**

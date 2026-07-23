@@ -1,0 +1,55 @@
+| Ordine | Etapă                         | Rezultat                                                                     |
+| -----: | ----------------------------- | ---------------------------------------------------------------------------- |
+|      1 | Curățare de securitate        | Secret Twilio regenerat și eliminat din istoricul repository-ului public     |
+|      2 | Siguranță minimă de producție | Backup restaurabil, error tracking, health checks și alerte                  |
+|      3 | Stabilizarea onboardingului   | Importuri reale, retry, refresh, conflicte și multi-location                 |
+|      4 | Fundație business-first       | Boundary generic peste `Salon`; fără redenumirea brutală a tuturor tabelelor |
+|      5 | Taxonomie unică               | O singură sursă pentru industrii, folosită de PHP și React                   |
+|      6 | Industry Defaults             | Rezultat recomandat, câmpuri, reguli, safety și etichete                     |
+|      7 | Request Mode                  | Prima extindere completă dincolo de Bookings                                 |
+|      8 | Dashboard modular și adaptiv  | Module afișate după capabilitățile companiei                                 |
+|      9 | Testare end-to-end            | Website și WhatsApp creează corect Appointment/Request                       |
+|     10 | Calendar extern               | Inițial Google Calendar; Outlook ulterior                                    |
+|     11 | Phone AI MVP                  | Voce română; creează corect Appointment și Request                           |
+|     12 | Reservation Mode              | Mai întâi restaurant; hotel/rental ulterior                                  |
+|     13 | Automatizare WhatsApp         | Activare și configurare fără intervenție manuală                             |
+|     14 | Scalare avansată              | Performanță, audit, costuri, redundanță                                      |
+
+
+
+Task 4 — Business Modes, Industry Defaults și Request Mode
+
+YouGo folosește industria selectată și informațiile importate pentru a recomanda configurația companiei.
+Aplică automat câmpurile de colectat, regulile, instrucțiunile de siguranță, etichetele și modulele dashboardului.
+
+Compania confirmă configurația și poate utiliza Appointment, Request sau ambele, unul fiind stabilit drept rezultat principal.
+
+Appointment rămâne funcțional prin infrastructura actuală de Bookings, iar Request este implementat complet.
+Arhitectura recunoaște viitorul mod Reservation, dar acesta nu poate fi activat până la implementarea logicii pentru restaurante.
+
+
+
+
+
+| Entitate                    | Rol                               |
+| --------------------------- | --------------------------------- |
+| `Appointment` 	      | Programare cu interval orar       |
+| `Request`                   | Solicitare calificată și urmărită |
+| `Reservation`               | Resursă/capacitate rezervată      |
+
+
+
+
+| Modul              | Appointment |  Request | Reservation |
+| ------------------ | :---------: | :------: | :---------: |
+| Conversații        |      ✅     |     ✅   |      ✅      |
+| Clienți            |      ✅     |     ✅   |      ✅      |
+| Programări         |      ✅     | Opțional |      ❌      |
+| Solicitări         |   Opțional  |     ✅   |      ❌      |
+| Rezervări          |      ❌     |     ❌   |      ✅      |
+| Calendar           |      ✅     | Opțional |      ✅      |
+| Staff              |   Opțional  | Opțional |   Opțional   |
+| Resurse/capacitate |      ❌     |     ❌   |      ✅      |
+| Servicii           |      ✅     | Opțional |   Opțional   |
+
+

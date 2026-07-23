@@ -26,7 +26,7 @@ class RequestToolDefinitions
             'functionDeclarations' => [
                 [
                     'name' => 'createRequest',
-                    'description' => 'Creeaza o solicitare (nu o programare) in baza de date, cand clientul cere o oferta, o interventie, un callback, un diagnostic sau informatii pe care echipa trebuie sa le proceseze manual.',
+                    'description' => 'Creeaza o solicitare (nu o programare) in baza de date, cand clientul cere o oferta, o interventie, un callback, un diagnostic, o verificare de status (comanda, document, dosar, rezultat) sau orice alta informatie pe care echipa trebuie sa o proceseze sau sa o confirme manual, in loc de un raspuns direct din AI.',
                     'parameters' => [
                         'type' => 'OBJECT',
                         'properties' => [

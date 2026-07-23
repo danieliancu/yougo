@@ -110,7 +110,7 @@ export type Conversation = {
   contact_phone?: string | null;
   contact_email?: string | null;
   status: 'open' | 'completed' | 'archived';
-  intent: 'inquiry' | 'booking' | string;
+  intent: 'inquiry' | 'booking' | 'request' | string;
   duration_seconds?: number | null;
   summary?: string | null;
   metadata?: Record<string, unknown> | null;
@@ -118,6 +118,8 @@ export type Conversation = {
   created_at?: string;
   messages: ConversationMessage[];
   booking?: Booking | null;
+  result_type?: 'booking' | 'customer_request' | string | null;
+  result?: { id: number; status: string; priority?: string; type?: string; title?: string | null } | null;
 };
 
 export type WhatsappIntegration = {

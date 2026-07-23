@@ -88,6 +88,29 @@ class AssistantPromptTest extends TestCase
         $this->assertStringContainsString('format data: dd/mm/yyyy', $instruction);
     }
 
+    public function test_prompt_forbids_exposing_internal_ids_to_the_client(): void
+    {
+        $salon = $this->createSalon();
+
+        $payload = $this->buildPayload($salon);
+        $instruction = $payload['systemInstruction']['parts'][0]['text'];
+
+        $this->assertStringContainsString('Niciun ID intern (de serviciu, locatie, membru al echipei, programare sau solicitare) nu are voie sa apara vreodata in raspunsul catre client', $instruction);
+    }
+
+    public function test_prompt_instructs_disambiguation_without_ids_for_similarly_named_services(): void
+    {
+        $salon = $this->createSalon();
+        $salon->services()->create(['name' => 'Implant dentar', 'price' => '2500', 'duration' => 60, 'notes' => 'Implant standard, titan']);
+        $salon->services()->create(['name' => 'Implant dentar', 'price' => '3200', 'duration' => 90, 'notes' => 'Implant premium, ceramica']);
+
+        $payload = $this->buildPayload($salon);
+        $instruction = $payload['systemInstruction']['parts'][0]['text'];
+
+        $this->assertStringContainsString('NU le diferentia catre client folosind ID-ul lor', $instruction);
+        $this->assertStringContainsString('Alege intern ID-ul corect abia dupa ce clientul a precizat clar la ce serviciu se refera', $instruction);
+    }
+
     public function test_prompt_formats_service_prices_with_business_currency(): void
     {
         $salon = $this->createSalon([

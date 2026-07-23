@@ -4,6 +4,7 @@ namespace App\Services\Conversation;
 
 use App\Models\Booking;
 use App\Models\Conversation;
+use App\Models\CustomerRequest;
 use App\Models\Salon;
 use App\Services\CRM\CustomerIdentityService;
 use App\Services\Usage\UsageTracker;
@@ -110,6 +111,24 @@ class ConversationService
         ]);
 
         $this->customers->identifyFromConversation($conversation->refresh());
+    }
+
+    /**
+     * Mirrors attachBooking() for the `request` capability so a conversation that produced
+     * a CustomerRequest is reflected the same way in intent/contact/status — otherwise it
+     * stays `intent = inquiry` forever and the stale-inquiry sweep above can mislabel it
+     * `abandoned` after an hour, even though it successfully produced a request. Customer
+     * identification (CRM linking) is intentionally not wired here — CustomerRequest has no
+     * `identifyFromRequest()` counterpart yet; only intent/contact/status are unified.
+     */
+    public function attachRequest(Conversation $conversation, CustomerRequest $customerRequest): void
+    {
+        $conversation->update([
+            'contact_name' => $customerRequest->client_name,
+            'contact_phone' => $customerRequest->client_phone,
+            'status' => $conversation->channel === 'whatsapp' ? 'open' : 'completed',
+            'intent' => 'request',
+        ]);
     }
 
     public function closeWhatsappConversationsForBooking(Booking $booking): void

@@ -688,6 +688,8 @@ const dictionaries: Record<string, Dictionary> = {
     serviceAndLocation: 'Serviciu & locatie',
     dateAndTime: 'Data & ora',
     status: 'Status',
+    priority: 'Prioritate',
+    priorityAndStatus: 'Prioritate & Status',
     statusPending: 'In asteptare',
     statusConfirmed: 'Confirmat',
     statusScheduled: 'Programat',
@@ -868,6 +870,7 @@ const dictionaries: Record<string, Dictionary> = {
     duration: 'Durata',
     contact: 'Contact',
     intentBooking: 'Programat',
+    intentRequest: 'Solicitare',
     intentInquiry: 'In progres',
     intentAbandoned: 'Abandonat',
     intentUnknown: 'Necunoscut',
@@ -1077,8 +1080,8 @@ const dictionaries: Record<string, Dictionary> = {
     importAddNew: 'Adaugă',
     importConfirmAllLabel: 'Confirmă tot (verific mai târziu)',
     importConfirmAllWarning: 'Nu uita să verifici manual, AI poate face greșeli.',
-    importConfirmAllGlobalLabel: 'Prea multe de bifat pe rând?',
-    importConfirmAllGlobalWarning: 'Confirmă dintr-o dată tot ce a mai rămas de verificat în toate secțiunile (date generale, locații, servicii, staff, FAQ, politici). Nu uita să verifici manual după — AI poate face greșeli.',
+    importConfirmAllGlobalLabel: 'Vrei să confirmi totul dintr-o dată?',
+    importConfirmAllGlobalWarning: 'Confirmă cu un singur click toate informațiile care necesită verificare. Folosește această opțiune doar dacă ești sigur că totul este corect.',
     importConfirmAllGlobalButton: 'Confirmă tot (:count rămase)',
     importCollapseSection: 'Restrânge secțiunea',
     importExpandSection: 'Extinde secțiunea',
@@ -1111,7 +1114,6 @@ const dictionaries: Record<string, Dictionary> = {
     requestsViewSourceConversation: 'Vezi conversația sursă',
     requestsPrevPage: 'Înapoi',
     requestsNextPage: 'Înainte',
-    requestStatus_new: 'Nouă',
     requestStatus_in_progress: 'În lucru',
     requestStatus_contacted: 'Contactat',
     requestStatus_resolved: 'Rezolvată',
@@ -1821,6 +1823,8 @@ const dictionaries: Record<string, Dictionary> = {
     serviceAndLocation: 'Service & location',
     dateAndTime: 'Date & time',
     status: 'Status',
+    priority: 'Priority',
+    priorityAndStatus: 'Priority & Status',
     statusPending: 'Pending',
     statusConfirmed: 'Confirmed',
     statusScheduled: 'Scheduled',
@@ -2001,6 +2005,7 @@ const dictionaries: Record<string, Dictionary> = {
     duration: 'Duration',
     contact: 'Contact',
     intentBooking: 'Booked',
+    intentRequest: 'Request',
     intentInquiry: 'In progress',
     intentAbandoned: 'Abandoned',
     intentUnknown: 'Unknown',
@@ -2244,7 +2249,6 @@ const dictionaries: Record<string, Dictionary> = {
     requestsViewSourceConversation: 'View source conversation',
     requestsPrevPage: 'Previous',
     requestsNextPage: 'Next',
-    requestStatus_new: 'New',
     requestStatus_in_progress: 'In progress',
     requestStatus_contacted: 'Contacted',
     requestStatus_resolved: 'Resolved',
@@ -2265,6 +2269,8 @@ const dictionaries: Record<string, Dictionary> = {
     importIncompleteNoServices: 'Add at least one service.',
   },
 };
+
+export type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
 
 export function translate(locale: string, key: string, params: Record<string, string | number> = {}) {
   const value = dictionaries[locale]?.[key] ?? dictionaries.en[key] ?? key;

@@ -1,8 +1,11 @@
 import { router, usePage } from '@inertiajs/react';
+import { MessageCircle, Phone } from 'lucide-react';
 import { useState } from 'react';
-import { Badge, Card, SecondaryButton } from '@/Components/Ui';
-import { useT } from '@/i18n';
-import { PageProps } from '@/types';
+import { Card, SecondaryButton } from '@/Components/Ui';
+import { DashboardTable, DashboardTableHeaderLabel, dashboardTableRowClass, requestStatusLabel, RowActionButton, RowActionLink, RowActionsMenu, StatusPill } from '@/Components/DashboardTable';
+import { TranslateFn, useT } from '@/i18n';
+import { formatBusinessDateWithWeekday, formatTimeOnly } from '@/lib/dateFormat';
+import { PageProps, Salon } from '@/types';
 
 type RequestListItem = {
   id: number;
@@ -42,7 +45,7 @@ function priorityTone(priority: string): 'slate' | 'amber' | 'red' {
 
 export default function Requests() {
   const t = useT();
-  const { requests } = usePage<PageProps<{ requests?: RequestListPayload | null }>>().props;
+  const { requests, salon } = usePage<PageProps<{ requests?: RequestListPayload | null; salon: Pick<Salon, 'date_format'> }>>().props;
   const [search, setSearch] = useState(requests?.filters.search ?? '');
 
   if (!requests) {
@@ -100,7 +103,7 @@ export default function Requests() {
           >
             <option value="">{t('requestsFilterAllStatuses')}</option>
             {STATUSES.map((status) => (
-              <option key={status} value={status}>{t(`requestStatus_${status}`)}</option>
+              <option key={status} value={status}>{requestStatusLabel(status, t)}</option>
             ))}
           </select>
           <select
@@ -131,50 +134,52 @@ export default function Requests() {
           <p className="text-sm app-text-muted">{t('requestsEmptyState')}</p>
         </Card>
       ) : (
-        <div className="grid gap-3">
-          {requests.items.map((item) => (
-            <Card key={item.id} className="p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge tone={priorityTone(item.priority)}>{t(`requestPriority_${item.priority}`)}</Badge>
-                    <span className="text-xs font-bold uppercase tracking-wide app-text-muted">{t(`requestType_${item.type}`)}</span>
-                  </div>
-                  {item.title && <p className="mt-2 font-bold app-text">{item.title}</p>}
-                  {item.description && <p className="mt-1 text-sm app-text-soft">{item.description}</p>}
-                  <p className="mt-2 text-sm app-text-muted">
-                    {item.client_name} {item.client_phone ? `· ${item.client_phone}` : ''}
-                  </p>
-                  {item.conversation_id && (
-                    <a href={`#conversation-${item.conversation_id}`} className="mt-1 inline-block text-xs font-bold text-indigo-600">
-                      {t('requestsViewSourceConversation')}
-                    </a>
-                  )}
-                </div>
-                <div className="flex shrink-0 flex-col gap-2 sm:items-end">
-                  <select
-                    value={item.status}
-                    onChange={(event) => updateRequest(item.id, { status: event.target.value })}
-                    className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm app-panel app-text"
-                  >
-                    {STATUSES.map((status) => (
-                      <option key={status} value={status}>{t(`requestStatus_${status}`)}</option>
-                    ))}
-                  </select>
-                  <select
-                    value={item.priority}
-                    onChange={(event) => updateRequest(item.id, { priority: event.target.value })}
-                    className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm app-panel app-text"
-                  >
-                    {PRIORITIES.map((priority) => (
-                      <option key={priority} value={priority}>{t(`requestPriority_${priority}`)}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
+        <>
+          <div className="space-y-3 md:hidden">
+            {requests.items.map((item) => (
+              <MobileRequestCard key={item.id} item={item} t={t} salon={salon} onUpdate={updateRequest} />
+            ))}
+          </div>
+          <div className="hidden md:block">
+            <DashboardTable
+              headers={[
+                <DashboardTableHeaderLabel>{t('date')}</DashboardTableHeaderLabel>,
+                <DashboardTableHeaderLabel>{t('time')}</DashboardTableHeaderLabel>,
+                <DashboardTableHeaderLabel>{t('priorityAndStatus')}</DashboardTableHeaderLabel>,
+                <DashboardTableHeaderLabel>{t('name')}</DashboardTableHeaderLabel>,
+                <DashboardTableHeaderLabel>{t('phone')}</DashboardTableHeaderLabel>,
+                <DashboardTableHeaderLabel>{t('details')}</DashboardTableHeaderLabel>,
+                <span className="sr-only">{t('actions')}</span>,
+              ]}
+              minWidth="1100px"
+            >
+              {requests.items.map((item, index) => (
+                <tr key={item.id} className={dashboardTableRowClass(index)}>
+                  <td className="whitespace-nowrap px-5 py-4 align-top text-sm font-semibold app-text">
+                    {item.created_at ? formatBusinessDateWithWeekday(item.created_at, salon) : '—'}
+                  </td>
+                  <td className="whitespace-nowrap px-5 py-4 align-top text-sm font-semibold app-text">
+                    {item.created_at ? formatTimeOnly(item.created_at) : '—'}
+                  </td>
+                  <td className="px-5 py-4 align-top">
+                    <div className="flex items-center gap-2">
+                      <PrioritySelect priority={item.priority} onChange={(priority) => updateRequest(item.id, { priority })} />
+                      <StatusPill status={item.status} t={t} />
+                    </div>
+                  </td>
+                  <td className="px-5 py-4 align-top font-semibold app-text">{item.client_name || '—'}</td>
+                  <td className="whitespace-nowrap px-5 py-4 align-top app-text-soft">{item.client_phone || '—'}</td>
+                  <td className="min-w-72 px-5 py-4 align-top app-text-soft">
+                    <RequestDetailsCell item={item} t={t} />
+                  </td>
+                  <td className="w-14 px-5 py-4 align-top">
+                    <RequestActionsMenu item={item} t={t} onUpdate={updateRequest} />
+                  </td>
+                </tr>
+              ))}
+            </DashboardTable>
+          </div>
+        </>
       )}
 
       {requests.pagination.last_page > 1 && (
@@ -197,5 +202,92 @@ export default function Requests() {
         </div>
       )}
     </div>
+  );
+}
+
+function RequestDetailsCell({ item, t }: { item: RequestListItem; t: TranslateFn }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-xs font-bold uppercase tracking-wide app-text-muted">{t(`requestType_${item.type}`)}</p>
+      {item.title && <p className="font-semibold app-text">{item.title}</p>}
+      {item.description && <p className="line-clamp-2 text-sm app-text-soft">{item.description}</p>}
+      {(item.location?.name || item.service?.name) && (
+        <p className="text-xs app-text-muted">
+          {[item.service?.name, item.location?.name].filter(Boolean).join(' · ')}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function MobileRequestCard({ item, t, salon, onUpdate }: { item: RequestListItem; t: TranslateFn; salon: Pick<Salon, 'date_format'>; onUpdate: (id: number, data: Record<string, string | number>) => void }) {
+  return (
+    <Card className="p-4">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-bold app-text">{item.client_name || '—'}</p>
+          <p className="mt-1 text-xs font-semibold app-text-muted">
+            {item.created_at ? `${formatBusinessDateWithWeekday(item.created_at, salon)}, ${formatTimeOnly(item.created_at)}` : '—'}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <PrioritySelect priority={item.priority} onChange={(priority) => onUpdate(item.id, { priority })} />
+          <StatusPill status={item.status} t={t} />
+          <RequestActionsMenu item={item} t={t} onUpdate={onUpdate} />
+        </div>
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <span className="text-xs font-bold uppercase tracking-wide app-text-muted">{t(`requestType_${item.type}`)}</span>
+      </div>
+      <div className="mt-3 space-y-1 text-sm">
+        <p className="app-text-soft">{item.client_phone || t('phoneMissingShort')}</p>
+        {item.title && <p className="font-semibold app-text">{item.title}</p>}
+        {item.description && <p className="app-text-soft">{item.description}</p>}
+      </div>
+    </Card>
+  );
+}
+
+function PrioritySelect({ priority, onChange }: { priority: string; onChange: (priority: string) => void }) {
+  const t = useT();
+
+  return (
+    <select
+      value={priority}
+      onChange={(event) => onChange(event.target.value)}
+      className={`h-7 shrink-0 rounded-md border-0 px-1.5 text-xs font-bold uppercase tracking-wide outline-none ${priorityTone(priority) === 'red' ? 'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300' : priorityTone(priority) === 'amber' ? 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300' : 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300'}`}
+    >
+      {PRIORITIES.map((option) => (
+        <option key={option} value={option}>{t(`requestPriority_${option}`)}</option>
+      ))}
+    </select>
+  );
+}
+
+function RequestActionsMenu({ item, t, onUpdate }: { item: RequestListItem; t: TranslateFn; onUpdate: (id: number, data: Record<string, string | number>) => void }) {
+  return (
+    <RowActionsMenu label={t('actions')}>
+      {(close) => (
+        <>
+          {STATUSES.filter((status) => status !== item.status).map((status) => (
+            <RowActionButton key={status} onClick={() => { close(); onUpdate(item.id, { status }); }}>
+              {requestStatusLabel(status, t)}
+            </RowActionButton>
+          ))}
+          {item.client_phone && (
+            <RowActionLink href={`tel:${item.client_phone}`}>
+              <Phone className="h-4 w-4 text-green-600" />
+              {item.client_phone}
+            </RowActionLink>
+          )}
+          {item.conversation_id && (
+            <RowActionLink href={`#conversation-${item.conversation_id}`}>
+              <MessageCircle className="h-4 w-4" />
+              {t('requestsViewSourceConversation')}
+            </RowActionLink>
+          )}
+        </>
+      )}
+    </RowActionsMenu>
   );
 }

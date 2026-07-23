@@ -1,5 +1,6 @@
 ﻿import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { AlertModal, Badge, Button, Card, ConfirmationModal, DangerButton, Field, Input, SecondaryButton, ThemeToggle } from '@/Components/Ui';
+import { DashboardTable, DashboardTableHeaderLabel, dashboardTableRowClass, RowActionButton, RowActionLink, RowActionsMenu, StatusPill } from '@/Components/DashboardTable';
 import type { ActivityChartRow } from '@/Components/ActivityChart';
 import { PricingPlansGrid, VoicePlanKey } from '@/Components/PricingPlansGrid';
 import { YouGoCopilot } from '@/Components/YouGoCopilot';
@@ -8,10 +9,11 @@ import { Booking, Conversation, Location as SalonLocation, OfferedService, Onboa
 import { AlertTriangle, Bell, Bot, Building2, Calendar, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, CreditCard, Download, ExternalLink, FileText, Globe2, LayoutDashboard, List, Lock, LogOut, MapPin, Menu, MessageCircle, MessageSquare, MoreHorizontal, Pencil, Phone, Plus, Save, Scissors, Search, Settings, Smartphone, Sparkles, Trash2, User, Users, X, XCircle } from 'lucide-react';
 import { SiBigcommerce, SiShopify, SiWhatsapp, SiWordpress } from 'react-icons/si';
 import { FormEvent, lazy, ReactNode, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { useT } from '@/i18n';
-import { findBusinessType, normalizeBusinessTypeSlug } from '@/lib/businessTaxonomy';
+import { TranslateFn, useT } from '@/i18n';
+import { findBusinessType, localizedLabel, normalizeBusinessTypeSlug } from '@/lib/businessTaxonomy';
 import { planHasService, serviceEntitlementLabel, serviceIsLive, serviceStatusLabel, serviceByKey } from '@/lib/yougoServices';
 import { preferredLocale, rememberLocale } from '@/lib/localePreference';
+import { formatBusinessDate, formatBusinessDateTime, formatBusinessDateWithWeekday, normalizeDateFormatForUi } from '@/lib/dateFormat';
 
 const ActivityChart = lazy(() => import('@/Components/ActivityChart'));
 
@@ -92,6 +94,7 @@ type Props = PageProps<{
   salon: Salon;
   modules: DashboardModules;
   requests?: RequestListPayload | null;
+  newRequestsCount: number;
   overview: OverviewData;
   onboarding: OnboardingChecklist;
   billing: {
@@ -114,7 +117,6 @@ type Props = PageProps<{
   appUrl: string;
 }>;
 
-type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
 type DateRange = { start: string; end: string };
 type ConversationChannelFilter = 'all' | 'voice' | 'chat' | 'whatsapp';
 type ImportedServiceCandidate = {
@@ -296,7 +298,7 @@ const defaultOpenGroups = navGroupIds.reduce((groups, id) => ({
 
 export default function DashboardIndex() {
   const t = useT();
-  const { auth, salon, section, locale, overview, onboarding, billing, localization, crm, businessTaxonomy, modules } = usePage<Props>().props;
+  const { auth, salon, section, locale, overview, onboarding, billing, localization, crm, businessTaxonomy, modules, newRequestsCount } = usePage<Props>().props;
   const titleKey = section === 'locations'
     ? 'salonLocations'
     : section === 'customer-detail'
@@ -388,7 +390,7 @@ export default function DashboardIndex() {
   return (
     <div className="flex min-h-screen overflow-x-hidden app-bg lg:h-screen lg:overflow-hidden">
       <Head title={title} />
-      <DashboardSidebar salon={salon} section={section} user={auth.user} t={t} onboarding={onboarding} modules={modules} />
+      <DashboardSidebar salon={salon} section={section} user={auth.user} t={t} onboarding={onboarding} modules={modules} newRequestsCount={newRequestsCount} />
 
       {mobileNavOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
@@ -410,7 +412,7 @@ export default function DashboardIndex() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <DashboardSidebarContent salon={salon} section={section} user={auth.user} t={t} onboarding={onboarding} modules={modules} onNavigate={() => setMobileNavOpen(false)} />
+            <DashboardSidebarContent salon={salon} section={section} user={auth.user} t={t} onboarding={onboarding} modules={modules} newRequestsCount={newRequestsCount} onNavigate={() => setMobileNavOpen(false)} />
           </div>
         </div>
       )}
@@ -451,10 +453,10 @@ export default function DashboardIndex() {
           {section === 'services' && <Services salon={salon} query={query} onResetSearch={() => setQuery('')} />}
           {section === 'bookings' && <Bookings salon={salon} query={query} />}
           {section === 'requests' && <Requests />}
-          {section === 'customers' && <Customers crm={crm as CustomerCrmPayload | null | undefined} query={query} />}
+          {section === 'customers' && <Customers crm={crm as CustomerCrmPayload | null | undefined} query={query} salon={salon} />}
           {section === 'customer-detail' && <CustomerDetail crm={crm as CustomerDetailPayload | null | undefined} salon={salon} />}
           {section === 'widget' && <WidgetSettings salon={salon} query={query} />}
-          {section === 'billing' && <BillingPage billing={billing} currentPlan={salon.plan ?? 'free'} />}
+          {section === 'billing' && <BillingPage billing={billing} currentPlan={salon.plan ?? 'free'} salon={salon} />}
           {section === 'settings' && <SettingsPage salon={salon} />}
         </div>
       </main>
@@ -472,13 +474,13 @@ export default function DashboardIndex() {
   );
 }
 
-function DashboardSidebar({ salon, section, user, t, onboarding, modules }: { salon: Salon; section: Props['section']; user: AuthUser | null; t: TranslateFn; onboarding: OnboardingChecklist; modules: DashboardModules }) {
+function DashboardSidebar({ salon, section, user, t, onboarding, modules, newRequestsCount }: { salon: Salon; section: Props['section']; user: AuthUser | null; t: TranslateFn; onboarding: OnboardingChecklist; modules: DashboardModules; newRequestsCount: number }) {
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden h-screen w-72 shrink-0 flex-col overflow-hidden app-sidebar lg:flex">
       <div className="flex h-20 shrink-0 items-center border-b border-white/10 px-6">
         <Brand salon={salon} />
       </div>
-      <DashboardSidebarContent salon={salon} section={section} user={user} t={t} onboarding={onboarding} modules={modules} />
+      <DashboardSidebarContent salon={salon} section={section} user={user} t={t} onboarding={onboarding} modules={modules} newRequestsCount={newRequestsCount} />
     </aside>
   );
 }
@@ -539,7 +541,7 @@ function NavCountBadge({ count }: { count: number }) {
   );
 }
 
-function DashboardSidebarContent({ salon, section, user, t, onboarding, modules, onNavigate }: { salon: Salon; section: Props['section']; user: AuthUser | null; t: TranslateFn; onboarding: OnboardingChecklist; modules: DashboardModules; onNavigate?: () => void }) {
+function DashboardSidebarContent({ salon, section, user, t, onboarding, modules, newRequestsCount, onNavigate }: { salon: Salon; section: Props['section']; user: AuthUser | null; t: TranslateFn; onboarding: OnboardingChecklist; modules: DashboardModules; newRequestsCount: number; onNavigate?: () => void }) {
   const activeGroup = navGroupForSection(section);
   const [openGroups, setOpenGroups] = useState<Record<NavGroup['id'], boolean>>(() => {
     const stored = storedSidebarOpenGroups();
@@ -649,8 +651,10 @@ function DashboardSidebarContent({ salon, section, user, t, onboarding, modules,
                             </>
                           )}
                           {item.id === 'bookings' && pendingBookingsCount > 0 && <span className="railway-lights shrink-0" aria-hidden="true" />}
+                          {item.id === 'requests' && newRequestsCount > 0 && <span className="railway-lights shrink-0" aria-hidden="true" />}
                           {item.id === 'onboarding' && remainingSetupCount > 0 && <NavCountBadge count={remainingSetupCount} />}
                           {item.id === 'bookings' && pendingBookingsCount > 0 && <NavCountBadge count={pendingBookingsCount} />}
+                          {item.id === 'requests' && newRequestsCount > 0 && <NavCountBadge count={newRequestsCount} />}
                         </Link>
                       );
                     })}
@@ -1164,18 +1168,6 @@ function normalizeLocalizationCountry(country: string | null | undefined, locali
     : localization.defaults.country;
 }
 
-function normalizeDateFormatForUi(dateFormat?: string | null) {
-  const normalized = dateFormat?.trim().toLowerCase();
-
-  if (!normalized) return null;
-  if (normalized === 'dd.mm.yyyy.' || normalized === 'dd.mm.yyyy') return 'dd.mm.yyyy';
-  if (normalized === 'dd/mm/yyyy' || normalized === 'dd-mm-yyyy') return 'dd/mm/yyyy';
-  if (normalized === 'yyyy-mm-dd' || normalized === 'yyyy/mm/dd') return 'yyyy-mm-dd';
-  if (['dd month yyyy', 'd month yyyy', 'dd mmmm yyyy', 'd mmmm yyyy'].includes(normalized)) return 'dd month yyyy';
-
-  return normalized;
-}
-
 function dateFormatExample(dateFormat: string, locale: 'ro' | 'en' = preferredLocale()) {
   if (dateFormat === 'yyyy-mm-dd') return '2026-05-27';
   if (dateFormat === 'dd/mm/yyyy') return '27/05/2026';
@@ -1221,7 +1213,8 @@ function serviceCurrencyOptions(localization: LocalizationProps, salon: Pick<Sal
 
 function SettingsPage({ salon }: { salon: Salon }) {
   const t = useT();
-  const { auth, billing, localization, businessTaxonomy } = usePage<Props>().props;
+  const { auth, billing, localization, businessTaxonomy, locale } = usePage<Props>().props;
+  const activeLocale = preferredLocale(locale);
   const [showDeleteAccount, setShowDeleteAccount] = useState(false);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
   const initialBusinessType = normalizeBusinessTypeSlug(businessTaxonomy, salon.business_type) || 'salon-beauty';
@@ -1405,7 +1398,7 @@ function SettingsPage({ salon }: { salon: Salon }) {
               <DarkSelect value={form.data.business_type} onChange={(event) => form.setData('business_type', event.target.value)}>
                 <option value="">{t('selectBusinessType')}</option>
                 {businessTaxonomy.map((option) => (
-                  <option key={option.slug} value={option.slug}>{option.label}</option>
+                  <option key={option.slug} value={option.slug}>{localizedLabel(option, activeLocale)}</option>
                 ))}
               </DarkSelect>
             </DarkField>
@@ -1801,7 +1794,7 @@ function Conversations({ salon, query }: { salon: Salon; query: string; overview
                           </div>
                           <p className="mt-1 truncate text-xs app-text-muted">{lastMessage}</p>
                           <div className="mt-2 flex flex-wrap gap-1.5">
-                            <IntentPill intent={conversation.intent} compact bookingStatus={conversation.booking?.status} />
+                            <IntentPill intent={conversation.intent} compact bookingStatus={conversation.booking?.status} requestStatus={conversation.result_type === 'customer_request' ? conversation.result?.status : undefined} />
                           </div>
                         </button>
                         <button
@@ -1832,7 +1825,7 @@ function Conversations({ salon, query }: { salon: Salon; query: string; overview
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                <IntentPill intent={selected.intent} bookingStatus={selected.booking?.status} />
+                <IntentPill intent={selected.intent} bookingStatus={selected.booking?.status} requestStatus={selected.result_type === 'customer_request' ? selected.result?.status : undefined} />
               </div>
             </div>
 
@@ -2164,76 +2157,33 @@ function localizeStoredConversationSummary(summary: string | null | undefined, t
   return knownSummaries[text] ?? text;
 }
 
-function IntentPill({ intent, compact = false, bookingStatus }: { intent: string; compact?: boolean; bookingStatus?: string }) {
+function IntentPill({ intent, compact = false, bookingStatus, requestStatus }: { intent: string; compact?: boolean; bookingStatus?: string; requestStatus?: string }) {
   const t = useT();
   const tones: Record<string, string> = {
     booking: 'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300',
+    request: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-500/15 dark:text-indigo-300',
     inquiry: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
     abandoned: 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-400',
   };
   const tone = tones[intent] ?? 'bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-300';
   const labels: Record<string, string> = {
     booking: t('intentBooking'),
+    request: t('intentRequest'),
     inquiry: t('intentInquiry'),
     abandoned: t('intentAbandoned'),
   };
-  const statusTones: Record<string, string> = {
-    pending: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
-    confirmed: 'bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300',
-    programat: 'bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300',
-    cancelled: 'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300',
-    completed: 'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300',
-  };
-  const statusLabels: Record<string, string> = {
-    pending: t('statusPending'),
-    confirmed: t('statusConfirmed'),
-    programat: t('statusScheduled'),
-    cancelled: t('statusCancelled'),
-    completed: t('statusCompleted'),
-  };
-
   return (
     <div className="flex items-center gap-1.5">
       <span className={`inline-flex justify-center rounded-md font-bold uppercase tracking-wide ${compact ? 'min-w-20 px-2 py-1 text-[10px]' : 'min-w-24 px-3 py-1 text-xs'} ${tone}`}>
         {labels[intent] ?? t('intentUnknown')}
       </span>
       {intent === 'booking' && bookingStatus && (
-        <span className={`inline-flex items-center gap-1.5 justify-center rounded-md font-bold uppercase tracking-wide ${compact ? 'min-w-28 px-2 py-1 text-[10px]' : 'min-w-28 px-3 py-1 text-xs'} ${statusTones[bookingStatus] ?? statusTones.completed}`}>
-          {bookingStatus === 'pending' && <span className="railway-lights shrink-0" aria-hidden="true" />}
-          {bookingStatus === 'completed' && <Check className="h-3 w-3 shrink-0 stroke-[3]" />}
-          {bookingStatus === 'cancelled' && <X className="h-3 w-3 shrink-0 stroke-[3]" />}
-          {statusLabels[bookingStatus] ?? bookingStatus}
-        </span>
+        <StatusPill status={bookingStatus} t={t} compact={compact} />
+      )}
+      {intent === 'request' && requestStatus && (
+        <StatusPill status={requestStatus} t={t} compact={compact} />
       )}
     </div>
-  );
-}
-
-function StatusPill({ status, t, className = '' }: { status: string; t: TranslateFn; className?: string }) {
-  const tones: Record<string, string> = {
-    pending: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
-    confirmed: 'bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300',
-    programat: 'bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300',
-    cancelled: 'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300',
-    completed: 'bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300',
-    open: 'bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-400',
-  };
-  const labels: Record<string, string> = {
-    pending: t('statusPending'),
-    confirmed: t('statusConfirmed'),
-    programat: t('statusScheduled'),
-    cancelled: t('statusCancelled'),
-    completed: t('statusCompleted'),
-    open: t('intentInquiry'),
-  };
-
-  return (
-    <span className={`inline-flex min-w-28 items-center justify-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-sm font-semibold ${tones[status] ?? tones.completed} ${className}`}>
-      {status === 'pending' && <span className="railway-lights shrink-0" aria-hidden="true" />}
-      {status === 'completed' && <Check className="h-3 w-3 shrink-0 stroke-[3]" />}
-      {status === 'cancelled' && <X className="h-3 w-3 shrink-0 stroke-[3]" />}
-      {labels[status] ?? status}
-    </span>
   );
 }
 
@@ -2824,7 +2774,7 @@ function UsageRing({ label, used, limit, icon: Icon, tone, compact = false, lock
   );
 }
 
-function BillingPage({ billing, currentPlan }: { billing: Props['billing']; currentPlan: string }) {
+function BillingPage({ billing, currentPlan, salon }: { billing: Props['billing']; currentPlan: string; salon: Pick<Salon, 'date_format'> }) {
   const t = useT();
   const canonicalCurrentPlan = canonicalPlanKey(currentPlan);
   // Annual billing is intentionally hidden until Stripe annual price IDs are configured.
@@ -2927,7 +2877,7 @@ function BillingPage({ billing, currentPlan }: { billing: Props['billing']; curr
               <p className="mt-2 text-sm app-text-muted">{t('subscriptionStatus')}: <span className="font-semibold app-text">{billing.stripe.subscription_status}</span></p>
             )}
             {billing.stripe.subscription_current_period_end && (
-              <p className="mt-1 text-sm app-text-muted">{t('subscriptionRenews')}: <span className="font-semibold app-text">{new Date(billing.stripe.subscription_current_period_end).toLocaleDateString()}</span></p>
+              <p className="mt-1 text-sm app-text-muted">{t('subscriptionRenews')}: <span className="font-semibold app-text">{formatBusinessDate(billing.stripe.subscription_current_period_end, salon)}</span></p>
             )}
           </div>
           <div className="rounded-lg border p-4 app-border app-panel-soft">
@@ -3073,7 +3023,7 @@ function OverviewConversationsTable({ conversations, t }: { conversations: Conve
               </p>
             </div>
             <div className="mt-3 flex flex-wrap gap-1.5">
-              <IntentPill intent={conversation.intent} compact bookingStatus={conversation.booking?.status} />
+              <IntentPill intent={conversation.intent} compact bookingStatus={conversation.booking?.status} requestStatus={conversation.result_type === 'customer_request' ? conversation.result?.status : undefined} />
             </div>
           </Card>
         ))}
@@ -3090,7 +3040,7 @@ function OverviewConversationsTable({ conversations, t }: { conversations: Conve
               </td>
               <td className="w-48 px-5 py-4 align-middle">
                 <div className="flex justify-end">
-                  <IntentPill intent={conversation.intent} compact bookingStatus={conversation.booking?.status} />
+                  <IntentPill intent={conversation.intent} compact bookingStatus={conversation.booking?.status} requestStatus={conversation.result_type === 'customer_request' ? conversation.result?.status : undefined} />
                 </div>
               </td>
             </tr>
@@ -3192,7 +3142,8 @@ function Stat({ label, value, icon: Icon, tone = 'indigo' }: { label: string; va
 
 function AiSettings({ salon }: { salon: Salon }) {
   const t = useT();
-  const { businessTaxonomy } = usePage<Props>().props;
+  const { businessTaxonomy, locale } = usePage<Props>().props;
+  const activeLocale = preferredLocale(locale);
   const selectedBusinessType = findBusinessType(businessTaxonomy, normalizeBusinessTypeSlug(businessTaxonomy, salon.business_type) || 'salon-beauty');
   const [customContextInput, setCustomContextInput] = useState('');
   const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(false);
@@ -3343,7 +3294,7 @@ function AiSettings({ salon }: { salon: Salon }) {
                     <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${checked ? 'border-white bg-white text-indigo-600' : 'border-[var(--app-border)]'}`}>
                       {checked && <Check className="h-3 w-3" />}
                     </span>
-                    {category.label}
+                    {localizedLabel(category, activeLocale)}
                   </button>
                 );
               })}
@@ -3360,7 +3311,7 @@ function AiSettings({ salon }: { salon: Salon }) {
                 <option value="">{t('chooseMainFocus')}</option>
                 {form.data.ai_industry_categories.map((slug) => {
                   const category = selectedBusinessType?.industries.find((item) => item.slug === slug);
-                  return category ? <option key={category.slug} value={category.slug}>{category.label}</option> : null;
+                  return category ? <option key={category.slug} value={category.slug}>{localizedLabel(category, activeLocale)}</option> : null;
                 })}
               </select>
             </Field>
@@ -5528,7 +5479,7 @@ function DateFilterHeader({ label, dates, selected, onChange, t }: { label: stri
                 <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${checked ? 'border-indigo-600 bg-indigo-600' : 'border-[var(--app-border)]'}`}>
                   {checked && <Check className="h-2.5 w-2.5 text-white" />}
                 </span>
-                <span className="app-text">{formatFilterDate(date, t)}</span>
+                <span className="app-text">{formatFilterDate(date)}</span>
               </button>
             );
           })}
@@ -6518,156 +6469,6 @@ function ChannelStat({ icon: Icon, value, label, tone, compact = false }: { icon
   );
 }
 
-function DashboardTable({ headers, children, minWidth = '920px' }: { headers: ReactNode[]; children: ReactNode; minWidth?: string }) {
-  return (
-    <div className="min-w-0 max-w-full overflow-hidden rounded-2xl border shadow-sm app-border app-panel">
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-left text-sm" style={{ minWidth }}>
-          {headers.length > 0 && (
-            <thead className="app-panel-soft">
-              <tr className="border-b app-border">
-                {headers.map((header, index) => (
-                  <th key={index} className="whitespace-nowrap px-5 py-4 text-xs font-semibold uppercase tracking-wide app-text-muted">
-                    {header}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-          )}
-          <tbody>{children}</tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function DashboardTableHeaderLabel({ children }: { children: ReactNode }) {
-  return (
-    <span>{children}</span>
-  );
-}
-
-function dashboardTableRowClass(index: number) {
-  return `border-b last:border-b-0 app-border transition hover:bg-indigo-500/5 ${index % 2 === 0 ? 'app-panel' : 'app-panel-soft'}`;
-}
-
-function RowActionsMenu({ label, children }: { label: string; children: (close: () => void) => ReactNode }) {
-  const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState({ left: 0, top: 0 });
-  const ref = useRef<HTMLDivElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    function onClickOutside(event: MouseEvent) {
-      const target = event.target as Node;
-      if (
-        ref.current
-        && !ref.current.contains(target)
-        && menuRef.current
-        && !menuRef.current.contains(target)
-      ) {
-        setOpen(false);
-      }
-    }
-
-    document.addEventListener('mousedown', onClickOutside);
-    return () => document.removeEventListener('mousedown', onClickOutside);
-  }, []);
-
-  useEffect(() => {
-    if (!open) return;
-
-    function closeMenu() {
-      setOpen(false);
-    }
-
-    window.addEventListener('resize', closeMenu);
-    window.addEventListener('scroll', closeMenu, true);
-
-    return () => {
-      window.removeEventListener('resize', closeMenu);
-      window.removeEventListener('scroll', closeMenu, true);
-    };
-  }, [open]);
-
-  function updatePosition() {
-    const rect = buttonRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    const menuWidth = 192;
-    const menuHeight = 224;
-    const gap = 8;
-    const left = Math.min(
-      Math.max(16, rect.right - menuWidth),
-      window.innerWidth - menuWidth - 16,
-    );
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const top = spaceBelow < menuHeight && rect.top > menuHeight
-      ? rect.top - menuHeight - gap
-      : rect.bottom + gap;
-
-    setPosition({
-      left,
-      top: Math.max(16, Math.min(top, window.innerHeight - menuHeight - 16)),
-    });
-  }
-
-  function toggleOpen() {
-    if (!open) {
-      updatePosition();
-    }
-
-    setOpen((value) => !value);
-  }
-
-  return (
-    <div ref={ref} className="relative flex justify-end">
-      <button
-        ref={buttonRef}
-        type="button"
-        aria-label={label}
-        title={label}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        onClick={toggleOpen}
-        className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg app-text-muted transition hover:bg-[var(--app-panel-soft)] hover:app-text"
-      >
-        <MoreHorizontal className="h-4 w-4" />
-      </button>
-      {open && (
-        <div
-          ref={menuRef}
-          className="fixed z-50 w-48 rounded-lg border p-1 shadow-xl app-border app-panel"
-          style={{ left: position.left, top: position.top }}
-        >
-          {children(() => setOpen(false))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function RowActionButton({ children, onClick, tone = 'default' }: { children: ReactNode; onClick: () => void; tone?: 'default' | 'danger' }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold transition hover:bg-[var(--app-panel-soft)] ${tone === 'danger' ? 'text-red-600' : 'app-text-soft'}`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function RowActionLink({ children, href }: { children: ReactNode; href: string }) {
-  return (
-    <a href={href} className="flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-semibold transition app-text-soft hover:bg-[var(--app-panel-soft)]">
-      {children}
-    </a>
-  );
-}
-
 function EmptyState({ title, description }: { title: string; description: string }) {
   return (
     <div className="rounded-2xl border p-6 app-border app-panel">
@@ -6677,7 +6478,7 @@ function EmptyState({ title, description }: { title: string; description: string
   );
 }
 
-function Customers({ crm, query }: { crm?: CustomerCrmPayload | null; query: string }) {
+function Customers({ crm, query, salon }: { crm?: CustomerCrmPayload | null; query: string; salon: Pick<Salon, 'date_format'> }) {
   const t = useT();
   const serverSearch = crm?.filters.search ?? '';
   const items = crm?.items ?? [];
@@ -6725,7 +6526,7 @@ function Customers({ crm, query }: { crm?: CustomerCrmPayload | null; query: str
                     {customer.phone || customer.email ? t('contactComplete') : t('incompleteContact')}
                   </span>
                 </div>
-                <div className="mt-1 text-xs app-text-muted">{t('firstSeen')}: {customer.first_seen_at ? formatDate(customer.first_seen_at) : 'N/A'}</div>
+                <div className="mt-1 text-xs app-text-muted">{t('firstSeen')}: {customer.first_seen_at ? formatBusinessDateTime(customer.first_seen_at, salon) : 'N/A'}</div>
               </td>
               <td className="px-5 py-4 text-sm app-text-soft">
                 <div className={customer.phone ? 'app-text' : 'text-amber-600'}>{customer.phone || t('phoneMissing')}</div>
@@ -6740,12 +6541,15 @@ function Customers({ crm, query }: { crm?: CustomerCrmPayload | null; query: str
               <td className="px-5 py-4 text-sm app-text-soft">
                 {customer.last_booking ? (
                   <>
-                    <div className="font-semibold app-text">{customer.last_booking.date} {customer.last_booking.time}</div>
-                    <div className="mt-1 text-xs app-text-muted">{customer.last_booking.service_name || t('service')} · {customer.last_booking.status}</div>
+                    <div className="font-semibold app-text">{customer.last_booking.date ? formatBusinessDate(customer.last_booking.date, salon) : '—'} {customer.last_booking.time}</div>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs app-text-muted">
+                      <span>{customer.last_booking.service_name || t('service')}</span>
+                      {customer.last_booking.status && <StatusPill status={customer.last_booking.status} t={t} compact />}
+                    </div>
                   </>
                 ) : t('noBookings')}
               </td>
-              <td className="px-5 py-4 text-sm app-text-soft">{customer.last_seen_at ? formatDate(customer.last_seen_at) : 'N/A'}</td>
+              <td className="px-5 py-4 text-sm app-text-soft">{customer.last_seen_at ? formatBusinessDateTime(customer.last_seen_at, salon) : 'N/A'}</td>
               <td className="px-5 py-4 text-right">
                 <Link href={`/dashboard/customers/${customer.id}`} className="inline-flex h-9 items-center justify-center rounded-lg bg-indigo-600 px-3 text-sm font-semibold text-white hover:bg-indigo-700">
                   {t('viewCustomer')}
@@ -6812,8 +6616,8 @@ function CustomerDetail({ crm, salon }: { crm?: CustomerDetailPayload | null; sa
             </div>
           </div>
           <div className="grid gap-2 text-sm app-text-soft sm:grid-cols-2 lg:min-w-96">
-            <InfoLine label={t('firstSeen')} value={crm.customer.first_seen_at ? formatDate(crm.customer.first_seen_at) : 'N/A'} />
-            <InfoLine label={t('lastInteraction')} value={crm.stats.last_interaction ? formatDate(crm.stats.last_interaction) : 'N/A'} />
+            <InfoLine label={t('firstSeen')} value={crm.customer.first_seen_at ? formatBusinessDateTime(crm.customer.first_seen_at, salon) : 'N/A'} />
+            <InfoLine label={t('lastInteraction')} value={crm.stats.last_interaction ? formatBusinessDateTime(crm.stats.last_interaction, salon) : 'N/A'} />
             <InfoLine label={t('preferredService')} value={crm.preferences.service || t('notEnoughData')} />
             <InfoLine label={t('preferredStaff')} value={crm.preferences.staff || t('notEnoughData')} />
           </div>
@@ -6849,7 +6653,7 @@ function CustomerDetail({ crm, salon }: { crm?: CustomerDetailPayload | null; sa
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h3 className="text-base font-bold app-text">{t('customerNotes')}</h3>
-              <p className="mt-1 text-sm app-text-muted">{t('internalOnly')} · {crm.customer.updated_at ? `${t('notesLastUpdated')}: ${formatDate(crm.customer.updated_at)}` : t('customerNotesPlaceholder')}</p>
+              <p className="mt-1 text-sm app-text-muted">{t('internalOnly')} · {crm.customer.updated_at ? `${t('notesLastUpdated')}: ${formatBusinessDateTime(crm.customer.updated_at, salon)}` : t('customerNotesPlaceholder')}</p>
             </div>
             {notesForm.recentlySuccessful && <span className="rounded-lg bg-green-100 px-3 py-1.5 text-xs font-semibold text-green-700 dark:bg-green-500/15 dark:text-green-300">{t('customerNotesSaved')}</span>}
           </div>
@@ -6921,13 +6725,18 @@ function CustomerDetail({ crm, salon }: { crm?: CustomerDetailPayload | null; sa
 }
 
 function CustomerBookingMini({ title, booking, empty, salon }: { title: string; booking?: CustomerBookingSummary | null; empty: string; salon: Pick<Salon, 'date_format'> }) {
+  const t = useT();
+
   return (
     <div className="rounded-xl border p-4 app-border app-panel-soft">
       <p className="text-xs font-semibold uppercase tracking-wide app-text-muted">{title}</p>
       {booking ? (
         <>
           <p className="mt-2 text-sm font-semibold app-text">{booking.date ? formatBusinessDate(booking.date, salon) : 'N/A'} {booking.time}</p>
-          <p className="mt-1 text-xs app-text-muted">{booking.service?.name || 'Service'} · {booking.status}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs app-text-muted">
+            <span>{booking.service?.name || 'Service'}</span>
+            <StatusPill status={booking.status} t={t} compact />
+          </div>
         </>
       ) : (
         <p className="mt-2 text-sm app-text-muted">{empty}</p>
@@ -7293,37 +7102,8 @@ function groupBookingsByDay(bookings: Salon['bookings']) {
   }));
 }
 
-function formatBusinessDate(date: string, salon: Pick<Salon, 'date_format'>) {
-  const [year, month, day] = date.slice(0, 10).split('-');
-  const format = normalizeDateFormatForUi(salon.date_format) ?? 'dd.mm.yyyy';
-
-  if (format === 'yyyy-mm-dd') return `${year}-${month}-${day}`;
-  if (format === 'dd/mm/yyyy') return `${day}/${month}/${year}`;
-  if (format === 'dd month yyyy') {
-    const locale = preferredLocale() === 'en' ? 'en-GB' : 'ro-RO';
-    return new Intl.DateTimeFormat(locale, {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    }).format(new Date(`${date}T00:00:00`));
-  }
-
-  return `${day}.${month}.${year}`;
-}
-
-function formatBookingGroupDate(date: string, t: TranslateFn, salon: Salon) {
-  const locale = t('date') === 'Date' ? 'en-GB' : 'ro-RO';
-  const weekday = new Intl.DateTimeFormat(locale, {
-    weekday: 'long',
-  }).format(new Date(`${date}T00:00:00`));
-
-  const label = `${weekday}, ${formatBusinessDate(date, salon)}`;
-
-  return label.charAt(0).toUpperCase() + label.slice(1);
-}
-
-function formatFilterDate(date: string, t: TranslateFn) {
-  const locale = t('date') === 'Date' ? 'en-GB' : 'ro-RO';
+function formatFilterDate(date: string) {
+  const locale = preferredLocale() === 'en' ? 'en-GB' : 'ro-RO';
   const formatted = new Intl.DateTimeFormat(locale, {
     weekday: 'long',
     day: '2-digit',
@@ -7455,7 +7235,7 @@ function BookingsDayCards({
         {groups.map((group) => (
           <section key={group.date} className="space-y-2">
             <h3 className="px-1 text-xs font-bold uppercase tracking-wide app-text-muted">
-              {formatBookingGroupDate(group.date, t, salon)}
+              {formatBusinessDateWithWeekday(group.date, salon)}
             </h3>
             <div className="space-y-2">
               {group.bookings.map((booking) => (
@@ -7485,7 +7265,7 @@ function BookingsDayCards({
             return (
               <tr key={booking.id} className={dashboardTableRowClass(currentIndex)}>
                 <td className="w-48 px-5 py-4 align-top text-sm font-semibold app-text">
-                  {bookingIndex === 0 ? formatBookingGroupDate(group.date, t, salon) : ''}
+                  {bookingIndex === 0 ? formatBusinessDateWithWeekday(group.date, salon) : ''}
                 </td>
                 <td className="whitespace-nowrap px-5 py-4 align-top text-sm font-semibold app-text">
                   {bookingTimeRange(booking.time, booking.service?.duration)}

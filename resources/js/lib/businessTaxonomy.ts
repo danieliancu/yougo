@@ -5,6 +5,7 @@
 
 export type Industry = {
   label: string;
+  label_ro?: string;
   slug: string;
   description: string;
   questions: string[];
@@ -16,6 +17,7 @@ export type Industry = {
 
 export type BusinessType = {
   label: string;
+  label_ro?: string;
   slug: string;
   category: string;
   default_mode: 'appointment';
@@ -39,6 +41,10 @@ export type BusinessType = {
   capability_availability: { appointment: boolean; request: boolean; reservation: boolean };
   aliases: string[];
 };
+
+export function localizedLabel(item: { label: string; label_ro?: string }, locale?: string | null): string {
+  return locale === 'ro' && item.label_ro ? item.label_ro : item.label;
+}
 
 export function findBusinessType(taxonomy: BusinessType[], slug?: string | null): BusinessType | undefined {
   return taxonomy.find((item) => item.slug === slug);

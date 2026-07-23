@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\RequestStatus;
 use App\Models\Salon;
 use App\Services\Business\RequestDashboardService;
 use App\Services\CRM\CustomerDashboardService;
@@ -77,6 +78,10 @@ class DashboardController extends Controller
                     'messages' => fn ($messageQuery) => $messageQuery->oldest(),
                     'booking.location',
                     'booking.service',
+                    // Only meaningfully populated for the customer_request result type —
+                    // `booking` above already covers the booking case, so this is purely
+                    // for surfacing a Request's status/priority/type on the conversation card.
+                    'result',
                 ])
                 ->latest('last_message_at')
                 ->oldest('id'),
@@ -108,6 +113,7 @@ class DashboardController extends Controller
                 ? $customers->index($salon, $request->string('search')->toString())
                 : null,
             'modules' => DashboardModuleRegistry::forSalon($salon),
+            'newRequestsCount' => $salon->customerRequests()->where('status', RequestStatus::New->value)->count(),
             'requests' => $section === 'requests'
                 ? $requestsDashboard->index($salon, [
                     'status' => $request->string('status')->toString(),
